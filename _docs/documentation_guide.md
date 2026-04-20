@@ -1,3 +1,20 @@
+---
+title: Documentation Guide
+status: active
+draft_status: n/a
+created_at: 2026-04-16
+updated_at: 2026-04-20
+references:
+  - _docs/standards/documentation_guidelines.md
+  - _docs/standards/documentation_operations.md
+  - README.md
+  - _docs/guide/backcast/timeline_editor.md
+  - _docs/reference/backcast/timeline_domain_reference.md
+  - _docs/intent/backcast/reverse_timeline_interaction_model.md
+related_issues: []
+related_prs: []
+---
+
 # Documentation Guide
 
 **必読:** ドキュメントのアーカイブ運用フローに関する最新ルールは、常に `_docs/standards/documentation_operations.md` を参照して遵守してください。
@@ -17,6 +34,14 @@
 3. **テンプレート集 (`_docs/standards/templates/`)**
   - 各ドキュメント種別（draft/plan/intent/guide/reference/survey）向けの作成用テンプレートを配置しています。
   - front-matter の8必須項目を含んだ初期雛形を用意しているので、コピーして日付やステータスを実情に合わせて更新してください。
+
+## 現在の主要プロジェクトドキュメント
+
+- `README.md`: プロジェクト概要、実行コマンド、主要ドキュメントへの入口
+- `_docs/guide/backcast/timeline_editor.md`: 現在の UI 操作手順と運用上のコツ
+- `_docs/reference/backcast/timeline_domain_reference.md`: モデル、定数、状態管理 API の事実ベースの仕様
+- `_docs/intent/backcast/reverse_timeline_interaction_model.md`: 逆算 UI と状態設計の判断理由
+- `_docs/guide/flutter/environment_setup.md`: Flutter 実行環境のセットアップ補足
 
 ## 利用者へのお願い
 - 新しいドキュメントを追加するときは、上記 2 文書を読み、運用前提に矛盾がないかを確認してください。
