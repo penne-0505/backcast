@@ -1,9 +1,32 @@
-import 'package:backcast/main.dart';
-import 'package:backcast/models.dart';
+import 'package:ato/main.dart';
+import 'package:ato/block_item.dart';
+import 'package:ato/models.dart';
+import 'package:ato/persistence/app_database.dart';
+import 'package:ato/persistence/persistence_providers.dart';
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+late AppDatabase db;
+
+Future<void> pumpAtoApp(WidgetTester tester) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const AtoApp(),
+    ),
+  );
+  await tester.pump();
+}
+
 void main() {
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
   // ---------------------------------------------------------------------------
   // Unit tests: computeBlocks pure function
   // ---------------------------------------------------------------------------
@@ -17,11 +40,12 @@ void main() {
     test('single block: startTime = targetTime - duration', () {
       final blocks = [
         const Block(
-            id: '1',
-            type: BlockType.action,
-            title: 'A',
-            duration: 30,
-            colorIndex: 0),
+          id: '1',
+          type: BlockType.action,
+          title: 'A',
+          duration: 30,
+          colorIndex: 0,
+        ),
       ];
       final result = computeBlocks(blocks, 13 * 60);
       expect(result.length, 1);
@@ -32,17 +56,19 @@ void main() {
     test('multiple blocks chain correctly', () {
       final blocks = [
         const Block(
-            id: '1',
-            type: BlockType.action,
-            title: 'A',
-            duration: 30,
-            colorIndex: 0),
+          id: '1',
+          type: BlockType.action,
+          title: 'A',
+          duration: 30,
+          colorIndex: 0,
+        ),
         const Block(
-            id: '2',
-            type: BlockType.action,
-            title: 'B',
-            duration: 20,
-            colorIndex: 1),
+          id: '2',
+          type: BlockType.action,
+          title: 'B',
+          duration: 20,
+          colorIndex: 1,
+        ),
       ];
       final result = computeBlocks(blocks, 13 * 60);
       // Block B ends at target, starts at target-20
@@ -56,11 +82,12 @@ void main() {
     test('point block has zero duration', () {
       final blocks = [
         const Block(
-            id: '1',
-            type: BlockType.actionPoint,
-            title: 'P',
-            duration: 0,
-            colorIndex: 0),
+          id: '1',
+          type: BlockType.actionPoint,
+          title: 'P',
+          duration: 0,
+          colorIndex: 0,
+        ),
       ];
       final result = computeBlocks(blocks, 10 * 60);
       expect(result[0].startTime, 10 * 60);
@@ -75,10 +102,14 @@ void main() {
   group('formatTime', () {
     test('formats 0 as 00:00', () => expect(formatTime(0), '00:00'));
     test('formats 780 as 13:00', () => expect(formatTime(780), '13:00'));
-    test('wraps negative values correctly',
-        () => expect(formatTime(-60), '23:00'));
-    test('wraps over 24h correctly',
-        () => expect(formatTime(25 * 60), '01:00'));
+    test(
+      'wraps negative values correctly',
+      () => expect(formatTime(-60), '23:00'),
+    );
+    test(
+      'wraps over 24h correctly',
+      () => expect(formatTime(25 * 60), '01:00'),
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -86,10 +117,61 @@ void main() {
   // ---------------------------------------------------------------------------
 
   testWidgets('renders header and target anchor', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: BackcastApp()));
-    await tester.pump();
+    await pumpAtoApp(tester);
 
-    expect(find.text('逆算タイムライン'), findsOneWidget);
     expect(find.text('目標時刻'), findsOneWidget);
+    expect(find.text('前の行動を追加しましょう'), findsOneWidget);
   });
+
+  testWidgets(
+    'inline editing consumes the next block tap before opening edit sheet',
+    (tester) async {
+      await pumpAtoApp(tester);
+
+      await tester.tap(find.text('前の行動を追加'));
+      await tester.pump();
+
+      await tester.tap(find.text('新しい行動'));
+      await tester.pump();
+
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+      expect(find.text('行動を編集'), findsNothing);
+
+      final blockCenter = tester.getCenter(find.byType(BlockItem));
+      await tester.tapAt(blockCenter);
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.hasAnyClients, isFalse);
+      expect(find.text('行動を編集'), findsNothing);
+
+      await tester.tapAt(blockCenter);
+      await tester.pumpAndSettle();
+
+      expect(find.text('行動を編集'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'drag handle enters precise mode after hold and allows 1-minute adjustment',
+    (tester) async {
+      await pumpAtoApp(tester);
+
+      await tester.tap(find.text('前の行動を追加'));
+      await tester.pump();
+
+      expect(find.text('15分'), findsOneWidget);
+
+      final blockRect = tester.getRect(find.byType(BlockItem));
+      final handlePosition = Offset(blockRect.center.dx, blockRect.top + 8);
+
+      final gesture = await tester.startGesture(handlePosition);
+      await tester.pump(const Duration(milliseconds: 450));
+      await gesture.moveBy(const Offset(0, -6));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('16分'), findsOneWidget);
+    },
+  );
 }

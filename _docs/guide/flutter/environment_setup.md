@@ -2,8 +2,8 @@
 title: Flutter Environment Setup
 status: active
 draft_status: n/a
-created_at: 2026-04-16
-updated_at: 2026-04-20
+created_at: "2026-04-16"
+updated_at: "2026-04-22"
 references:
   - README.md
   - _docs/guide/backcast/timeline_editor.md
@@ -14,7 +14,7 @@ related_prs: []
 
 ## Overview
 
-`backcast` の Flutter 開発環境を、`flutter_riverpod` を前提に使い始められる状態へ整えたときのセットアップ内容をまとめる。
+`Ato` の Flutter 開発環境を、`flutter_riverpod` を前提に使い始められる状態へ整えたときのセットアップ内容をまとめる。
 
 ## Prerequisites
 

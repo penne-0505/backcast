@@ -9,6 +9,8 @@ import 'theme.dart';
 
 const _uuid = Uuid();
 
+enum TimelineViewMode { edit, compact }
+
 @immutable
 class TimelineState {
   const TimelineState({
@@ -17,6 +19,14 @@ class TimelineState {
     this.blocks = const [],
     this.selectedBlockId,
     this.preciseDraggingId,
+    this.activeInlineEditorId,
+    this.pixelsPerMinute = kPixelsPerMinute,
+    this.viewMode = TimelineViewMode.edit,
+    this.searchQuery = '',
+    this.searchMatches = const [],
+    this.activeSearchMatchIndex = -1,
+    this.searchHighlightedBlockId,
+    this.searchHighlightExpiresAt,
   });
 
   final int targetTime; // minutes since midnight
@@ -24,6 +34,16 @@ class TimelineState {
   final List<Block> blocks;
   final String? selectedBlockId; // null | 'target-time' | block.id
   final String? preciseDraggingId;
+  final String? activeInlineEditorId;
+  final double pixelsPerMinute;
+  final TimelineViewMode viewMode;
+
+  // Search UI state — not persisted
+  final String searchQuery;
+  final List<String> searchMatches; // block ids in timeline order (past → target)
+  final int activeSearchMatchIndex; // -1 when no match
+  final String? searchHighlightedBlockId;
+  final DateTime? searchHighlightExpiresAt;
 
   TimelineState copyWith({
     int? targetTime,
@@ -31,6 +51,14 @@ class TimelineState {
     List<Block>? blocks,
     Object? selectedBlockId = _sentinel,
     Object? preciseDraggingId = _sentinel,
+    Object? activeInlineEditorId = _sentinel,
+    double? pixelsPerMinute,
+    TimelineViewMode? viewMode,
+    String? searchQuery,
+    List<String>? searchMatches,
+    int? activeSearchMatchIndex,
+    Object? searchHighlightedBlockId = _sentinel,
+    Object? searchHighlightExpiresAt = _sentinel,
   }) {
     return TimelineState(
       targetTime: targetTime ?? this.targetTime,
@@ -42,6 +70,20 @@ class TimelineState {
       preciseDraggingId: preciseDraggingId == _sentinel
           ? this.preciseDraggingId
           : preciseDraggingId as String?,
+      activeInlineEditorId: activeInlineEditorId == _sentinel
+          ? this.activeInlineEditorId
+          : activeInlineEditorId as String?,
+      pixelsPerMinute: pixelsPerMinute ?? this.pixelsPerMinute,
+      viewMode: viewMode ?? this.viewMode,
+      searchQuery: searchQuery ?? this.searchQuery,
+      searchMatches: searchMatches ?? this.searchMatches,
+      activeSearchMatchIndex: activeSearchMatchIndex ?? this.activeSearchMatchIndex,
+      searchHighlightedBlockId: searchHighlightedBlockId == _sentinel
+          ? this.searchHighlightedBlockId
+          : searchHighlightedBlockId as String?,
+      searchHighlightExpiresAt: searchHighlightExpiresAt == _sentinel
+          ? this.searchHighlightExpiresAt
+          : searchHighlightExpiresAt as DateTime?,
     );
   }
 }
@@ -51,17 +93,7 @@ const _sentinel = Object();
 class TimelineNotifier extends Notifier<TimelineState> {
   @override
   TimelineState build() {
-    return TimelineState(
-      blocks: [
-        Block(
-          id: _uuid.v4(),
-          type: BlockType.action,
-          title: '移動',
-          duration: 30,
-          colorIndex: 0,
-        ),
-      ],
-    );
+    return const TimelineState();
   }
 
   void setTargetTime(int minutes) {
@@ -79,7 +111,8 @@ class TimelineNotifier extends Notifier<TimelineState> {
     final rng = Random();
     var newColorIndex = rng.nextInt(AppColors.blockColors.length);
     var tries = 0;
-    while ((newColorIndex == prevColor || newColorIndex == nextColor) && tries < 20) {
+    while ((newColorIndex == prevColor || newColorIndex == nextColor) &&
+        tries < 20) {
       newColorIndex = rng.nextInt(AppColors.blockColors.length);
       tries++;
     }
@@ -125,6 +158,9 @@ class TimelineNotifier extends Notifier<TimelineState> {
     state = state.copyWith(selectedBlockId: id);
   }
 
+  void setActiveInlineEditor(String? id) {
+    state = state.copyWith(activeInlineEditorId: id);
+  }
 
   void moveBlockByIndex(int fromIndex, int toIndex) {
     final blocks = List<Block>.from(state.blocks);
@@ -144,13 +180,108 @@ class TimelineNotifier extends Notifier<TimelineState> {
     state = state.copyWith(blocks: blocks);
   }
 
+  void loadState(TimelineState loaded) {
+    state = loaded;
+  }
+
+  /// Applies a template [TimelineState] to the current timeline, clearing
+  /// all transient UI state (selection, inline editor, precise dragging).
+  void applyTemplateState(TimelineState loaded) {
+    state = loaded.copyWith(
+      selectedBlockId: null,
+      preciseDraggingId: null,
+      activeInlineEditorId: null,
+    );
+  }
+
   void setPreciseDragging(String? id) {
     state = state.copyWith(preciseDraggingId: id);
   }
 
-  void applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise) {
+  void setPixelsPerMinute(double value) {
+    state = state.copyWith(pixelsPerMinute: value.clamp(3.0, kPixelsPerMinute));
+  }
+
+  void setViewMode(TimelineViewMode mode) {
+    state = state.copyWith(viewMode: mode);
+  }
+
+  // ── Search ───────────────────────────────────────────────────────────────
+
+  void setSearchQuery(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      state = state.copyWith(
+        searchQuery: '',
+        searchMatches: const [],
+        activeSearchMatchIndex: -1,
+        searchHighlightedBlockId: null,
+        searchHighlightExpiresAt: null,
+      );
+      return;
+    }
+
+    final lowerQuery = trimmed.toLowerCase();
+    final matches = state.blocks
+        .where((b) => b.title.toLowerCase().contains(lowerQuery))
+        .map((b) => b.id)
+        .toList();
+
+    final newIndex = matches.isEmpty ? -1 : 0;
+    state = state.copyWith(
+      searchQuery: trimmed,
+      searchMatches: matches,
+      activeSearchMatchIndex: newIndex,
+    );
+  }
+
+  void clearSearch() {
+    state = state.copyWith(
+      searchQuery: '',
+      searchMatches: const [],
+      activeSearchMatchIndex: -1,
+      searchHighlightedBlockId: null,
+      searchHighlightExpiresAt: null,
+    );
+  }
+
+  void _moveSearchMatch(int delta) {
+    if (state.searchMatches.isEmpty) return;
+    var next = state.activeSearchMatchIndex + delta;
+    if (next < 0) next = state.searchMatches.length - 1;
+    if (next >= state.searchMatches.length) next = 0;
+    state = state.copyWith(activeSearchMatchIndex: next);
+  }
+
+  void nextSearchMatch() => _moveSearchMatch(1);
+  void prevSearchMatch() => _moveSearchMatch(-1);
+
+  void highlightSearchBlock(String? blockId) {
+    state = state.copyWith(
+      searchHighlightedBlockId: blockId,
+      searchHighlightExpiresAt:
+          blockId == null ? null : DateTime.now().add(const Duration(seconds: 3)),
+    );
+  }
+
+  void expireSearchHighlightIfNeeded() {
+    final expires = state.searchHighlightExpiresAt;
+    if (expires != null && DateTime.now().isAfter(expires)) {
+      state = state.copyWith(
+        searchHighlightedBlockId: null,
+        searchHighlightExpiresAt: null,
+      );
+    }
+  }
+
+  void applyDurationDrag(
+    String id,
+    double deltaY,
+    int startDuration,
+    bool isPrecise,
+  ) {
     final snap = isPrecise ? 1 : kSnapMinutes;
-    final deltaDuration = ((-deltaY / kPixelsPerMinute) / snap).round() * snap;
+    final deltaDuration = ((-deltaY / state.pixelsPerMinute) / snap).round() * snap;
     var newDuration = startDuration + deltaDuration;
     if (newDuration < 5) newDuration = 5;
     updateBlock(id, (b) => b.copyWith(duration: newDuration));
@@ -167,7 +298,9 @@ class TimelineNotifier extends Notifier<TimelineState> {
 
     if (block.type == BlockType.action) {
       var newDuration = cb.endTime - newStartTimeMinutes;
-      while (newDuration < 0) { newDuration += 24 * 60; }
+      while (newDuration < 0) {
+        newDuration += 24 * 60;
+      }
       if (newDuration < 5) newDuration = 5;
       updateBlock(id, (b) => b.copyWith(duration: newDuration));
     } else {
@@ -179,7 +312,9 @@ class TimelineNotifier extends Notifier<TimelineState> {
         final nextBlock = blocks[index + 1];
         final nextCb = computed[index + 1];
         var newDuration = nextCb.endTime - newStartTimeMinutes;
-        while (newDuration < 0) { newDuration += 24 * 60; }
+        while (newDuration < 0) {
+          newDuration += 24 * 60;
+        }
         if (newDuration < 5) newDuration = 5;
         updateBlock(nextBlock.id, (b) => b.copyWith(duration: newDuration));
       }
@@ -187,8 +322,9 @@ class TimelineNotifier extends Notifier<TimelineState> {
   }
 }
 
-final timelineProvider =
-    NotifierProvider<TimelineNotifier, TimelineState>(TimelineNotifier.new);
+final timelineProvider = NotifierProvider<TimelineNotifier, TimelineState>(
+  TimelineNotifier.new,
+);
 
 final computedBlocksProvider = Provider<List<ComputedBlock>>((ref) {
   final s = ref.watch(timelineProvider);

@@ -1,32 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'auth/auth_providers.dart';
+import 'billing/billing_providers.dart';
+import 'config/revenuecat_config.dart';
+import 'config/supabase_config.dart';
+import 'persistence/app_database.dart';
+import 'persistence/persistence_providers.dart';
 import 'theme.dart';
 import 'timeline_screen.dart';
 
-void main() {
-  runApp(const ProviderScope(child: BackcastApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
+  await Purchases.configure(
+    PurchasesConfiguration(RevenueCatConfig.currentApiKey),
+  );
+  final db = AppDatabase.defaults();
+  runApp(
+    ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const AtoApp(),
+    ),
+  );
 }
 
-class BackcastApp extends StatelessWidget {
-  const BackcastApp({super.key});
+class AtoApp extends ConsumerWidget {
+  const AtoApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Keep RevenueCat identity in sync with Supabase auth state.
+    ref.listen<String?>(currentUserIdProvider, (prev, next) async {
+      if (next != null && next != prev) {
+        await Purchases.logIn(next);
+      } else if (next == null && prev != null) {
+        await Purchases.logOut();
+      }
+    });
+
+    // Start listening to RevenueCat updates as soon as the app boots.
+    ref.read(billingProvider);
+
     return MaterialApp(
-      title: 'Backcast',
+      title: 'Ato',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        fontFamily: 'sans-serif',
-        scaffoldBackgroundColor: AppColors.stone50,
+        textTheme: GoogleFonts.notoSansJpTextTheme(),
+        scaffoldBackgroundColor: AppColors.canvas,
         colorScheme: const ColorScheme.light(
-          primary: AppColors.blue500,
-          surface: Colors.white,
+          primary: AppColors.accentOlive,
+          surface: AppColors.canvas,
         ),
         textSelectionTheme: const TextSelectionThemeData(
-          cursorColor: AppColors.blue500,
-          selectionColor: Color(0x33F97316),
-          selectionHandleColor: AppColors.blue500,
+          cursorColor: AppColors.accentOlive,
+          selectionColor: AppColors.textSelection,
+          selectionHandleColor: AppColors.accentOlive,
         ),
       ),
       home: const TimelineScreen(),

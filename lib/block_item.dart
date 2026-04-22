@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,7 +54,12 @@ class _TimeFieldState extends State<TimeField> {
   }
 
   void _commit(String value) {
-    final parts = value.split(':');
+    var v = value.trim();
+    // 4桁の数字を HH:mm に自動変換（貼り付け対応）
+    if (RegExp(r'^\d{4}$').hasMatch(v)) {
+      v = '${v.substring(0, 2)}:${v.substring(2, 4)}';
+    }
+    final parts = v.split(':');
     if (parts.length == 2) {
       final h = int.tryParse(parts[0]);
       final m = int.tryParse(parts[1]);
@@ -71,9 +77,9 @@ class _TimeFieldState extends State<TimeField> {
       width: 50,
       child: TextField(
         controller: _ctrl,
-        onSubmitted: _commit,
         onEditingComplete: () => _commit(_ctrl.text),
         onTapOutside: (_) => _commit(_ctrl.text),
+        textInputAction: TextInputAction.done,
         decoration: const InputDecoration(
           border: InputBorder.none,
           isDense: true,
@@ -95,14 +101,22 @@ class BlockItem extends ConsumerStatefulWidget {
     super.key,
     required this.computedBlock,
     required this.isSelected,
+    this.isSearchHighlighted = false,
     required this.preciseDraggingId,
     required this.allBlocks,
+    required this.index,
+    required this.sourceIndex,
+    this.sheetVisible = false,
   });
 
   final ComputedBlock computedBlock;
   final bool isSelected;
+  final bool isSearchHighlighted;
   final String? preciseDraggingId;
   final List<Block> allBlocks;
+  final int index;
+  final int sourceIndex;
+  final bool sheetVisible;
 
   @override
   ConsumerState<BlockItem> createState() => _BlockItemState();
@@ -110,11 +124,16 @@ class BlockItem extends ConsumerStatefulWidget {
 
 class _BlockItemState extends ConsumerState<BlockItem> {
   late final TextEditingController _titleCtrl;
+  late final FocusNode _titleFocusNode;
+
+  String get _inlineEditorId => 'block-title:${widget.computedBlock.block.id}';
 
   @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.computedBlock.block.title);
+    _titleFocusNode = FocusNode();
+    _titleFocusNode.addListener(_handleTitleFocusChange);
   }
 
   @override
@@ -124,23 +143,54 @@ class _BlockItemState extends ConsumerState<BlockItem> {
     final newTitle = widget.computedBlock.block.title;
     if (newTitle != old.computedBlock.block.title &&
         _titleCtrl.text != newTitle) {
-      _titleCtrl.value = _titleCtrl.value.copyWith(text: newTitle);
+      _titleCtrl.text = newTitle;
     }
   }
 
   @override
   void dispose() {
+    _titleFocusNode.removeListener(_handleTitleFocusChange);
+    _titleFocusNode.dispose();
     _titleCtrl.dispose();
     super.dispose();
   }
 
-  bool get _isAffected {
+  void _handleTitleFocusChange() {
+    final notifier = ref.read(timelineProvider.notifier);
+    if (_titleFocusNode.hasFocus) {
+      notifier.setActiveInlineEditor(_inlineEditorId);
+      return;
+    }
+
+    final activeInlineEditorId = ref
+        .read(timelineProvider)
+        .activeInlineEditorId;
+    if (activeInlineEditorId == _inlineEditorId) {
+      notifier.setActiveInlineEditor(null);
+    }
+  }
+
+  bool _dismissInlineEditorIfNeeded() {
+    if (ref.read(timelineProvider).activeInlineEditorId == null) return false;
+    FocusManager.instance.primaryFocus?.unfocus();
+    return true;
+  }
+
+  bool get _isPreciseImpactTarget {
     if (widget.preciseDraggingId == null) return false;
-    final myIndex = widget.allBlocks
-        .indexWhere((b) => b.id == widget.computedBlock.block.id);
-    final dragIndex =
-        widget.allBlocks.indexWhere((b) => b.id == widget.preciseDraggingId);
-    return myIndex != -1 && dragIndex != -1 && myIndex <= dragIndex;
+    final dragIndex = widget.allBlocks.indexWhere(
+      (b) => b.id == widget.preciseDraggingId,
+    );
+    if (dragIndex < 0) return false;
+    return widget.sourceIndex <= dragIndex;
+  }
+
+  void _handleSidebarDoubleTap(int insertIndex) {
+    if (widget.sheetVisible) return;
+    if (_dismissInlineEditorIfNeeded()) return;
+    if (widget.preciseDraggingId != null) return;
+    HapticFeedback.selectionClick();
+    ref.read(timelineProvider.notifier).addBlock(insertIndex, BlockType.action);
   }
 
   @override
@@ -154,7 +204,12 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   Widget _buildDuration(Block block, TimelineNotifier notifier) {
-    final height = block.duration * kPixelsPerMinute;
+    final ppm = ref.watch(timelineProvider.select((s) => s.pixelsPerMinute));
+    final isOverview = ppm < kOverviewThresholdPpm;
+    final naturalHeight = block.duration * ppm;
+    final height = isOverview
+        ? naturalHeight.clamp(kMinOverviewBlockHeight, double.infinity)
+        : naturalHeight;
     final isCompact = height < 56.0;
     final color =
         AppColors.blockColors[block.colorIndex % AppColors.blockColors.length];
@@ -171,7 +226,12 @@ class _BlockItemState extends ConsumerState<BlockItem> {
               // Left sidebar
               _Sidebar(
                 startTime: startTime,
-                colorDot: null,
+                accentColor: color,
+                lineColor: color,
+                isPoint: false,
+                sourceIndex: widget.sourceIndex,
+                onInsert: _handleSidebarDoubleTap,
+                isSearchHighlighted: widget.isSearchHighlighted,
               ),
               const SizedBox(width: 8),
               // Block body
@@ -182,66 +242,117 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                     // Block container
                     Positioned.fill(
                       child: GestureDetector(
-                        onTap: () => notifier.selectBlock(block.id),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
+                        onTap: () {
+                          if (_dismissInlineEditorIfNeeded()) return;
+                          notifier.selectBlock(block.id);
+                        },
+                        child: Container(
                           decoration: BoxDecoration(
                             color: widget.isSelected
-                                ? AppColors.blue50
-                                : Colors.white,
-                            border: Border.all(
-                              color: (widget.isSelected || _isAffected)
-                                  ? AppColors.blue400
-                                  : AppColors.stone200,
-                              width: widget.isSelected ? 1.5 : 1,
+                                ? AppColors.cardBackgroundSelected
+                                : widget.isSearchHighlighted
+                                    ? AppColors.accentOlive.withValues(
+                                        alpha: 0.08,
+                                      )
+                                    : AppColors.cardBackground,
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.md,
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: const [],
+                            boxShadow: widget.isSelected
+                                ? AppShadows.cardSelected
+                                : AppShadows.card,
+                            border: _isPreciseImpactTarget
+                                ? Border.all(
+                                    color: AppColors.accentOlive.withValues(
+                                      alpha: 0.70,
+                                    ),
+                                    width: 1.5,
+                                  )
+                                : (widget.isSearchHighlighted && !widget.isSelected
+                                    ? Border.all(
+                                        color: AppColors.accentOlive.withValues(
+                                          alpha: 0.25,
+                                        ),
+                                        width: 1.5,
+                                      )
+                                    : null),
                           ),
                           child: Padding(
                             padding: isCompact
-                                ? const EdgeInsets.fromLTRB(10, 2, 10, 2)
-                                : const EdgeInsets.fromLTRB(10, 20, 10, 6),
+                                ? const EdgeInsets.fromLTRB(12, 2, 10, 2)
+                                : const EdgeInsets.fromLTRB(16, 20, 16, 16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: isCompact
+                                  ? MainAxisAlignment.center
+                                  : MainAxisAlignment.start,
                               children: [
-                                TextField(
-                                  controller: _titleCtrl,
-
-                                  onChanged: (v) => notifier.updateBlock(
-                                    block.id,
-                                    (b) => b.copyWith(title: v),
-                                  ),
-                                  onTap: () {},
-                                  decoration: const InputDecoration(
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: AppColors.stone800,
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 60),
+                                  child: Stack(
+                                    children: [
+                                      ShaderMask(
+                                        shaderCallback: (bounds) =>
+                                            const LinearGradient(
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                              stops: [0.60, 1.0],
+                                              colors: [
+                                                Colors.white,
+                                                Colors.transparent,
+                                              ],
+                                            ).createShader(bounds),
+                                        blendMode: BlendMode.dstIn,
+                                        child: TextField(
+                                          controller: _titleCtrl,
+                                          focusNode: _titleFocusNode,
+                                          maxLines: 1,
+                                          textInputAction:
+                                              TextInputAction.done,
+                                          onChanged: (v) =>
+                                              notifier.updateBlock(
+                                                block.id,
+                                                (b) => b.copyWith(title: v),
+                                              ),
+                                          onTap: () {},
+                                          onTapOutside: (_) => FocusManager
+                                              .instance
+                                              .primaryFocus
+                                              ?.unfocus(),
+                                          decoration:
+                                              const InputDecoration(
+                                                border: InputBorder.none,
+                                                isDense: true,
+                                                contentPadding:
+                                                    EdgeInsets.zero,
+                                              ),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            color: AppColors.ink,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: 40,
+                                        child: IgnorePointer(
+                                          child: SizedBox.expand(),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                if (height >= 40.0) ...[
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    height: 3,
-                                    width: 32,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      borderRadius: BorderRadius.circular(1),
-                                    ),
-                                  ),
-                                ],
                                 if (height >= 80.0) ...[
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${block.duration}分',
-                                    style: const TextStyle(
+                                    '${formatTime(startTime)} - ${formatTime(startTime + block.duration)}',
+                                    style: AppTextStyles.time(
                                       fontSize: 12,
-                                      color: AppColors.stone400,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.mutedInk,
                                     ),
                                   ),
                                 ],
@@ -251,31 +362,70 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                         ),
                       ),
                     ),
-                    // Reorder handle icon (visual only, tap/drag handled by LongPressDraggable)
+                    // Duration pill
                     Positioned(
+                      right: 56,
                       top: 0,
-                      right: 14,
                       bottom: 0,
-                      child: IgnorePointer(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: _ReorderHandleIcon(),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.pill,
+                            ),
+                          ),
+                          child: Text(
+                            '${block.duration}分',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    // Drag handle (extends 16px above the block)
+                    // Reorder handle
                     Positioned(
-                      top: -16,
-                      left: 0,
+                      top: 0,
                       right: 0,
-                      child: _DragHandle(
-                        blockId: block.id,
-                        initialDuration: block.duration,
-                        onDrag: notifier.applyDurationDrag,
-                        onPreciseChange: (id, precise) =>
-                            notifier.setPreciseDragging(precise ? id : null),
+                      bottom: 0,
+                      width: 52,
+                      child: _QuickReorderListener(
+                        index: widget.index,
+                        child: Semantics(
+                          label: '並び替え',
+                          child: SizedBox.expand(
+                            child: Center(
+                              child: _ReorderHandleIcon(
+                                color: AppColors.mutedInk.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                    // Drag handle
+                    if (!isOverview)
+                      Positioned(
+                        top: -_DragHandle.overhang,
+                        left: 0,
+                        right: 0,
+                        child: _DragHandle(
+                          blockId: block.id,
+                          initialDuration: block.duration,
+                          onDrag: notifier.applyDurationDrag,
+                          onPreciseChange: (id, precise) => notifier
+                              .setPreciseDragging(precise ? id : null),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -295,10 +445,15 @@ class _BlockItemState extends ConsumerState<BlockItem> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left sidebar with colored dot
+          // Left sidebar
           _Sidebar(
             startTime: startTime,
-            colorDot: color,
+            accentColor: color,
+            lineColor: color,
+            isPoint: true,
+            sourceIndex: widget.sourceIndex,
+            onInsert: _handleSidebarDoubleTap,
+            isSearchHighlighted: widget.isSearchHighlighted,
           ),
           const SizedBox(width: 8),
           // Point block body
@@ -306,51 +461,106 @@ class _BlockItemState extends ConsumerState<BlockItem> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: GestureDetector(
-                onTap: () => notifier.selectBlock(block.id),
-                child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding:
-                    const EdgeInsets.fromLTRB(10, 10, 14, 10),
-                decoration: BoxDecoration(
-                  color: widget.isSelected ? AppColors.blue50 : Colors.white,
-                  border: Border.all(
-                    color: (widget.isSelected || _isAffected)
-                        ? AppColors.blue400
-                        : AppColors.stone200,
-                    width: widget.isSelected ? 1.5 : 1,
+                onTap: () {
+                  if (_dismissInlineEditorIfNeeded()) return;
+                  notifier.selectBlock(block.id);
+                },
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 0, 10),
+                  decoration: BoxDecoration(
+                    color: widget.isSelected
+                        ? AppColors.cardBackgroundSelected
+                        : widget.isSearchHighlighted
+                            ? AppColors.accentOlive.withValues(
+                                alpha: 0.08,
+                              )
+                            : AppColors.cardBackground,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    boxShadow: widget.isSelected
+                        ? AppShadows.cardSelected
+                        : AppShadows.card,
+                    border: _isPreciseImpactTarget
+                        ? Border.all(
+                            color: AppColors.accentOlive.withValues(
+                              alpha: 0.70,
+                            ),
+                            width: 1.5,
+                          )
+                        : (widget.isSearchHighlighted && !widget.isSelected
+                            ? Border.all(
+                                color: AppColors.accentOlive.withValues(
+                                  alpha: 0.25,
+                                ),
+                                width: 1.5,
+                              )
+                            : null),
                   ),
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: const [],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _titleCtrl,
-                        onChanged: (v) => notifier.updateBlock(
-                          block.id,
-                          (b) => b.copyWith(title: v),
-                        ),
-                        onTap: () {},
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: AppColors.stone800,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ShaderMask(
+                            shaderCallback: (bounds) =>
+                                const LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  stops: [0.78, 1.0],
+                                  colors: [
+                                    Colors.white,
+                                    Colors.transparent,
+                                  ],
+                                ).createShader(bounds),
+                            blendMode: BlendMode.dstIn,
+                            child: TextField(
+                              controller: _titleCtrl,
+                              focusNode: _titleFocusNode,
+                              maxLines: 1,
+                              textInputAction: TextInputAction.done,
+                              onChanged: (v) => notifier.updateBlock(
+                                block.id,
+                                (b) => b.copyWith(title: v),
+                              ),
+                              onTap: () {},
+                              onTapOutside: (_) => FocusManager
+                                  .instance
+                                  .primaryFocus
+                                  ?.unfocus(),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const _ReorderHandleIcon(),
-                  ],
+                      _QuickReorderListener(
+                        index: widget.index,
+                        child: Semantics(
+                          label: '並び替え',
+                          child: SizedBox(
+                            width: 52,
+                            child: Center(
+                              child: _ReorderHandleIcon(
+                                color: AppColors.mutedInk.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
           ),
         ],
       ),
@@ -365,29 +575,72 @@ class _BlockItemState extends ConsumerState<BlockItem> {
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.startTime,
-    required this.colorDot,
+    this.accentColor,
+    this.lineColor,
+    this.isPoint = false,
+    this.sourceIndex,
+    this.onInsert,
+    this.isSearchHighlighted = false,
   });
 
   final int startTime;
-  final Color? colorDot; // non-null for point blocks
+  final Color? accentColor;
+  final Color? lineColor;
+  final bool isPoint;
+  final int? sourceIndex;
+  final void Function(int insertIndex)? onInsert;
+  final bool isSearchHighlighted;
 
   @override
   Widget build(BuildContext context) {
-    final isPoint = colorDot != null;
-    return SizedBox(
+    final effectiveLineColor = lineColor ?? AppColors.timelineLine;
+    final baseSidebar = SizedBox(
       width: 48,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Vertical border line
+          // Vertical timeline line — tinted to block color, faded at ends
           Positioned.fill(
             child: Align(
               alignment: Alignment.centerRight,
-              child: Container(width: 2, color: AppColors.stone200),
+              child: Container(
+                width: 2,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      effectiveLineColor.withValues(alpha: 0.0),
+                      effectiveLineColor,
+                      effectiveLineColor,
+                      effectiveLineColor.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.0, 0.12, 0.88, 1.0],
+                  ),
+                ),
+              ),
             ),
           ),
-          // Colored dot for point blocks
-          if (isPoint)
+          // Action block: small rounded-rect at the start of the interval
+          if (!isPoint && accentColor != null)
+            Positioned(
+              right: -2,
+              top: 0,
+              child: Container(
+                width: isSearchHighlighted ? 8 : 6,
+                height: isSearchHighlighted ? 8 : 6,
+                decoration: BoxDecoration(
+                  color: isSearchHighlighted
+                      ? AppColors.accentOlive
+                      : AppColors.mutedInk,
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(isSearchHighlighted ? 3 : 2),
+                  ),
+                ),
+              ),
+            ),
+          // Point block: larger centered dot
+          if (isPoint && accentColor != null)
             Positioned(
               right: -3,
               top: 0,
@@ -395,10 +648,12 @@ class _Sidebar extends StatelessWidget {
               child: Align(
                 alignment: Alignment.center,
                 child: Container(
-                  width: 8,
-                  height: 8,
+                  width: isSearchHighlighted ? 12 : 8,
+                  height: isSearchHighlighted ? 12 : 8,
                   decoration: BoxDecoration(
-                    color: colorDot,
+                    color: isSearchHighlighted
+                        ? AppColors.accentOlive
+                        : AppColors.mutedInk,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -412,15 +667,14 @@ class _Sidebar extends StatelessWidget {
             child: Align(
               alignment: isPoint ? Alignment.centerRight : Alignment.topRight,
               child: Container(
-                color: AppColors.appBackground,
-                padding:
-                    const EdgeInsets.only(left: 2, top: 2, bottom: 2),
+                color: AppColors.canvas,
+                padding: const EdgeInsets.only(left: 2, top: 2, bottom: 2),
                 child: Text(
                   formatTime(startTime),
-                  style: const TextStyle(
+                  style: AppTextStyles.time(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.stone500,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.mutedInk,
                   ),
                 ),
               ),
@@ -429,6 +683,27 @@ class _Sidebar extends StatelessWidget {
         ],
       ),
     );
+
+    if (onInsert != null && sourceIndex != null) {
+      return Builder(
+        builder: (context) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTapDown: (details) {
+              final renderBox = context.findRenderObject() as RenderBox?;
+              final height = renderBox?.size.height ?? 0;
+              final dy = details.localPosition.dy;
+              final isUpperHalf = dy < height / 2;
+              final insertIndex = isUpperHalf ? sourceIndex! : sourceIndex! + 1;
+              onInsert!(insertIndex);
+            },
+            child: baseSidebar,
+          );
+        },
+      );
+    }
+
+    return baseSidebar;
   }
 }
 
@@ -437,24 +712,41 @@ class _Sidebar extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ReorderHandleIcon extends StatelessWidget {
-  const _ReorderHandleIcon();
+  const _ReorderHandleIcon({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final dotColor = Color.lerp(
+      color,
+      AppColors.ink,
+      0.60,
+    )!.withValues(alpha: 0.80);
+
     return SizedBox(
       width: 20,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < 3; i++) ...[
-            if (i > 0) const SizedBox(height: 3),
-            Container(
-              height: 2,
-              width: 16,
-              decoration: BoxDecoration(
-                color: AppColors.stone200,
-                borderRadius: BorderRadius.circular(1),
-              ),
+          for (var row = 0; row < 3; row++) ...[
+            if (row > 0) const SizedBox(height: 3),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var col = 0; col < 2; col++) ...[
+                  if (col > 0) const SizedBox(width: 3),
+                  Container(
+                    width: 3,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: dotColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ],
@@ -468,6 +760,9 @@ class _ReorderHandleIcon extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DragHandle extends StatefulWidget {
+  static const double hitHeight = 44.0;
+  static const double overhang = 16.0;
+
   const _DragHandle({
     required this.blockId,
     required this.initialDuration,
@@ -478,7 +773,12 @@ class _DragHandle extends StatefulWidget {
   final String blockId;
   final int initialDuration;
   final void Function(
-      String id, double deltaY, int startDuration, bool isPrecise) onDrag;
+    String id,
+    double deltaY,
+    int startDuration,
+    bool isPrecise,
+  )
+  onDrag;
   final void Function(String id, bool isPrecise) onPreciseChange;
 
   @override
@@ -487,13 +787,16 @@ class _DragHandle extends StatefulWidget {
 
 class _DragHandleState extends State<_DragHandle> {
   bool _isPrecise = false;
+  int? _activePointer;
   double _startY = 0;
   int _startDuration = 0;
   bool _hasMoved = false;
   Timer? _longPressTimer;
 
-  void _onDragStart(DragStartDetails details) {
-    _startY = details.globalPosition.dy;
+  void _beginInteraction(Offset globalPosition, int pointer) {
+    if (_activePointer != null) return;
+    _activePointer = pointer;
+    _startY = globalPosition.dy;
     _startDuration = widget.initialDuration;
     _hasMoved = false;
     _longPressTimer?.cancel();
@@ -506,47 +809,142 @@ class _DragHandleState extends State<_DragHandle> {
     });
   }
 
+  void _updateMovement(Offset globalPosition) {
+    final delta = globalPosition.dy - _startY;
+    if (delta.abs() > 5) _hasMoved = true;
+  }
+
+  void _endInteraction() {
+    _activePointer = null;
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
+    if (_isPrecise) {
+      widget.onPreciseChange(widget.blockId, false);
+    }
+    if (mounted && _isPrecise) {
+      setState(() => _isPrecise = false);
+    }
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    _beginInteraction(event.position, event.pointer);
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (_activePointer != event.pointer) return;
+    _updateMovement(event.position);
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (_activePointer != event.pointer) return;
+    _endInteraction();
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    if (_activePointer != event.pointer) return;
+    _endInteraction();
+  }
+
   void _onDragUpdate(DragUpdateDetails details) {
     final delta = details.globalPosition.dy - _startY;
-    if (delta.abs() > 5) _hasMoved = true;
+    _updateMovement(details.globalPosition);
     widget.onDrag(widget.blockId, delta, _startDuration, _isPrecise);
   }
 
   void _onDragEnd(DragEndDetails details) {
-    _longPressTimer?.cancel();
-    if (_isPrecise) {
-      widget.onPreciseChange(widget.blockId, false);
-    }
-    setState(() => _isPrecise = false);
+    _endInteraction();
   }
 
   @override
   void dispose() {
     _longPressTimer?.cancel();
+    _longPressTimer = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragStart: _onDragStart,
-      onVerticalDragUpdate: _onDragUpdate,
-      onVerticalDragEnd: _onDragEnd,
-      child: SizedBox(
-        height: 44,
-        child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _isPrecise ? 64.0 : 48.0,
-            height: _isPrecise ? 8.0 : 6.0,
-            decoration: BoxDecoration(
-              color: _isPrecise ? AppColors.blue500 : AppColors.stone200,
-              borderRadius: BorderRadius.circular(99),
+    return SizedBox(
+      height: _DragHandle.hitHeight,
+      child: Stack(
+        children: [
+          // ビジュアル — フル幅中央に固定
+          Center(
+            child: Container(
+              width: _isPrecise ? 80.0 : 64.0,
+              height: _isPrecise ? 8.0 : 6.0,
+              decoration: BoxDecoration(
+                color: _isPrecise
+                    ? AppColors.mutedInk.withValues(alpha: 0.70)
+                    : AppColors.mutedInk.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
             ),
           ),
-        ),
+          // ヒット領域 — 右56px(ピル+移動ハンドル帯)を除外
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            right: 56,
+            child: Semantics(
+              label: '所要時間を調整',
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: _onPointerDown,
+                onPointerMove: _onPointerMove,
+                onPointerUp: _onPointerUp,
+                onPointerCancel: _onPointerCancel,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: _onDragUpdate,
+                  onVerticalDragEnd: _onDragEnd,
+                  onVerticalDragCancel: _endInteraction,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick Reorder Listener (200ms delay)
+// ---------------------------------------------------------------------------
+
+class _QuickReorderListener extends StatelessWidget {
+  const _QuickReorderListener({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (PointerDownEvent event) => _startDragging(context, event),
+      child: child,
+    );
+  }
+
+  MultiDragGestureRecognizer createRecognizer() {
+    return DelayedMultiDragGestureRecognizer(
+      delay: const Duration(milliseconds: 200),
+      debugOwner: this,
+    );
+  }
+
+  void _startDragging(BuildContext context, PointerDownEvent event) {
+    final gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
+    final list = SliverReorderableList.maybeOf(context);
+    if (list == null) return;
+    list.startItemDragReorder(
+      index: index,
+      event: event,
+      recognizer: createRecognizer()..gestureSettings = gestureSettings,
     );
   }
 }

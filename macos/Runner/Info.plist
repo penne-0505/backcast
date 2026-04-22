@@ -18,6 +18,18 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.otibo.ato</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dev.otibo.ato</string>
+			</array>
+		</dict>
+	</array>
+	<!-- TODO: Migrate to Universal Links by adding associated-domains entitlement. -->
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSMinimumSystemVersion</key>

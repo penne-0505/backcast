@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'models.dart';
+import 'platform_time_picker.dart';
 import 'state.dart';
 import 'theme.dart';
 
@@ -18,6 +22,8 @@ class _EditSheetState extends ConsumerState<EditSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _durationCtrl;
   late final TextEditingController _targetTimeCtrl;
+  late final FocusNode _durationFocusNode;
+  String? _lastSyncedBlockId;
 
   @override
   void initState() {
@@ -25,21 +31,40 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     _titleCtrl = TextEditingController();
     _durationCtrl = TextEditingController();
     _targetTimeCtrl = TextEditingController();
+    _durationFocusNode = FocusNode();
+    _durationFocusNode.addListener(_onDurationFocusLost);
   }
 
   @override
   void dispose() {
+    _durationFocusNode.removeListener(_onDurationFocusLost);
     _titleCtrl.dispose();
     _durationCtrl.dispose();
     _targetTimeCtrl.dispose();
+    _durationFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onDurationFocusLost() {
+    if (!_durationFocusNode.hasFocus) {
+      final state = ref.read(timelineProvider);
+      final selected = state.selectedBlockId == kTargetTimeId
+          ? null
+          : state.blocks
+              .where((b) => b.id == state.selectedBlockId)
+              .firstOrNull;
+      if (selected != null && selected.type == BlockType.action) {
+        final ds = selected.duration.toString();
+        if (_durationCtrl.text != ds) _durationCtrl.text = ds;
+      }
+    }
   }
 
   void _syncBlockControllers(Block selected) {
     if (_titleCtrl.text != selected.title) {
-      _titleCtrl.value = _titleCtrl.value.copyWith(text: selected.title);
+      _titleCtrl.text = selected.title;
     }
-    if (selected.type == BlockType.action) {
+    if (selected.type == BlockType.action && !_durationFocusNode.hasFocus) {
       final ds = selected.duration.toString();
       if (_durationCtrl.text != ds) _durationCtrl.text = ds;
     }
@@ -47,12 +72,24 @@ class _EditSheetState extends ConsumerState<EditSheet> {
 
   void _syncTargetControllers(String targetTitle, int targetTime) {
     if (_titleCtrl.text != targetTitle) {
-      _titleCtrl.value = _titleCtrl.value.copyWith(text: targetTitle);
+      _titleCtrl.text = targetTitle;
     }
     final formatted = formatTime(targetTime);
     if (_targetTimeCtrl.text != formatted) {
-      _targetTimeCtrl.value = _targetTimeCtrl.value.copyWith(text: formatted);
+      _targetTimeCtrl.text = formatted;
     }
+  }
+
+  Future<void> _pickTargetTime(int currentTargetTime) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final pickedMinutes = await showPlatformTimePicker(
+      context,
+      initialMinutes: currentTargetTime,
+    );
+    if (!mounted || pickedMinutes == null) return;
+
+    ref.read(timelineProvider.notifier).setTargetTime(pickedMinutes);
   }
 
   @override
@@ -62,28 +99,30 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     final isTarget = state.selectedBlockId == kTargetTimeId;
     final selected = isTarget
         ? null
-        : state.blocks
-            .where((b) => b.id == state.selectedBlockId)
-            .firstOrNull;
+        : state.blocks.where((b) => b.id == state.selectedBlockId).firstOrNull;
 
-    if (isTarget) {
-      _syncTargetControllers(state.targetTimeTitle, state.targetTime);
-    } else if (selected != null) {
-      _syncBlockControllers(selected);
+    if (state.selectedBlockId != _lastSyncedBlockId) {
+      _lastSyncedBlockId = state.selectedBlockId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (isTarget) {
+          _syncTargetControllers(state.targetTimeTitle, state.targetTime);
+        } else if (selected != null) {
+          _syncBlockControllers(selected);
+        }
+      });
     }
 
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.xl),
+          topRight: Radius.circular(AppRadius.xl),
         ),
-        boxShadow: [
-          BoxShadow(color: Color(0x1A000000), blurRadius: 24, offset: Offset(0, -4)),
-        ],
+        boxShadow: AppShadows.sheet,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -97,8 +136,8 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.stone300,
-                  borderRadius: BorderRadius.circular(2),
+                  color: AppColors.softGray,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
               ),
             ),
@@ -118,20 +157,61 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 17,
-                        color: AppColors.stone900,
+                        color: AppColors.darkSurface,
                       ),
                     ),
                     const Spacer(),
-                    GestureDetector(
+                    if (!isTarget && selected != null) ...[
+                      Pressable(
+                        onTap: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (_) =>
+                                _DeleteConfirmDialog(title: selected.title),
+                          );
+                          if (confirmed == true) {
+                            notifier.deleteBlock(selected.id);
+                            widget.onDismiss();
+                          }
+                        },
+                        scale: 0.88,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.softGray,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                          child: Icon(
+                            PhosphorIcons.trash(),
+                            size: 16,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        width: 1,
+                        height: 16,
+                        color: AppColors.accentDivider,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Pressable(
                       onTap: widget.onDismiss,
+                      scale: 0.88,
                       child: Container(
                         width: 32,
                         height: 32,
-                        decoration: const BoxDecoration(
-                          color: AppColors.stone100,
-                          shape: BoxShape.circle,
+                        decoration: BoxDecoration(
+                          color: AppColors.softGray,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        child: const Icon(Icons.close, size: 16, color: AppColors.stone500),
+                        child: Icon(
+                          PhosphorIcons.x(),
+                          size: 16,
+                          color: AppColors.accentOlive,
+                        ),
                       ),
                     ),
                   ],
@@ -147,14 +227,16 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
-                    color: AppColors.stone800,
+                    color: AppColors.ink,
                   ),
                   onChanged: (v) {
                     if (isTarget) {
                       notifier.setTargetTimeTitle(v);
                     } else if (selected != null) {
                       notifier.updateBlock(
-                          selected.id, (b) => b.copyWith(title: v));
+                        selected.id,
+                        (b) => b.copyWith(title: v),
+                      );
                     }
                   },
                 ),
@@ -167,43 +249,34 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                   _StyledField(
                     controller: _targetTimeCtrl,
                     placeholder: '13:00',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                    style: AppTextStyles.time(
                       fontSize: 28,
-                      color: AppColors.stone800,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      letterSpacing: -0.6,
                     ),
                     textAlign: TextAlign.center,
-                    keyboardType: TextInputType.datetime,
-                    onChanged: (v) {
-                      final parts = v.split(':');
-                      if (parts.length == 2) {
-                        final h = int.tryParse(parts[0]);
-                        final m = int.tryParse(parts[1]);
-                        if (h != null &&
-                            m != null &&
-                            h >= 0 &&
-                            h < 24 &&
-                            m >= 0 &&
-                            m < 60) {
-                          notifier.setTargetTime(h * 60 + m);
-                        }
-                      }
-                    },
+                    readOnly: true,
+                    onTap: () => _pickTargetTime(state.targetTime),
                   ),
                 ],
 
                 // ── ブロックモード専用: 所要時間 ──────────────────────────
-                if (!isTarget && selected != null &&
+                if (!isTarget &&
+                    selected != null &&
                     selected.type == BlockType.action) ...[
                   const SizedBox(height: 20),
                   const _SectionLabel('所要時間'),
                   const SizedBox(height: 6),
                   _DurationStepper(
                     controller: _durationCtrl,
+                    focusNode: _durationFocusNode,
+                    canDecrement: selected.duration > 5,
+                    canIncrement: true,
                     onDecrement: () => notifier.updateBlock(
                       selected.id,
-                      (b) => b.copyWith(
-                          duration: (b.duration - 5).clamp(5, 9999)),
+                      (b) =>
+                          b.copyWith(duration: (b.duration - 5).clamp(5, 9999)),
                     ),
                     onIncrement: () => notifier.updateBlock(
                       selected.id,
@@ -213,9 +286,26 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       final n = int.tryParse(v);
                       if (n != null && n >= 5) {
                         notifier.updateBlock(
-                            selected.id, (b) => b.copyWith(duration: n));
+                          selected.id,
+                          (b) => b.copyWith(duration: n),
+                        );
                       }
                     },
+                  ),
+                ],
+
+                // ── ブロックモード専用: カラー ────────────────────────────
+                if (!isTarget && selected != null) ...[
+                  const SizedBox(height: 20),
+                  const _SectionLabel('カラー'),
+                  const SizedBox(height: 10),
+                  _ColorPicker(
+                    selectedIndex:
+                        selected.colorIndex % AppColors.blockColors.length,
+                    onSelect: (i) => notifier.updateBlock(
+                      selected.id,
+                      (b) => b.copyWith(colorIndex: i),
+                    ),
                   ),
                 ],
               ],
@@ -240,11 +330,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: AppColors.stone400,
-      ),
+      style: AppTextStyles.label,
     );
   }
 }
@@ -253,38 +339,44 @@ class _StyledField extends StatelessWidget {
   const _StyledField({
     required this.controller,
     required this.placeholder,
-    required this.onChanged,
+    this.onChanged,
     this.style,
     this.textAlign = TextAlign.start,
-    this.keyboardType,
+    this.readOnly = false,
+    this.onTap,
   });
 
   final TextEditingController controller;
   final String placeholder;
-  final void Function(String) onChanged;
+  final void Function(String)? onChanged;
   final TextStyle? style;
   final TextAlign textAlign;
-  final TextInputType? keyboardType;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: AppColors.stone100,
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.softGray,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: TextField(
         controller: controller,
+        readOnly: readOnly,
+        showCursor: !readOnly,
+        enableInteractiveSelection: !readOnly,
+        onTap: onTap,
         onChanged: onChanged,
         textAlign: textAlign,
-        keyboardType: keyboardType,
+        textInputAction: TextInputAction.done,
         decoration: InputDecoration(
           border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
           hintText: placeholder,
-          hintStyle: const TextStyle(color: AppColors.stone400),
+          hintStyle: const TextStyle(color: AppColors.mutedInk),
         ),
         style: style,
       ),
@@ -293,87 +385,204 @@ class _StyledField extends StatelessWidget {
 }
 
 /// 統合型所要時間ステッパー: [ − | value 分 | + ]
-class _DurationStepper extends StatelessWidget {
+class _DurationStepper extends StatefulWidget {
   const _DurationStepper({
     required this.controller,
+    required this.focusNode,
     required this.onDecrement,
     required this.onIncrement,
     required this.onChanged,
+    this.canDecrement = true,
+    this.canIncrement = true,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
   final void Function(String) onChanged;
+  final bool canDecrement;
+  final bool canIncrement;
+
+  @override
+  State<_DurationStepper> createState() => _DurationStepperState();
+}
+
+class _DurationStepperState extends State<_DurationStepper> {
+  Timer? _repeatTimer;
+  bool _shakeLeft = false;
+  bool _shakeRight = false;
+
+  void _onTapDecrement() {
+    if (widget.canDecrement) {
+      widget.onDecrement();
+    } else {
+      _triggerShakeLeft();
+    }
+  }
+
+  void _onTapIncrement() {
+    if (widget.canIncrement) {
+      widget.onIncrement();
+    } else {
+      _triggerShakeRight();
+    }
+  }
+
+  void _startRepeatDecrement() {
+    _onTapDecrement();
+    _repeatTimer?.cancel();
+    _repeatTimer = Timer.periodic(
+      const Duration(milliseconds: 120),
+      (_) {
+        if (!widget.canDecrement) {
+          _stopRepeat();
+          return;
+        }
+        widget.onDecrement();
+      },
+    );
+  }
+
+  void _startRepeatIncrement() {
+    _onTapIncrement();
+    _repeatTimer?.cancel();
+    _repeatTimer = Timer.periodic(
+      const Duration(milliseconds: 120),
+      (_) {
+        if (!widget.canIncrement) {
+          _stopRepeat();
+          return;
+        }
+        widget.onIncrement();
+      },
+    );
+  }
+
+  void _stopRepeat() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+  }
+
+  void _triggerShakeLeft() {
+    setState(() => _shakeLeft = true);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _shakeLeft = false);
+    });
+  }
+
+  void _triggerShakeRight() {
+    setState(() => _shakeRight = true);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _shakeRight = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopRepeat();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: AppColors.stone100,
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.softGray,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
         children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onDecrement,
-            child: const SizedBox(
-              width: 56,
-              height: 56,
-              child: Center(
-                child: Icon(Icons.remove_rounded,
-                    size: 20, color: AppColors.stone500),
+          ShakeWidget(
+            shake: _shakeLeft,
+            child: Pressable(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onTapDecrement,
+              onLongPressStart: widget.canDecrement
+                  ? (_) => _startRepeatDecrement()
+                  : null,
+              onLongPressEnd: (_) => _stopRepeat(),
+              scale: 0.85,
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: Center(
+                  child: Icon(
+                    PhosphorIcons.minus(),
+                    size: 20,
+                    color: AppColors.accentOlive,
+                  ),
+                ),
               ),
             ),
           ),
-          Container(width: 1, height: 24, color: AppColors.stone300),
+          Container(width: 1, height: 24, color: AppColors.accentDivider),
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                SizedBox(
-                  width: 64,
-                  child: TextField(
-                    controller: controller,
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    onChanged: onChanged,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                      color: AppColors.stone800,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => widget.focusNode.requestFocus(),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  SizedBox(
+                    width: 64,
+                    child:                     TextField(
+                      controller: widget.controller,
+                      focusNode: widget.focusNode,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      onChanged: widget.onChanged,
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        color: AppColors.ink,
+                      ),
                     ),
                   ),
-                ),
-                const Text(
-                  '分',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.stone400,
+                  const Text(
+                    '分',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedInk,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          Container(width: 1, height: 24, color: AppColors.stone300),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onIncrement,
-            child: const SizedBox(
-              width: 56,
-              height: 56,
-              child: Center(
-                child: Icon(Icons.add_rounded, size: 20, color: AppColors.stone500),
+          Container(width: 1, height: 24, color: AppColors.accentDivider),
+          ShakeWidget(
+            shake: _shakeRight,
+            child: Pressable(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onTapIncrement,
+              onLongPressStart: widget.canIncrement
+                  ? (_) => _startRepeatIncrement()
+                  : null,
+              onLongPressEnd: (_) => _stopRepeat(),
+              scale: 0.85,
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: Center(
+                  child: Icon(
+                    PhosphorIcons.plus(),
+                    size: 20,
+                    color: AppColors.accentOlive,
+                  ),
+                ),
               ),
             ),
           ),
@@ -383,4 +592,143 @@ class _DurationStepper extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Color Picker
+// ---------------------------------------------------------------------------
 
+class _ColorPicker extends StatelessWidget {
+  const _ColorPicker({required this.selectedIndex, required this.onSelect});
+
+  final int selectedIndex;
+  final void Function(int index) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        for (var i = 0; i < AppColors.blockColors.length; i++)
+          Pressable(
+            onTap: () => onSelect(i),
+            scale: 0.88,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.blockColors[i],
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: selectedIndex == i
+                    ? Border.all(color: AppColors.ink, width: 2.5)
+                    : Border.all(
+                        color: AppColors.blockColors[i].withValues(alpha: 0.85),
+                        width: 2,
+                      ),
+                boxShadow: selectedIndex == i
+                    ? AppShadows.cardSelected
+                    : null,
+              ),
+              child: selectedIndex == i
+                  ? Icon(
+                    PhosphorIcons.check(),
+                    color: Colors.white,
+                    size: 16,
+                  )
+                  : null,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delete Confirm Dialog
+// ---------------------------------------------------------------------------
+
+class _DeleteConfirmDialog extends StatelessWidget {
+  const _DeleteConfirmDialog({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.canvas,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title.isEmpty ? 'この行動' : '「$title」',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'を削除しますか？',
+              style: TextStyle(fontSize: 14, color: AppColors.mutedInk),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Pressable(
+                    onTap: () => Navigator.of(context).pop(false),
+                    scale: 0.97,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.softGray,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'キャンセル',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.mutedInk,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Pressable(
+                    onTap: () => Navigator.of(context).pop(true),
+                    scale: 0.97,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.ink,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '削除',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.canvas,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

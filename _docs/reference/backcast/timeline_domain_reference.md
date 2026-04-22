@@ -1,20 +1,25 @@
 ---
-title: Backcast Timeline Domain Reference
+title: Ato Timeline Domain Reference
 status: active
 draft_status: n/a
-created_at: 2026-04-20
-updated_at: 2026-04-20
+created_at: "2026-04-20"
+updated_at: "2026-05-02"
 references:
   - README.md
   - _docs/guide/backcast/timeline_editor.md
   - _docs/intent/backcast/reverse_timeline_interaction_model.md
+  - _docs/intent/backcast/calendar_export_ics.md
+  - _docs/intent/backcast/local_reminder_notifications.md
+  - _docs/reference/backcast/calendar_export_reference.md
+  - _docs/reference/backcast/reminder_notification_reference.md
+  - _docs/reference/backcast/persistence_repository_reference.md
 related_issues: []
 related_prs: []
 ---
 
 ## Overview
 
-本リファレンスは、`Backcast` の逆算タイムラインを構成するモデル、定数、状態管理 API の現状仕様をまとめたものです。
+本リファレンスは、`Ato` の逆算タイムラインを構成するモデル、定数、状態管理 API の現状仕様をまとめたものです。
 対象は主に `lib/models.dart` と `lib/state.dart` で、UI 側から参照されるドメインルールを中心に記述します。
 
 ## API
@@ -29,6 +34,16 @@ related_prs: []
   - `kPixelsPerMinute = 6.0`: 1 分あたり 6px としてブロック高さを計算
   - `kSnapMinutes = 5`: 通常ドラッグ時のスナップ粒度
   - `kTargetTimeId = 'target-time'`: 目標アンカーの選択状態識別子
+
+### `enum TimelineViewMode`
+
+- **Summary**: タイムライン画面の表示モードを表す列挙型
+- **Parameters**: なし
+- **Returns**: `TimelineViewMode.edit` または `TimelineViewMode.compact`
+- **Errors**: なし
+- **Examples**:
+  - `edit`: 時間比例の編集ビュー。ドラッグ並び替え、所要時間調整、インライン編集が可能
+  - `compact`: 固定高さ行の俯瞰ビュー。一覧性と並び替えに特化し、直接編集は行わない
 
 ### `enum BlockType`
 
@@ -98,10 +113,20 @@ related_prs: []
   - `blocks (List<Block>)`: タイムライン本体
   - `selectedBlockId (String?)`: `null | kTargetTimeId | block.id`
   - `preciseDraggingId (String?)`: precise ドラッグ中のブロック ID
+  - `activeInlineEditorId (String?)`: フォーカス中のインラインエディタ ID
+  - `viewMode (TimelineViewMode)`: 表示モード。初期値は `TimelineViewMode.edit`
+  - `searchQuery (String)`: 現在の検索クエリ。空文字がデフォルト
+  - `searchMatches (List<String>)`: 検索一致したブロック ID のリスト。タイムライン順（過去→目標）
+  - `activeSearchMatchIndex (int)`: 現在フォーカスしている一致結果のインデックス。`-1` は不一致
+  - `searchHighlightedBlockId (String?)`: 一時ハイライト中のブロック ID
+  - `searchHighlightExpiresAt (DateTime?)`: ハイライト自動解除時刻
 - **Returns**: `copyWith` で新状態を生成
 - **Errors**: なし
 - **Examples**:
   - 選択中の目標アンカーは `selectedBlockId == kTargetTimeId`
+  - インライン編集中は `activeInlineEditorId != null` になる
+  - Compact Overview 表示中は `viewMode == TimelineViewMode.compact` になる
+  - 検索 UI state は plan persistence に保存されない
 
 ### `class TimelineNotifier`
 
@@ -111,6 +136,73 @@ related_prs: []
 - **Errors**: 不正 ID や範囲外操作は例外化せず無視するメソッドが多い
 - **Examples**:
   - 初期状態では `移動` という 30 分の `action` が 1 件入る
+
+### `TimelineNotifier.setViewMode(TimelineViewMode mode)`
+
+- **Summary**: 表示モードを切り替える
+- **Parameters**:
+  - `mode (TimelineViewMode)`: `TimelineViewMode.edit` または `TimelineViewMode.compact`
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - ヘッダーの切り替えボタンから呼ばれる
+- **Notes**:
+  - Compact Overview から編集ビューに戻る際に `selectBlock` と同時に使われることがある
+  - `viewMode` 自体は永続化対象に含めない
+
+### `TimelineNotifier.setSearchQuery(String query)`
+
+- **Summary**: 検索クエリを設定し、`Block.title` の部分一致で結果を更新する
+- **Parameters**:
+  - `query (String)`: 検索文字列。前後空白は除去され、大文字小文字は無視される
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - 空文字を渡すと一致結果は 0 件になり、active index は `-1` になる
+  - 一致結果は `blocks` のタイムライン順（過去→目標）で並ぶ
+- **Notes**:
+  - 空 query 時はすべての検索 state がクリアされる
+  - query 変更時、現在の result index が範囲外になった場合は先頭（`0`）へ戻す
+
+### `TimelineNotifier.clearSearch()`
+
+- **Summary**: 検索状態を完全にクリアする
+- **Parameters**: なし
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - 検索バーを閉じる際に呼ばれる
+
+### `TimelineNotifier.nextSearchMatch()` / `prevSearchMatch()`
+
+- **Summary**: 検索一致結果を前後に移動する
+- **Parameters**: なし
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - 末尾を超えると先頭へ、先頭より前へ移動すると末尾へ wrap around する
+
+### `TimelineNotifier.highlightSearchBlock(String? blockId)`
+
+- **Summary**: 指定ブロックを一時ハイライト状態にする
+- **Parameters**:
+  - `blockId (String?)`: ハイライト対象ブロック ID。`null` で解除
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - 検索ジャンプ後に 3 秒間のハイライトを設定する
+- **Notes**:
+  - `selectedBlockId` とは別の state として管理され、詳細編集シートは自動表示されない
+  - `searchHighlightExpiresAt` に 3 秒後の時刻が設定される
+
+### `TimelineNotifier.expireSearchHighlightIfNeeded()`
+
+- **Summary**: ハイライト期限が切れていれば自動解除する
+- **Parameters**: なし
+- **Returns**: なし
+- **Errors**: なし
+- **Notes**:
+  - UI 側のタイマーまたは `addPostFrameCallback` で呼ばれる想定
 
 ### `TimelineNotifier.setTargetTime(int minutes)`
 
@@ -145,6 +237,8 @@ related_prs: []
   - `actionPoint` は初期タイトル `新しい行動ポイント`, 所要時間 0 分
 - **Notes**:
   - 色は近傍ブロックと同色が続きにくいようランダム選択する
+  - パレット順は `#7898B4`, `#B48268`, `#B4A260`, `#987CA8`, `#68A294`
+  - 編集ビュー左の timeline rail ダブルタップからも呼ばれる。UI 側では `displayIndex` から `blocks` 上の `sourceIndex` を逆算し、タップ位置の上半分/下半分で `insertIndex` を決定してから本メソッドを呼ぶ
 
 ### `TimelineNotifier.updateBlock(String id, Block Function(Block) updater)`
 
@@ -215,6 +309,20 @@ related_prs: []
 - **Errors**: なし
 - **Examples**:
   - 影響を受けるブロックの枠線を強調するために使う
+- **Notes**:
+  - UI では長さ調整ハンドルへの `pointer down` から約 400ms 静止した時点で precise モードへ入る
+
+### `TimelineNotifier.setActiveInlineEditor(String? id)`
+
+- **Summary**: フォーカス中のインラインエディタを記録または解除する
+- **Parameters**:
+  - `id (String?)`: フォーカス中のインラインエディタ ID。解除時は `null`
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - タイトル `TextField` にフォーカスが入ると `block-title:<blockId>` や `target-title` を保持する
+- **Notes**:
+  - UI 側ではこの値を見て、次タップを編集シート表示ではなくフォーカス解除に使う
 
 ### `TimelineNotifier.applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise)`
 
@@ -259,5 +367,9 @@ related_prs: []
 ## Notes
 
 - 現状の状態は永続化されず、プロセス存続中のみ保持される
+- Drift / SQLite の永続化 Repository は `lib/persistence/` に実装済みだが、`TimelineNotifier` 自体は現時点では自動保存・起動時復元を行わない
+- カレンダー書き出し API は `lib/calendar_export.dart` に分離されており、詳細は `_docs/reference/backcast/calendar_export_reference.md` を参照
+- ローカル通知リマインダー API は `lib/notifications/reminder_notifications.dart` に分離されており、詳細は `_docs/reference/backcast/reminder_notification_reference.md` を参照
 - `firstOrNull` は Dart SDK の拡張メソッドを利用している
 - `test/widget_test.dart` では `computeBlocks`、`formatTime`、画面スモークテストを実施している
+- `test/persistence/plan_repository_test.dart` では Repository の保存・ロード・履歴操作を検証している

@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 5` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 31` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -183,69 +183,32 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 --- 
 
 ## Inbox
-- 
+1. ホーム画面ウィジェット: 現在のプランの次の行動・残り時間を表示
+2. Apple Watch対応: 現在時刻インジケーターと残り時間を腕で確認
+3. Web対応: RevenueCat / billing 初期化をWebで安全にstubまたはFree扱いへ分岐する
+4. iOS対応: RevenueCatのiOS API keyを実値化し、iOSのPro判定・restore導線を確認する
+5. ドキュメント運用: 実装済みタスクのTODO lifecycleを復旧し、完了済み/未完了を追跡可能に戻す
+
 
 ---
 
 ## Backlog
 
-- **Title**: [Chore] Customize Issue Templates Area sections
-- **ID**: Docs-Chore-1
+- **Title**: [Chore] Add debug Pro entitlement override
+- **ID**: Core-Chore-26
 - **Priority**: P1
 - **Size**: S
-- **Area**: Docs
-- **Dependencies**: []
-- **Goal**: `.github/ISSUE_TEMPLATE/bug_report.yml` と `.github/ISSUE_TEMPLATE/feature_request.yml` の "Area" セクションがプロジェクトに適した内容に変更されている。
+- **Area**: Core
+- **Dependencies**: [Core-Feat-19]
+- **Goal**: debug / profile 環境で疑似 Pro / Free 状態を切り替え、Pro/Free gate の動作確認を RevenueCat の実 entitlement に依存せず行える。
 - **Steps**:
-  1. [ ] `.github/ISSUE_TEMPLATE/bug_report.yml` を開き、"Area" セクションを確認
-  2. [ ] プロジェクトに適した領域名に変更
-  3. [ ] `.github/ISSUE_TEMPLATE/feature_request.yml` を開き、同様に変更
-  4. [ ] 変更内容を検証
-- **Description**: GitHub Issueテンプレートの"Area"セクションを、プロジェクト固有の内容にカスタマイズする。
-- **Plan**: None
-
-- **Title**: [Chore] Review and customize AGENTS.md
-- **ID**: Docs-Chore-2
-- **Priority**: P2
-- **Size**: XS
-- **Area**: Docs
-- **Dependencies**: []
-- **Goal**: `AGENTS.md` がプロジェクトのニーズに応じて必要に応じて編集されている。
-- **Steps**:
-  1. [ ] `AGENTS.md` を開き、既存の内容を確認
-  2. [ ] 必要に応じて編集（特定コマンドの使用指示など）
-  3. [ ] 変更を保存
-- **Description**: AGENTS.mdをレビューし、プロジェクトの要件に応じてカスタマイズする。
-- **Plan**: None
-
-- **Title**: [Chore] Customize README.md for project
-- **ID**: Docs-Chore-3
-- **Priority**: P0
-- **Size**: S
-- **Area**: Docs
-- **Dependencies**: []
-- **Goal**: `README.md` がプロジェクトの概要、目的、使用方法に合わせて編集されている。
-- **Steps**:
-  1. [ ] 現在のREADME.mdを確認
-  2. [ ] プロジェクト名、概要、説明をプロジェクトに合わせて書き換え
-  3. [ ] 使用方法セクションを編集
-  4. [ ] 不要なテンプレート固有の記述を削除または修正
-  5. [ ] 変更を保存
-- **Description**: README.mdをテンプレートからプロジェクト固有の内容に書き換える。
-- **Plan**: None
-
-- **Title**: [Chore] Update LICENSE.txt author attribution
-- **ID**: Docs-Chore-4
-- **Priority**: P2
-- **Size**: XS
-- **Area**: Docs
-- **Dependencies**: []
-- **Goal**: `LICENSE.txt` の著作者名が正しいものに編集されている。
-- **Steps**:
-  1. [ ] `LICENSE.txt` を開き、著作者名を確認
-  2. [ ] 正しい著作者名に編集
-  3. [ ] 変更を保存
-- **Description**: LICENSEファイルの著作者表示をプロジェクトに合わせて更新する。
+  1. [ ] `ProOverride.actual / forceFree / forcePro` 相当の debug-only 状態を追加する
+  2. [ ] gate 参照用の effective Pro 判定 provider を追加し、debug / profile では override を反映する
+  3. [ ] release build では override UI と override 状態が無効になることを保証する
+  4. [ ] 設定画面または開発者向け導線から override を切り替えられるようにする
+  5. [ ] override 中であることが分かる小さな表示を追加する
+  6. [ ] Free / Pro / actual 切替で、タイムライン数・テンプレート・画像エクスポートの gate が同じ判定を見ることを確認する
+- **Description**: Core-Feat-19 の Pro/Free gate を検証しやすくするため、RevenueCat の実 entitlement とは別に debug / profile 限定の疑似 Pro 状態を導入する。本番 release では使用不可とし、gate 実装は最終的に effective Pro 判定を参照する。
 - **Plan**: None
 
 ---

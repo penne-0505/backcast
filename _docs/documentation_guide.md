@@ -2,8 +2,8 @@
 title: Documentation Guide
 status: active
 draft_status: n/a
-created_at: 2026-04-16
-updated_at: 2026-04-20
+created_at: "2026-04-16"
+updated_at: "2026-04-22"
 references:
   - _docs/standards/documentation_guidelines.md
   - _docs/standards/documentation_operations.md

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 
 const double kPixelsPerMinute = 6.0;
 const int kSnapMinutes = 5;
+const double kOverviewThresholdPpm = 5.0;
+const double kMinOverviewBlockHeight = 40.0;
 
 /// 目標アンカーを識別する固定 ID（selectedBlockId に使用）
 const String kTargetTimeId = 'target-time';
