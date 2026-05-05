@@ -9,6 +9,9 @@ import 'models.dart';
 import 'state.dart';
 import 'theme.dart';
 
+const double _swipeDeleteDistanceThreshold = 144;
+const double _swipeDeleteDismissThreshold = 0.62;
+
 // ---------------------------------------------------------------------------
 // TimeField — HH:mm inline editable widget
 // ---------------------------------------------------------------------------
@@ -125,6 +128,8 @@ class BlockItem extends ConsumerStatefulWidget {
 class _BlockItemState extends ConsumerState<BlockItem> {
   late final TextEditingController _titleCtrl;
   late final FocusNode _titleFocusNode;
+  Offset? _swipeStart;
+  Offset _swipeDelta = Offset.zero;
 
   String get _inlineEditorId => 'block-title:${widget.computedBlock.block.id}';
 
@@ -193,6 +198,68 @@ class _BlockItemState extends ConsumerState<BlockItem> {
     ref.read(timelineProvider.notifier).addBlock(insertIndex, BlockType.action);
   }
 
+  Future<bool> _confirmSwipeDelete() async {
+    if (widget.sheetVisible) return false;
+    if (_dismissInlineEditorIfNeeded()) return false;
+    if (widget.preciseDraggingId != null) return false;
+    HapticFeedback.selectionClick();
+    return true;
+  }
+
+  void _deleteBlockBySwipe(DismissDirection direction) {
+    ref
+        .read(timelineProvider.notifier)
+        .deleteBlock(widget.computedBlock.block.id);
+  }
+
+  Widget _wrapSwipeDelete({required Block block, required Widget child}) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        _swipeStart = event.position;
+        _swipeDelta = Offset.zero;
+      },
+      onPointerMove: (event) {
+        final start = _swipeStart;
+        if (start == null) return;
+        _swipeDelta = event.position - start;
+      },
+      onPointerUp: (_) => _handlePointerSwipeDelete(),
+      onPointerCancel: (_) => _resetPointerSwipe(),
+      child: Dismissible(
+        key: ValueKey('swipe-delete:${block.id}'),
+        direction: DismissDirection.startToEnd,
+        dismissThresholds: const {
+          DismissDirection.startToEnd: _swipeDeleteDismissThreshold,
+        },
+        confirmDismiss: (_) => _confirmSwipeDelete(),
+        onDismissed: _deleteBlockBySwipe,
+        background: _SwipeDeleteBackground(
+          isPoint: block.type == BlockType.actionPoint,
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  void _resetPointerSwipe() {
+    _swipeStart = null;
+    _swipeDelta = Offset.zero;
+  }
+
+  Future<void> _handlePointerSwipeDelete() async {
+    final delta = _swipeDelta;
+    _resetPointerSwipe();
+    final isRightSwipe =
+        delta.dx > _swipeDeleteDistanceThreshold &&
+        delta.dx.abs() > delta.dy.abs() * 1.4;
+    if (!isRightSwipe) return;
+    if (!await _confirmSwipeDelete()) return;
+    ref
+        .read(timelineProvider.notifier)
+        .deleteBlock(widget.computedBlock.block.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final block = widget.computedBlock.block;
@@ -241,122 +308,121 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                   children: [
                     // Block container
                     Positioned.fill(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (_dismissInlineEditorIfNeeded()) return;
-                          notifier.selectBlock(block.id);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: widget.isSelected
-                                ? AppColors.cardBackgroundSelected
-                                : widget.isSearchHighlighted
-                                    ? AppColors.accentOlive.withValues(
-                                        alpha: 0.08,
-                                      )
-                                    : AppColors.cardBackground,
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.md,
+                      child: _wrapSwipeDelete(
+                        block: block,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (_dismissInlineEditorIfNeeded()) return;
+                            notifier.selectBlock(block.id);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: widget.isSelected
+                                  ? AppColors.cardBackgroundSelected
+                                  : widget.isSearchHighlighted
+                                  ? AppColors.accentOlive.withValues(
+                                      alpha: 0.08,
+                                    )
+                                  : AppColors.cardBackground,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              boxShadow: widget.isSelected
+                                  ? AppShadows.cardSelected
+                                  : AppShadows.card,
+                              border: _isPreciseImpactTarget
+                                  ? Border.all(
+                                      color: AppColors.accentOlive.withValues(
+                                        alpha: 0.70,
+                                      ),
+                                      width: 1.5,
+                                    )
+                                  : (widget.isSearchHighlighted &&
+                                            !widget.isSelected
+                                        ? Border.all(
+                                            color: AppColors.accentOlive
+                                                .withValues(alpha: 0.25),
+                                            width: 1.5,
+                                          )
+                                        : null),
                             ),
-                            boxShadow: widget.isSelected
-                                ? AppShadows.cardSelected
-                                : AppShadows.card,
-                            border: _isPreciseImpactTarget
-                                ? Border.all(
-                                    color: AppColors.accentOlive.withValues(
-                                      alpha: 0.70,
-                                    ),
-                                    width: 1.5,
-                                  )
-                                : (widget.isSearchHighlighted && !widget.isSelected
-                                    ? Border.all(
-                                        color: AppColors.accentOlive.withValues(
-                                          alpha: 0.25,
-                                        ),
-                                        width: 1.5,
-                                      )
-                                    : null),
-                          ),
-                          child: Padding(
-                            padding: isCompact
-                                ? const EdgeInsets.fromLTRB(12, 2, 10, 2)
-                                : const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: isCompact
-                                  ? MainAxisAlignment.center
-                                  : MainAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 60),
-                                  child: Stack(
-                                    children: [
-                                      ShaderMask(
-                                        shaderCallback: (bounds) =>
-                                            const LinearGradient(
-                                              begin: Alignment.centerLeft,
-                                              end: Alignment.centerRight,
-                                              stops: [0.60, 1.0],
-                                              colors: [
-                                                Colors.white,
-                                                Colors.transparent,
-                                              ],
-                                            ).createShader(bounds),
-                                        blendMode: BlendMode.dstIn,
-                                        child: TextField(
-                                          controller: _titleCtrl,
-                                          focusNode: _titleFocusNode,
-                                          maxLines: 1,
-                                          textInputAction:
-                                              TextInputAction.done,
-                                          onChanged: (v) =>
-                                              notifier.updateBlock(
-                                                block.id,
-                                                (b) => b.copyWith(title: v),
-                                              ),
-                                          onTap: () {},
-                                          onTapOutside: (_) => FocusManager
-                                              .instance
-                                              .primaryFocus
-                                              ?.unfocus(),
-                                          decoration:
-                                              const InputDecoration(
-                                                border: InputBorder.none,
-                                                isDense: true,
-                                                contentPadding:
-                                                    EdgeInsets.zero,
-                                              ),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                            color: AppColors.ink,
+                            child: Padding(
+                              padding: isCompact
+                                  ? const EdgeInsets.fromLTRB(12, 2, 10, 2)
+                                  : const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: isCompact
+                                    ? MainAxisAlignment.center
+                                    : MainAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 60),
+                                    child: Stack(
+                                      children: [
+                                        ShaderMask(
+                                          shaderCallback: (bounds) =>
+                                              const LinearGradient(
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                                stops: [0.60, 1.0],
+                                                colors: [
+                                                  Colors.white,
+                                                  Colors.transparent,
+                                                ],
+                                              ).createShader(bounds),
+                                          blendMode: BlendMode.dstIn,
+                                          child: TextField(
+                                            controller: _titleCtrl,
+                                            focusNode: _titleFocusNode,
+                                            maxLines: 1,
+                                            textInputAction:
+                                                TextInputAction.done,
+                                            onChanged: (v) =>
+                                                notifier.updateBlock(
+                                                  block.id,
+                                                  (b) => b.copyWith(title: v),
+                                                ),
+                                            onTap: () {},
+                                            onTapOutside: (_) => FocusManager
+                                                .instance
+                                                .primaryFocus
+                                                ?.unfocus(),
+                                            decoration: const InputDecoration(
+                                              border: InputBorder.none,
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: AppColors.ink,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        bottom: 0,
-                                        width: 40,
-                                        child: IgnorePointer(
-                                          child: SizedBox.expand(),
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          bottom: 0,
+                                          width: 40,
+                                          child: IgnorePointer(
+                                            child: SizedBox.expand(),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (height >= 80.0) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${formatTime(startTime)} - ${formatTime(startTime + block.duration)}',
-                                    style: AppTextStyles.time(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.mutedInk,
+                                      ],
                                     ),
                                   ),
+                                  if (height >= 80.0) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${formatTime(startTime)} - ${formatTime(startTime + block.duration)}',
+                                      style: AppTextStyles.time(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.mutedInk,
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -375,9 +441,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                           ),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.pill,
-                            ),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
                           ),
                           child: Text(
                             '${block.duration}分',
@@ -422,8 +486,8 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                           blockId: block.id,
                           initialDuration: block.duration,
                           onDrag: notifier.applyDurationDrag,
-                          onPreciseChange: (id, precise) => notifier
-                              .setPreciseDragging(precise ? id : null),
+                          onPreciseChange: (id, precise) =>
+                              notifier.setPreciseDragging(precise ? id : null),
                         ),
                       ),
                   ],
@@ -460,109 +524,136 @@ class _BlockItemState extends ConsumerState<BlockItem> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: GestureDetector(
-                onTap: () {
-                  if (_dismissInlineEditorIfNeeded()) return;
-                  notifier.selectBlock(block.id);
-                },
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(10, 10, 0, 10),
-                  decoration: BoxDecoration(
-                    color: widget.isSelected
-                        ? AppColors.cardBackgroundSelected
-                        : widget.isSearchHighlighted
-                            ? AppColors.accentOlive.withValues(
-                                alpha: 0.08,
-                              )
-                            : AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    boxShadow: widget.isSelected
-                        ? AppShadows.cardSelected
-                        : AppShadows.card,
-                    border: _isPreciseImpactTarget
-                        ? Border.all(
-                            color: AppColors.accentOlive.withValues(
-                              alpha: 0.70,
-                            ),
-                            width: 1.5,
-                          )
-                        : (widget.isSearchHighlighted && !widget.isSelected
-                            ? Border.all(
-                                color: AppColors.accentOlive.withValues(
-                                  alpha: 0.25,
+              child: _wrapSwipeDelete(
+                block: block,
+                child: GestureDetector(
+                  onTap: () {
+                    if (_dismissInlineEditorIfNeeded()) return;
+                    notifier.selectBlock(block.id);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 0, 10),
+                    decoration: BoxDecoration(
+                      color: widget.isSelected
+                          ? AppColors.cardBackgroundSelected
+                          : widget.isSearchHighlighted
+                          ? AppColors.accentOlive.withValues(alpha: 0.08)
+                          : AppColors.cardBackground,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      boxShadow: widget.isSelected
+                          ? AppShadows.cardSelected
+                          : AppShadows.card,
+                      border: _isPreciseImpactTarget
+                          ? Border.all(
+                              color: AppColors.accentOlive.withValues(
+                                alpha: 0.70,
+                              ),
+                              width: 1.5,
+                            )
+                          : (widget.isSearchHighlighted && !widget.isSelected
+                                ? Border.all(
+                                    color: AppColors.accentOlive.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                    width: 1.5,
+                                  )
+                                : null),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                stops: [0.78, 1.0],
+                                colors: [Colors.white, Colors.transparent],
+                              ).createShader(bounds),
+                              blendMode: BlendMode.dstIn,
+                              child: TextField(
+                                controller: _titleCtrl,
+                                focusNode: _titleFocusNode,
+                                maxLines: 1,
+                                textInputAction: TextInputAction.done,
+                                onChanged: (v) => notifier.updateBlock(
+                                  block.id,
+                                  (b) => b.copyWith(title: v),
                                 ),
-                                width: 1.5,
-                              )
-                            : null),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ShaderMask(
-                            shaderCallback: (bounds) =>
-                                const LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  stops: [0.78, 1.0],
-                                  colors: [
-                                    Colors.white,
-                                    Colors.transparent,
-                                  ],
-                                ).createShader(bounds),
-                            blendMode: BlendMode.dstIn,
-                            child: TextField(
-                              controller: _titleCtrl,
-                              focusNode: _titleFocusNode,
-                              maxLines: 1,
-                              textInputAction: TextInputAction.done,
-                              onChanged: (v) => notifier.updateBlock(
-                                block.id,
-                                (b) => b.copyWith(title: v),
-                              ),
-                              onTap: () {},
-                              onTapOutside: (_) => FocusManager
-                                  .instance
-                                  .primaryFocus
-                                  ?.unfocus(),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      _QuickReorderListener(
-                        index: widget.index,
-                        child: Semantics(
-                          label: '並び替え',
-                          child: SizedBox(
-                            width: 52,
-                            child: Center(
-                              child: _ReorderHandleIcon(
-                                color: AppColors.mutedInk.withValues(
-                                  alpha: 0.5,
+                                onTap: () {},
+                                onTapOutside: (_) => FocusManager
+                                    .instance
+                                    .primaryFocus
+                                    ?.unfocus(),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: AppColors.ink,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        _QuickReorderListener(
+                          index: widget.index,
+                          child: Semantics(
+                            label: '並び替え',
+                            child: SizedBox(
+                              width: 52,
+                              child: Center(
+                                child: _ReorderHandleIcon(
+                                  color: AppColors.mutedInk.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SwipeDeleteBackground extends StatelessWidget {
+  const _SwipeDeleteBackground({required this.isPoint});
+
+  final bool isPoint;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.ink.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: Semantics(
+            label: isPoint ? '行動ピンを削除' : '行動ブロックを削除',
+            child: Icon(
+              Icons.delete_outline,
+              size: 22,
+              color: AppColors.ink.withValues(alpha: 0.58),
+            ),
+          ),
+        ),
       ),
     );
   }

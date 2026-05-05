@@ -7,6 +7,7 @@ import 'app_database.dart';
 import 'timeline_state_codec.dart';
 
 const _uuid = Uuid();
+const _currentPlanIdPreferenceKey = 'currentPlanId';
 
 class TimelinePlanSummary {
   const TimelinePlanSummary({
@@ -145,6 +146,43 @@ class PlanRepository {
     return summaries;
   }
 
+  Future<int> countPlans() async {
+    final countExp = _db.plans.id.count();
+    final query = _db.selectOnly(_db.plans)..addColumns([countExp]);
+    return (await query.getSingle()).read(countExp) ?? 0;
+  }
+
+  Future<String?> loadCurrentPlanId() async {
+    final row =
+        await (_db.select(_db.appPreferences)
+              ..where((row) => row.key.equals(_currentPlanIdPreferenceKey)))
+            .getSingleOrNull();
+    if (row == null) return null;
+    final plan = await (_db.select(
+      _db.plans,
+    )..where((plan) => plan.id.equals(row.value))).getSingleOrNull();
+    return plan == null ? null : row.value;
+  }
+
+  Future<void> saveCurrentPlanId(String planId) async {
+    final existing = await (_db.select(
+      _db.plans,
+    )..where((row) => row.id.equals(planId))).getSingleOrNull();
+    if (existing == null) {
+      throw StateError('Plan not found: $planId');
+    }
+
+    await _db
+        .into(_db.appPreferences)
+        .insertOnConflictUpdate(
+          AppPreferencesCompanion.insert(
+            key: _currentPlanIdPreferenceKey,
+            value: planId,
+            updatedAt: _clock(),
+          ),
+        );
+  }
+
   Future<TimelinePlan?> loadPlan(String planId) async {
     final plan = await (_db.select(
       _db.plans,
@@ -207,6 +245,22 @@ class PlanRepository {
         );
       }
     });
+  }
+
+  Future<void> renamePlan(String planId, String newTitle) async {
+    final existing = await (_db.select(
+      _db.plans,
+    )..where((row) => row.id.equals(planId))).getSingleOrNull();
+    if (existing == null) {
+      throw StateError('Plan not found: $planId');
+    }
+
+    await (_db.update(_db.plans)..where((row) => row.id.equals(planId))).write(
+      PlansCompanion(
+        title: Value(_normalizePlanTitle(newTitle)),
+        updatedAt: Value(_clock()),
+      ),
+    );
   }
 
   Future<void> deletePlan(String planId) async {
@@ -302,6 +356,11 @@ class PlanRepository {
   String _defaultPlanTitle(TimelineState state) {
     final title = state.targetTimeTitle.trim();
     return title.isEmpty ? 'Untitled plan' : title;
+  }
+
+  String _normalizePlanTitle(String title) {
+    final trimmed = title.trim();
+    return trimmed.isEmpty ? 'Untitled plan' : trimmed;
   }
 
   TimelineState _stateForPersistence(TimelineState state) {

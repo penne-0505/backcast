@@ -67,14 +67,32 @@ class TimelineTemplateBlocks extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Plans, PlanBlocks, PlanSnapshots, TimelineTemplates, TimelineTemplateBlocks])
+class AppPreferences extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
+@DriftDatabase(
+  tables: [
+    Plans,
+    PlanBlocks,
+    PlanSnapshots,
+    TimelineTemplates,
+    TimelineTemplateBlocks,
+    AppPreferences,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   AppDatabase.defaults() : super(driftDatabase(name: 'medo'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +103,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.createTable(timelineTemplates);
         await m.createTable(timelineTemplateBlocks);
+      }
+      if (from < 3) {
+        await m.createTable(appPreferences);
       }
     },
   );

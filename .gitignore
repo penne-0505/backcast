@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/release
 
 key.properties
+
+# Supabase CLI local cache
+supabase/.temp/
+
+# FVM Version Cache
+.fvm/

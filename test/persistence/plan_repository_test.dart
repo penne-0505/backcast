@@ -45,6 +45,14 @@ void main() {
     );
   }
 
+  TimelineState sampleStateWithBlockSuffix(String suffix) {
+    return sampleState().copyWith(
+      blocks: sampleState().blocks
+          .map((block) => block.copyWith(id: '${block.id}-$suffix'))
+          .toList(growable: false),
+    );
+  }
+
   test('codec preserves persistent state and clears transient UI state', () {
     final restored = decodeTimelineState(encodeTimelineState(sampleState()));
 
@@ -149,5 +157,84 @@ void main() {
     final restored = await repository.loadPlan(created.id);
     expect(restored!.state.blocks, initialState.blocks);
     expect(restored.state.targetTimeTitle, '会議開始');
+  });
+
+  test('persists and validates the current plan id preference', () async {
+    final first = await repository.createPlan(
+      state: sampleState(),
+      title: '最初のタイムライン',
+    );
+    final second = await repository.createPlan(
+      state: sampleStateWithBlockSuffix(
+        'second',
+      ).copyWith(targetTimeTitle: '帰宅'),
+      title: '次のタイムライン',
+    );
+
+    await repository.saveCurrentPlanId(first.id);
+    expect(await repository.loadCurrentPlanId(), first.id);
+
+    await repository.saveCurrentPlanId(second.id);
+    expect(await repository.loadCurrentPlanId(), second.id);
+  });
+
+  test('counts saved plans for Free timeline gate decisions', () async {
+    expect(await repository.countPlans(), 0);
+
+    await repository.createPlan(
+      state: sampleStateWithBlockSuffix('a'),
+      title: 'A',
+    );
+    await repository.createPlan(
+      state: sampleStateWithBlockSuffix('b'),
+      title: 'B',
+    );
+
+    expect(await repository.countPlans(), 2);
+  });
+
+  test('renames a plan without changing blocks or snapshots', () async {
+    var now = DateTime.utc(2026, 4, 23, 12);
+    repository = PlanRepository(db, now: () => now);
+    final created = await repository.createPlan(
+      state: sampleState(),
+      title: '旧名前',
+    );
+    final before = await repository.listPlans();
+    final snapshotsBefore = await repository.listSnapshots(created.id);
+
+    now = DateTime.utc(2026, 4, 23, 13);
+    await repository.renamePlan(created.id, ' 新しい名前 ');
+
+    final loaded = await repository.loadPlan(created.id);
+    expect(loaded!.title, '新しい名前');
+    expect(loaded.state.blocks.map((block) => block.title), ['移動', '受付']);
+
+    final after = await repository.listPlans();
+    expect(after.single.updatedAt, isNot(before.single.updatedAt));
+    expect(after.single.blockCount, 2);
+    final snapshotsAfter = await repository.listSnapshots(created.id);
+    expect(snapshotsAfter.map((snapshot) => snapshot.id), [
+      snapshotsBefore.single.id,
+    ]);
+  });
+
+  test('renames blank plan title to Untitled plan', () async {
+    final created = await repository.createPlan(
+      state: sampleState(),
+      title: '旧名前',
+    );
+
+    await repository.renamePlan(created.id, '   ');
+
+    final loaded = await repository.loadPlan(created.id);
+    expect(loaded!.title, 'Untitled plan');
+  });
+
+  test('renamePlan throws StateError when plan does not exist', () async {
+    expect(
+      () => repository.renamePlan('missing-plan', '新しい名前'),
+      throwsA(isA<StateError>()),
+    );
   });
 }

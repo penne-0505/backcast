@@ -1,13 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'billing_providers.dart';
+import 'pro_entitlement_providers.dart';
 
 /// Derives the effective Pro entitlement.
 ///
-/// Returns `false` when the billing state is loading or in error (safe default).
+/// Returns `false` when the server entitlement is loading or in error.
 /// This is the single source of truth for all Pro/Free gates.
 final effectiveIsProProvider = Provider<bool>((ref) {
-  return ref.watch(billingProvider).whenOrNull(data: (d) => d.isPro) ?? false;
+  return ref
+      .watch(currentProEntitlementProvider)
+      .maybeWhen(data: (entitlement) => entitlement.isPro, orElse: () => false);
 });
 
 /// The maximum number of timelines a Free user can keep.

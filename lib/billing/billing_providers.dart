@@ -1,31 +1,138 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+
+import '../config/revenuecat_config.dart';
+import 'pro_entitlement_providers.dart';
+
+/// Thin gateway around RevenueCat static APIs.
+///
+/// Keeping the SDK boundary injectable makes purchase and offering state
+/// testable without invoking platform channels.
+class RevenueCatGateway {
+  const RevenueCatGateway();
+
+  Future<CustomerInfo> getCustomerInfo() => Purchases.getCustomerInfo();
+
+  Future<Offerings> getOfferings() => Purchases.getOfferings();
+
+  Future<CustomerInfo> purchasePackage(Package package) =>
+      Purchases.purchasePackage(package);
+
+  Future<CustomerInfo> restorePurchases() => Purchases.restorePurchases();
+
+  void addCustomerInfoUpdateListener(
+    void Function(CustomerInfo customerInfo) listener,
+  ) {
+    Purchases.addCustomerInfoUpdateListener(listener);
+  }
+}
+
+final revenueCatGatewayProvider = Provider<RevenueCatGateway>((ref) {
+  return const RevenueCatGateway();
+});
+
+final revenueCatBillingAvailableProvider = Provider<bool>((ref) {
+  return RevenueCatConfig.supportsCurrentPlatform;
+});
 
 /// Application-level subscription / billing state.
 @immutable
 class BillingState {
-  const BillingState({this.isPro = false, this.isTrialing = false});
+  const BillingState({
+    this.isPro = false,
+    this.isTrialing = false,
+    this.purchaseStatus = BillingPurchaseStatus.idle,
+    this.purchaseMessage,
+  });
 
   final bool isPro;
   final bool isTrialing;
+  final BillingPurchaseStatus purchaseStatus;
+  final String? purchaseMessage;
 
-  BillingState copyWith({bool? isPro, bool? isTrialing}) => BillingState(
-        isPro: isPro ?? this.isPro,
-        isTrialing: isTrialing ?? this.isTrialing,
-      );
+  bool get isBusy =>
+      purchaseStatus == BillingPurchaseStatus.purchasing ||
+      purchaseStatus == BillingPurchaseStatus.restoring;
+
+  BillingState copyWith({
+    bool? isPro,
+    bool? isTrialing,
+    BillingPurchaseStatus? purchaseStatus,
+    String? purchaseMessage,
+    bool clearPurchaseMessage = false,
+  }) => BillingState(
+    isPro: isPro ?? this.isPro,
+    isTrialing: isTrialing ?? this.isTrialing,
+    purchaseStatus: purchaseStatus ?? this.purchaseStatus,
+    purchaseMessage: clearPurchaseMessage
+        ? null
+        : purchaseMessage ?? this.purchaseMessage,
+  );
 }
+
+enum BillingPurchaseStatus {
+  idle,
+  purchasing,
+  restoring,
+  purchasePending,
+  restored,
+  cancelled,
+  failed,
+}
+
+@immutable
+class ProPackageState {
+  const ProPackageState({
+    required this.package,
+    required this.displayPrice,
+    required this.periodLabel,
+    required this.productTitle,
+  });
+
+  final Package package;
+  final String displayPrice;
+  final String periodLabel;
+  final String productTitle;
+}
+
+final proPackageProvider = FutureProvider<ProPackageState?>((ref) async {
+  if (!ref.watch(revenueCatBillingAvailableProvider)) return null;
+
+  final offerings = await ref.watch(revenueCatGatewayProvider).getOfferings();
+  final offering = offerings.current;
+  if (offering == null || offering.availablePackages.isEmpty) {
+    return null;
+  }
+
+  final package =
+      offering.monthly ?? offering.annual ?? offering.availablePackages.first;
+  final product = package.storeProduct;
+  return ProPackageState(
+    package: package,
+    displayPrice: product.priceString,
+    periodLabel: _periodLabel(product.subscriptionPeriod, package.packageType),
+    productTitle: product.title,
+  );
+});
 
 /// Notifier that syncs RevenueCat [CustomerInfo] into a [BillingState].
 class BillingNotifier extends AsyncNotifier<BillingState> {
   @override
   Future<BillingState> build() async {
-    final customerInfo = await Purchases.getCustomerInfo();
+    if (!ref.watch(revenueCatBillingAvailableProvider)) {
+      return const BillingState();
+    }
+
+    final gateway = ref.watch(revenueCatGatewayProvider);
+    final customerInfo = await gateway.getCustomerInfo();
     var current = _mapCustomerInfo(customerInfo);
 
-    Purchases.addCustomerInfoUpdateListener((info) {
+    gateway.addCustomerInfoUpdateListener((info) {
       current = _mapCustomerInfo(info);
       state = AsyncValue.data(current);
+      ref.invalidate(currentProEntitlementProvider);
     });
 
     return current;
@@ -39,14 +146,102 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
     );
   }
 
-  /// Restore previous purchases and refresh the billing state.
-  Future<void> restorePurchases() async {
+  Future<void> purchaseProPackage(Package package) async {
+    final previous = state.maybeWhen(
+      data: (value) => value,
+      orElse: () => const BillingState(),
+    );
+    if (!ref.read(revenueCatBillingAvailableProvider)) {
+      state = AsyncValue.data(
+        previous.copyWith(
+          purchaseStatus: BillingPurchaseStatus.failed,
+          purchaseMessage: 'この環境ではアプリ内購入を利用できません。',
+        ),
+      );
+      return;
+    }
+
+    state = AsyncValue.data(
+      previous.copyWith(
+        purchaseStatus: BillingPurchaseStatus.purchasing,
+        clearPurchaseMessage: true,
+      ),
+    );
+
     try {
-      await Purchases.restorePurchases();
-      // Listener will automatically update state.
+      final customerInfo = await ref
+          .read(revenueCatGatewayProvider)
+          .purchasePackage(package);
+      final next = _mapCustomerInfo(customerInfo).copyWith(
+        purchaseStatus: BillingPurchaseStatus.purchasePending,
+        purchaseMessage: '購入を確認中です。反映まで少し時間がかかる場合があります。',
+      );
+      state = AsyncValue.data(next);
+      _refreshEntitlementBoundary();
+    } on PlatformException catch (e) {
+      final errorCode = PurchasesErrorHelper.getErrorCode(e);
+      if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+        state = AsyncValue.data(
+          previous.copyWith(
+            purchaseStatus: BillingPurchaseStatus.cancelled,
+            purchaseMessage: '購入はキャンセルされました。',
+          ),
+        );
+      } else {
+        state = AsyncValue.data(
+          previous.copyWith(
+            purchaseStatus: BillingPurchaseStatus.failed,
+            purchaseMessage: '購入を完了できませんでした。時間をおいて再試行してください。',
+          ),
+        );
+      }
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
+  }
+
+  /// Restore previous purchases and refresh the billing state.
+  Future<void> restorePurchases() async {
+    final previous = state.maybeWhen(
+      data: (value) => value,
+      orElse: () => const BillingState(),
+    );
+    if (!ref.read(revenueCatBillingAvailableProvider)) {
+      state = AsyncValue.data(
+        previous.copyWith(
+          purchaseStatus: BillingPurchaseStatus.failed,
+          purchaseMessage: 'この環境では購入の復元を利用できません。',
+        ),
+      );
+      return;
+    }
+
+    state = AsyncValue.data(
+      previous.copyWith(
+        purchaseStatus: BillingPurchaseStatus.restoring,
+        clearPurchaseMessage: true,
+      ),
+    );
+
+    try {
+      final customerInfo = await ref
+          .read(revenueCatGatewayProvider)
+          .restorePurchases();
+      state = AsyncValue.data(
+        _mapCustomerInfo(customerInfo).copyWith(
+          purchaseStatus: BillingPurchaseStatus.restored,
+          purchaseMessage: '購入情報を復元しました。Pro状態を再確認しています。',
+        ),
+      );
+      _refreshEntitlementBoundary();
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  void _refreshEntitlementBoundary() {
+    ref.invalidate(currentProEntitlementProvider);
+    ref.invalidate(proPackageProvider);
   }
 }
 
@@ -65,3 +260,40 @@ final isTrialingProvider = Provider<bool>((ref) {
   return ref.watch(billingProvider).whenOrNull(data: (d) => d.isTrialing) ??
       false;
 });
+
+String _periodLabel(String? subscriptionPeriod, PackageType packageType) {
+  switch (subscriptionPeriod) {
+    case 'P1W':
+      return '週額';
+    case 'P1M':
+      return '月額';
+    case 'P2M':
+      return '2か月';
+    case 'P3M':
+      return '3か月';
+    case 'P6M':
+      return '6か月';
+    case 'P1Y':
+      return '年額';
+  }
+
+  switch (packageType) {
+    case PackageType.weekly:
+      return '週額';
+    case PackageType.monthly:
+      return '月額';
+    case PackageType.twoMonth:
+      return '2か月';
+    case PackageType.threeMonth:
+      return '3か月';
+    case PackageType.sixMonth:
+      return '6か月';
+    case PackageType.annual:
+      return '年額';
+    case PackageType.lifetime:
+      return '買い切り';
+    case PackageType.custom:
+    case PackageType.unknown:
+      return 'Pro';
+  }
+}

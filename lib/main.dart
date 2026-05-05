@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_providers.dart';
 import 'billing/billing_providers.dart';
+import 'billing/pro_entitlement_providers.dart';
 import 'config/revenuecat_config.dart';
 import 'config/supabase_config.dart';
 import 'persistence/app_database.dart';
@@ -19,9 +20,10 @@ void main() async {
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-  await Purchases.configure(
-    PurchasesConfiguration(RevenueCatConfig.currentApiKey),
-  );
+  final revenueCatApiKey = RevenueCatConfig.currentApiKey;
+  if (revenueCatApiKey != null) {
+    await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
+  }
   final db = AppDatabase.defaults();
   runApp(
     ProviderScope(
@@ -38,10 +40,16 @@ class MedoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Keep RevenueCat identity in sync with Supabase auth state.
     ref.listen<String?>(currentUserIdProvider, (prev, next) async {
+      if (!RevenueCatConfig.supportsCurrentPlatform) {
+        ref.invalidate(currentProEntitlementProvider);
+        return;
+      }
       if (next != null && next != prev) {
         await Purchases.logIn(next);
+        ref.invalidate(currentProEntitlementProvider);
       } else if (next == null && prev != null) {
         await Purchases.logOut();
+        ref.invalidate(currentProEntitlementProvider);
       }
     });
 

@@ -3,7 +3,7 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-04"
+updated_at: "2026-05-09"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -15,11 +15,10 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Medo` の複数プラン保存・ロードと履歴閲覧、テンプレート永続化のために追加した永続化 Repository の現状仕様をまとめます。
+本リファレンスは、`Medo` の複数プラン保存・ロード、現在プラン復元、履歴閲覧、テンプレート永続化のために追加した永続化 Repository の現状仕様をまとめます。
 対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart` です。
 
-現時点では Repository 層の基本機能のみを実装しています。
-アプリ画面の起動時復元、自動保存、プラン選択 UI、履歴閲覧 UI、テンプレート管理 UI はまだ接続していません。
+アプリ画面は起動時に最後に開いた plan を復元し、編集中の状態を自動保存します。timeline list island modal の切り替え操作は current plan preference を更新します。ヘッダーの export panel は保存・ロードを扱いません。
 
 ## API
 
@@ -28,7 +27,7 @@ related_prs: []
 - **Summary**: Drift / SQLite の database 定義
 - **Parameters**:
   - `QueryExecutor executor`: テストやカスタム接続で使う Drift executor
-- **Returns**: `plans`、`plan_blocks`、`plan_snapshots`、`timeline_templates`、`timeline_template_blocks` テーブルを持つ database
+- **Returns**: `plans`、`plan_blocks`、`plan_snapshots`、`timeline_templates`、`timeline_template_blocks`、`app_preferences` テーブルを持つ database
 - **Errors**: Drift / SQLite の接続・クエリエラーをそのまま返す
 - **Examples**:
   - 本番用: `AppDatabase.defaults()`
@@ -111,6 +110,18 @@ related_prs: []
 - **Examples**:
   - `position` 昇順で読み出すと `TimelineState.blocks` と同じ順序になる
 
+### `app_preferences` table
+
+- **Summary**: アプリ横断の軽量設定を key-value 形式で保持する
+- **Parameters**:
+  - `key (String)`: 設定キー
+  - `value (String)`: 設定値
+  - `updatedAt (DateTime)`: 更新日時
+- **Returns**: なし
+- **Errors**: `key` 重複時は upsert で置き換える
+- **Examples**:
+  - `key = "currentPlanId"`, `value = plans.id`
+
 ### `PlanRepository.createPlan`
 
 - **Summary**: 新しいプランを作成し、現在ブロックと必要に応じて初期 snapshot を保存する
@@ -131,6 +142,34 @@ related_prs: []
 - **Errors**: DB 読み込み失敗時は Drift / SQLite エラー
 - **Examples**:
   - プラン選択画面の一覧表示に使用する
+
+### `PlanRepository.countPlans`
+
+- **Summary**: 保存済み plan 数を取得する
+- **Parameters**: なし
+- **Returns**: `int`
+- **Errors**: DB 読み込み失敗時は Drift / SQLite エラー
+- **Examples**:
+  - Free / Pro のタイムライン作成上限判定に使用する
+
+### `PlanRepository.loadCurrentPlanId`
+
+- **Summary**: 最後に開いていた current plan id を読み出す
+- **Parameters**: なし
+- **Returns**: 保存値が存在し、対応する plan も存在する場合は plan id。未保存または対象 plan が存在しない場合は `null`
+- **Errors**: DB 読み込み失敗時は Drift / SQLite エラー
+- **Examples**:
+  - 起動時に `listPlans()` の先頭へ fallback する前に参照する
+
+### `PlanRepository.saveCurrentPlanId`
+
+- **Summary**: 最後に開いていた current plan id を保存する
+- **Parameters**:
+  - `planId (String)`: current として保存する plan ID
+- **Returns**: なし
+- **Errors**: 対象 plan が存在しない場合は `StateError`
+- **Examples**:
+  - timeline list island modal から plan を切り替えた後に呼ぶ
 
 ### `PlanRepository.loadPlan`
 
@@ -156,6 +195,17 @@ related_prs: []
 - **Examples**:
   - `repository.savePlan(planId: id, state: state, snapshotLabel: "After edit")`
 
+### `PlanRepository.renamePlan`
+
+- **Summary**: 指定プランの表示名だけを更新する
+- **Parameters**:
+  - `planId (String)`: 更新対象プラン ID
+  - `newTitle (String)`: 新しいプラン名。前後空白は削除され、空文字・空白のみは `Untitled plan` に正規化される
+- **Returns**: なし
+- **Errors**: 対象プランが存在しない場合は `StateError`
+- **Examples**:
+  - timeline list island modal の row inline rename から呼ぶ
+
 ### `PlanRepository.deletePlan`
 
 - **Summary**: 指定プランを削除する
@@ -164,7 +214,8 @@ related_prs: []
 - **Returns**: なし
 - **Errors**: DB 削除失敗時は Drift / SQLite エラー
 - **Examples**:
-  - プラン削除 UI から使用する
+  - timeline list island modal の削除確認後に使用する
+  - current plan を削除した場合、UI 側で残存 plan または新規空 plan を current として保存する
 
 ### `PlanRepository.createSnapshot`
 

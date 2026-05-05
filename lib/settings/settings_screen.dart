@@ -13,6 +13,36 @@ import '../theme.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: const Text('アカウントを削除しますか？'),
+        content: const Text(
+          'Supabase上のアカウント情報と課金状態を削除します。ストアのサブスクリプション解約はGoogle PlayまたはApp Storeで別途行ってください。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read(authProvider.notifier).deleteAccount();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authAsync = ref.watch(authProvider);
@@ -40,7 +70,9 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: authAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.accentOlive)),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.accentOlive),
+          ),
           error: (err, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
@@ -52,7 +84,10 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           data: (authState) => ListView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.md,
+            ),
             children: [
               _SectionHeader(title: 'アカウント'),
               const SizedBox(height: AppSpacing.md),
@@ -61,6 +96,10 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.lg),
                 _SignOutButton(
                   onTap: () => ref.read(authProvider.notifier).signOut(),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _DeleteAccountButton(
+                  onTap: () => _confirmDeleteAccount(context, ref),
                 ),
               ] else ...[
                 _SignInInfoText(),
@@ -71,7 +110,8 @@ class SettingsScreen extends ConsumerWidget {
                   backgroundColor: Colors.white,
                   foregroundColor: AppColors.ink,
                   borderColor: AppColors.softGray,
-                  onTap: () => ref.read(authProvider.notifier).signInWithGoogle(),
+                  onTap: () =>
+                      ref.read(authProvider.notifier).signInWithGoogle(),
                 ),
                 if (Platform.isIOS || Platform.isMacOS) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -81,7 +121,8 @@ class SettingsScreen extends ConsumerWidget {
                     backgroundColor: AppColors.darkSurface,
                     foregroundColor: Colors.white,
                     borderColor: AppColors.darkSurface,
-                    onTap: () => ref.read(authProvider.notifier).signInWithApple(),
+                    onTap: () =>
+                        ref.read(authProvider.notifier).signInWithApple(),
                   ),
                 ],
               ],
@@ -93,17 +134,57 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const PaywallScreen(feature: PaywallFeature.timelineCount),
+                      builder: (_) => const PaywallScreen(
+                        feature: PaywallFeature.timelineCount,
+                      ),
                     ),
                   );
                 },
               ),
               const SizedBox(height: AppSpacing.md),
               _RestorePurchasesButton(
-                onTap: () => ref.read(billingProvider.notifier).restorePurchases(),
+                onTap: () =>
+                    ref.read(billingProvider.notifier).restorePurchases(),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteAccountButton extends StatelessWidget {
+  const _DeleteAccountButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      scale: 0.98,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.softGray, width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(PhosphorIcons.trash(), size: 20, color: AppColors.mutedInk),
+            const SizedBox(width: AppSpacing.sm),
+            const Text(
+              'アカウントを削除',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.mutedInk,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -194,7 +275,9 @@ class _UserInfoCard extends StatelessWidget {
               children: [
                 Text(
                   'ログイン中',
-                  style: AppTextStyles.label.copyWith(color: AppColors.accentOlive),
+                  style: AppTextStyles.label.copyWith(
+                    color: AppColors.accentOlive,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -332,7 +415,9 @@ class _ProStatusCard extends StatelessWidget {
           color: isPro ? AppColors.selectionFill : AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
-            color: isPro ? AppColors.accentOlive.withValues(alpha: 0.3) : AppColors.softGray,
+            color: isPro
+                ? AppColors.accentOlive.withValues(alpha: 0.3)
+                : AppColors.softGray,
             width: 1,
           ),
           boxShadow: AppShadows.card,
@@ -369,9 +454,7 @@ class _ProStatusCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isPro
-                        ? '全てのPro機能が利用可能です'
-                        : 'タップしてPro機能を確認',
+                    isPro ? '全てのPro機能が利用可能です' : 'タップしてPro機能を確認',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.mutedInk,
@@ -413,7 +496,11 @@ class _RestorePurchasesButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(PhosphorIcons.arrowCounterClockwise(), size: 20, color: AppColors.mutedInk),
+            Icon(
+              PhosphorIcons.arrowCounterClockwise(),
+              size: 20,
+              color: AppColors.mutedInk,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               '購入を復元',

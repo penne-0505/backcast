@@ -3,7 +3,7 @@ title: Timeline List Management
 status: proposed
 draft_status: n/a
 created_at: "2026-05-02"
-updated_at: "2026-05-02"
+updated_at: "2026-05-09"
 references:
   - TODO.md
   - _docs/guide/medo/timeline_editor.md
@@ -17,14 +17,15 @@ related_prs: []
 
 複数タイムライン機能を、既存の `plans` を日常的に扱う「タイムライン一覧」として実装する。
 
-ユーザーは複数のタイムラインを保存し、floating button から一覧 UI を開いて切り替えられる。各タイムラインには名前を付けられ、現在のタイムライン名はヘッダー付近でインライン編集できる。
+ユーザーは複数のタイムラインを保存し、floating button から画面下部に浮く island modal を開いて切り替えられる。各タイムラインには名前を付けられ、現在のタイムライン名はヘッダー付近でインライン編集できる。
 
 初期リリースでは Free は最大2つ、Pro は無制限とする。固定2スロットや toggle 専用 UI ではなく、将来の利用実態にも耐える list-first の設計にする。
 
 ## Decision
 
 - Free の保持数上限は2つ、Pro の保持数上限は無制限とする。
-- floating button は timeline list を開く入口とする。
+- floating button は画面下部に浮く timeline list island modal を開く入口とする。
+- timeline list island modal は下端に接地した sheet ではなく、scrim 上に独立して浮く面として表示し、ヘッダーの export panel とは別の、タイムライン切替に特化した導線にする。
 - Free でも floating button を表示する。Free でも2つまで作成・切り替えできるため、使えない UI ではない。
 - Free が2つ保持済みの場合、一覧内の新規作成は無効化し、必要なら控えめな Pro 導線を一覧内に置く。
 - Pro では一覧から任意個数のタイムラインを作成・選択できる。
@@ -41,14 +42,14 @@ related_prs: []
 
 ## Scope
 
-- floating button から開く timeline list UI を追加する。
+- floating button から開く画面下部の timeline list island modal を追加する。
 - list UI から既存 timeline を選択して切り替えられるようにする。
 - list UI から新規 timeline を作成できるようにする。
 - Free / Pro の保持数上限を作成導線へ反映する。
 - 起動時に最後に開いていた plan を復元する。
 - タイムライン名をヘッダー付近に表示し、インライン編集できるようにする。
 - 切り替え前に現在 plan の未保存変更を保存してから、次の plan を読み込む。
-- existing `PlanPanel` から plan を load する場合は、現在 plan の永続設定も合わせて更新し、timeline list と矛盾しないようにする。
+- ヘッダーの export panel は plan load を扱わない。plan 切り替えは timeline list island modal に集約する。
 - 実装後、timeline editor guide と persistence reference を更新する。
 
 ## Non-Goals
@@ -101,14 +102,23 @@ related_prs: []
 
 - Free / Pro ともに表示する。
 - 表示位置は既存の floating toolbar と競合しないようにする。
-- tap で timeline list UI を開く。
+- tap で画面下部に浮く timeline list island modal を開く。
+- modal は下端に接地させず、左右と下に余白を残した island として表示し、背景には scrim を敷く。
+- modal は narrow viewport でも片手で扱える高さに抑え、タイムライン件数が多い場合は list body のみを scroll させる。
+- modal は既存の floating toolbar と視覚的に同系統の浮遊面として扱うが、役割は timeline list に限定する。
+- modal 表示中は既存の floating toolbar、edit sheet、template sheet と同時表示しない。
 - list には現在 timeline、timeline name、target title、target time、block count、updated time を表示する。
 - current timeline は選択状態として分かるようにする。
 - list から別 timeline を選ぶと、その timeline へ切り替える。
-- list から新規 timeline を作成できる。
+- `新しいタイムライン` から modal 上部の作成フォームを開き、名前を入力して新規 timeline を作成できる。
+- 空欄で作成した場合は `無題のタイムライン` として作成する。
+- 既存 row の rename affordance から timeline name を inline edit できる。
+- 既存 row の delete affordance から確認 dialog を開き、確認後に timeline を削除できる。
+- current timeline を削除した場合は、残存 timeline または新規空 timeline に current を切り替える。
 - Free が上限到達済みの場合、新規作成 affordance は disabled にする。
-- list 表示中や切替中は多重 tap を無効化する。
+- modal 表示中や切替中は多重 tap を無効化する。
 - 切替後は `selectedBlockId`, `activeInlineEditorId`, `preciseDraggingId` などの一時 UI 状態をクリアする。
+- modal は scrim tap または close affordance で閉じられる。
 
 ### Save / Load Ordering
 
@@ -120,14 +130,16 @@ related_prs: []
 
 - **Functional**: Free ユーザーは最大2つのタイムラインを保持できる。
 - **Functional**: Pro ユーザーはタイムラインを無制限に保持できる。
-- **Functional**: Free / Pro ともに floating button から timeline list を開ける。
-- **Functional**: timeline list から既存 timeline を選択して切り替えられる。
-- **Functional**: timeline list から新規 timeline を作成できる。
+- **Functional**: Free / Pro ともに floating button から画面下部に浮く timeline list island modal を開ける。
+- **Functional**: timeline list island modal から既存 timeline を選択して切り替えられる。
+- **Functional**: timeline list island modal 上部の作成フォームから、命名して新規 timeline を作成できる。
+- **Functional**: timeline list island modal で既存 timeline を rename / delete できる。
+- **Functional**: current timeline 削除後も persisted `currentPlanId` は削除済み ID を指さない。
 - **Functional**: Free が2件保持済みの場合、新規作成はできない。
 - **Functional**: 各タイムラインは独立した名前を持ち、ヘッダー付近でインライン編集できる。
 - **Functional**: Pro から Free へ戻っても超過分のデータは削除されない。
 - **Functional**: 再起動後、最後に開いていた current plan が復元される。
-- **Non-Functional**: list UI は既存の block 追加、inline edit、edit sheet、reorder、pinch zoom と競合しない。
+- **Non-Functional**: timeline list island modal は既存の block 追加 floating toolbar、inline edit、edit sheet、template sheet、reorder、pinch zoom と競合しない。
 - **Non-Functional**: 切替時に直前の編集が失われない。
 - **Non-Functional**: migration は既存 plan データを破壊しない。
 
@@ -135,13 +147,13 @@ related_prs: []
 
 1. Drift schema または同等の永続設定を拡張し、`currentPlanId` を保存できるようにする。
 2. 起動時の plan 復元を、`updatedAt` 降順の先頭ではなく persisted `currentPlanId` 優先に置き換える。
-3. `PlanRepository` または専用 repository に timeline count、canCreateTimeline、create timeline、switch timeline、rename current timeline を追加する。
+3. `PlanRepository` または専用 repository に timeline count、canCreateTimeline、create timeline、switch timeline、rename timeline を追加する。
 4. 自動保存 debounce を flush できる境界を作り、timeline 切替前に現在 plan を保存する。
 5. ヘッダー付近に timeline name inline editor を追加し、`plans.title` を更新する。
-6. floating button から timeline list UI を開けるようにする。
-7. timeline list の row 表示、current 表示、select、create、Free 上限到達時の disabled 状態を実装する。
+6. floating button から画面下部の timeline list island modal を開けるようにする。
+7. timeline list island modal の row 表示、current 表示、select、上部作成フォーム、rename、delete、Free 上限到達時の disabled 状態を実装する。
 8. `isProProvider` に基づき、Free は2件まで、Pro は無制限として作成可否を制御する。
-9. existing `PlanPanel` の load 操作が persisted `currentPlanId` と矛盾しないように統合する。
+9. ヘッダーの export panel から plan load 導線を撤去し、persisted `currentPlanId` の更新経路を timeline list island modal に集約する。
 10. Free / Pro / downgrade / restore Pro の状態遷移を targeted test と手動確認で検証する。
 11. 実装後、`_docs/reference/medo/persistence_repository_reference.md` と `_docs/guide/medo/timeline_editor.md` を更新する。
 
@@ -156,17 +168,20 @@ related_prs: []
   - Pro から Free へ縮退しても超過 timeline が削除されないこと
 - Widget test
   - Free / Pro ともに floating list button が表示される
-  - tap で timeline list が開く
+  - tap で画面下部に浮く timeline list island modal が開く
   - list に timeline name、target title、target time、block count が表示される
   - current timeline が区別される
   - list row tap で切り替わる
+  - scrim tap または close affordance で modal を閉じられる
   - Free で2件未満なら新規作成できる
   - Free で2件到達済みなら新規作成が disabled になる
   - Pro では2件以上でも新規作成できる
   - header inline edit で timeline name が更新される
   - 切替後に edit sheet / inline editor / selected block が残らない
 - Manual test
-  - Android / iOS 相当の narrow viewport で floating button と list UI が既存 toolbar と重ならない
+  - Android / iOS 相当の narrow viewport で floating button と timeline list island modal が既存 toolbar と重ならない
+  - island modal が下端に接地した sheet に見えず、左右と下の余白を保って浮いて見える
+  - modal 表示中に block 追加 floating toolbar、edit sheet、template sheet が同時表示されない
   - Pro から Free への entitlement 変化後に超過分が削除されない
   - Free から Pro に戻った後に既存の超過 timeline が再び利用できる
   - 直前に block title / duration / target title を編集してすぐ切り替えても、編集内容が失われない

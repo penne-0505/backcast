@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 import 'billing/gate_helper.dart';
 import 'billing/paywall_screen.dart';
@@ -9,142 +8,34 @@ import 'calendar_export.dart';
 import 'calendar_export_delivery.dart';
 import 'calendar_export_request_builder.dart';
 import 'image_export_delivery.dart';
-import 'models.dart';
 import 'text_export_delivery.dart';
 import 'timeline_image_export.dart';
 import 'timeline_image_share_card.dart';
 import 'timeline_text_export.dart';
-import 'persistence/persistence_providers.dart';
-import 'persistence/plan_repository.dart';
 import 'state.dart';
 import 'theme.dart';
 
-const _uuid = Uuid();
 final _calendarExportDelivery = CalendarExportDelivery();
 const _textExportDelivery = TextExportDelivery();
 const _imageExportDelivery = ImageExportDelivery();
 
 // ---------------------------------------------------------------------------
-// Panel root — 保存(0) / ロード(1) / カレンダーエクスポート(2)
+// Export panel
 // ---------------------------------------------------------------------------
 
-class PlanPanel extends ConsumerStatefulWidget {
-  const PlanPanel({
-    super.key,
-    required this.initialTab,
-    required this.onDismiss,
-  });
+class ExportPanel extends ConsumerStatefulWidget {
+  const ExportPanel({super.key, required this.onDismiss});
 
-  final int initialTab;
   final VoidCallback onDismiss;
 
   @override
-  ConsumerState<PlanPanel> createState() => _PlanPanelState();
+  ConsumerState<ExportPanel> createState() => _ExportPanelState();
 }
 
-class _PlanPanelState extends ConsumerState<PlanPanel> {
-  late final TextEditingController _nameCtrl;
-  List<TimelinePlanSummary> _plans = [];
-  bool _loadingPlans = true;
-  bool _saving = false;
-  // エクスポート用
+class _ExportPanelState extends ConsumerState<ExportPanel> {
   bool _useToday = true;
   DateTime? _pickedDate;
   bool _exporting = false;
-  bool _userEditedName = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final state = ref.read(timelineProvider);
-    _nameCtrl = TextEditingController(text: state.targetTimeTitle);
-    _nameCtrl.addListener(_onNameChanged);
-    _loadPlans();
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.removeListener(_onNameChanged);
-    _nameCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onNameChanged() {
-    _userEditedName = true;
-  }
-
-  Future<void> _loadPlans() async {
-    try {
-      final repo = ref.read(planRepositoryProvider);
-      final currentId = ref.read(currentPlanIdProvider);
-      final plans = await repo.listPlans();
-      if (currentId != null && mounted) {
-      final cur = plans.where((p) => p.id == currentId).firstOrNull;
-      if (cur != null && !_userEditedName) {
-        _nameCtrl.removeListener(_onNameChanged);
-        _nameCtrl.text = cur.title;
-        _nameCtrl.addListener(_onNameChanged);
-      }
-    }
-      if (mounted) {
-        setState(() {
-          _plans = plans;
-          _loadingPlans = false;
-        });
-      }
-    } catch (e, st) {
-      debugPrint('PlanPanel loadPlans error: $e\n$st');
-      if (mounted) setState(() => _loadingPlans = false);
-    }
-  }
-
-  TimelineState _withFreshBlockIds(TimelineState s) => TimelineState(
-    targetTime: s.targetTime,
-    targetTimeTitle: s.targetTimeTitle,
-    blocks: s.blocks
-        .map((b) => b.copyWith(id: _uuid.v4()))
-        .toList(growable: false),
-  );
-
-  Future<void> _save() async {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) return;
-
-    // Free timeline count gate
-    final isPro = ref.read(effectiveIsProProvider);
-    if (!isPro && _plans.length >= kFreeTimelineLimit) {
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const PaywallScreen(feature: PaywallFeature.timelineCount),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    try {
-      final fresh = _withFreshBlockIds(ref.read(timelineProvider));
-      final plan = await ref
-          .read(planRepositoryProvider)
-          .createPlan(state: fresh, title: name);
-      if (!mounted) return;
-      ref.read(timelineProvider.notifier).loadState(fresh);
-      ref.read(currentPlanIdProvider.notifier).set(plan.id);
-      widget.onDismiss();
-    } catch (e, st) {
-      debugPrint('PlanPanel save error: $e\n$st');
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _loadPlan(TimelinePlanSummary summary) async {
-    final plan = await ref.read(planRepositoryProvider).loadPlan(summary.id);
-    if (!mounted || plan == null) return;
-    ref.read(timelineProvider.notifier).loadState(plan.state);
-    ref.read(currentPlanIdProvider.notifier).set(plan.id);
-    widget.onDismiss();
-  }
 
   Future<void> _export() async {
     final state = ref.read(timelineProvider);
@@ -187,10 +78,12 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
     } on CalendarExportException catch (e) {
       if (!mounted) return;
       final message = switch (e.error) {
-        CalendarExportError.permissionDenied => 'カレンダーへのアクセスが許可されていません。設定から権限を確認してください。',
+        CalendarExportError.permissionDenied =>
+          'カレンダーへのアクセスが許可されていません。設定から権限を確認してください。',
         CalendarExportError.noWritableCalendar => '書き込み可能なカレンダーが見つかりません。',
         CalendarExportError.invalidPayload => '登録内容に問題があります。',
-        CalendarExportError.unsupportedPlatform => 'このプラットフォームではカレンダー登録に対応していません。',
+        CalendarExportError.unsupportedPlatform =>
+          'このプラットフォームではカレンダー登録に対応していません。',
         CalendarExportError.saveFailed => 'カレンダー登録に失敗しました。',
       };
       _showResultSnackBar(message, success: false);
@@ -224,7 +117,8 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => const PaywallScreen(feature: PaywallFeature.imageExport),
+          builder: (_) =>
+              const PaywallScreen(feature: PaywallFeature.imageExport),
         ),
       );
       return;
@@ -256,7 +150,9 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
         content: Row(
           children: [
             Icon(
-              success ? PhosphorIcons.checkCircle() : PhosphorIcons.warningCircle(),
+              success
+                  ? PhosphorIcons.checkCircle()
+                  : PhosphorIcons.warningCircle(),
               color: AppColors.canvas,
               size: 18,
             ),
@@ -273,7 +169,9 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
             ),
           ],
         ),
-        backgroundColor: success ? AppColors.darkSurface : const Color(0xFFB54A4A),
+        backgroundColor: success
+            ? AppColors.darkSurface
+            : const Color(0xFFB54A4A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -285,12 +183,8 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
     );
   }
 
-  static const _titles = ['現在の状態を保存', 'プランを読み込む', 'カレンダーにエクスポート'];
-
   @override
   Widget build(BuildContext context) {
-    final currentId = ref.watch(currentPlanIdProvider);
-
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -309,9 +203,9 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
               padding: const EdgeInsets.fromLTRB(20, 14, 16, 10),
               child: Row(
                 children: [
-                    Text(
-                    _titles[widget.initialTab.clamp(0, _titles.length - 1)],
-                    style: const TextStyle(
+                  const Text(
+                    'エクスポート',
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.darkSurface,
@@ -344,99 +238,12 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: switch (widget.initialTab) {
-                  0 => _buildSave(),
-                  1 => _buildLoad(currentId),
-                  _ => _buildExport(),
-                },
+                child: _buildExport(),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  // ── セーブ ─────────────────────────────────────────────────────────────
-
-  Widget _buildSave() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: AppColors.softGray,
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-          child: TextField(
-            controller: _nameCtrl,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              hintText: 'プラン名を入力...',
-              hintStyle: TextStyle(color: AppColors.mutedInk),
-            ),
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
-              color: AppColors.ink,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Pressable(
-          onTap: _saving ? null : _save,
-          scale: 0.97,
-          child: Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.darkSurface,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Center(
-              child: _saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.canvas,
-                      ),
-                    )
-                  : const Text(
-                      'この状態を保存する',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.canvas,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── ロード ─────────────────────────────────────────────────────────────
-
-  Widget _buildLoad(String? currentId) {
-    if (_loadingPlans) return const _CenterSpinner();
-    if (_plans.isEmpty) return const _EmptyHint('保存済みプランはありません');
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final s in _plans)
-          _PlanTile(
-            title: s.title,
-            subtitle: '${s.blockCount}ブロック · ${formatTime(s.targetTime)}',
-            isActive: currentId == s.id,
-            onTap: () => _loadPlan(s),
-          ),
-      ],
     );
   }
 
@@ -596,74 +403,6 @@ class _PlanPanelState extends ConsumerState<PlanPanel> {
 // 小部品
 // ---------------------------------------------------------------------------
 
-class _PlanTile extends StatelessWidget {
-  const _PlanTile({
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.isActive = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Pressable(
-        onTap: onTap,
-        scale: 0.98,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.selectionFill : AppColors.softGray,
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            border: isActive
-                ? Border.all(color: AppColors.accentOlive, width: 1.5)
-                : null,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.mutedInk,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isActive)
-                Icon(
-                  PhosphorIcons.check(),
-                  size: 14,
-                  color: AppColors.accentOlive,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ToggleChip extends StatelessWidget {
   const _ToggleChip({
     required this.label,
@@ -699,35 +438,6 @@ class _ToggleChip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _CenterSpinner extends StatelessWidget {
-  const _CenterSpinner();
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 24),
-    child: Center(
-      child: CircularProgressIndicator(
-        strokeWidth: 2,
-        color: AppColors.accentOlive,
-      ),
-    ),
-  );
-}
-
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    child: Center(
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 13, color: AppColors.mutedInk),
-      ),
-    ),
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -803,10 +513,7 @@ class _CalendarExportPreviewDialog extends StatelessWidget {
               value: '${_fmtDateTime(preview.anchorDateTime)} ・ $targetTitle',
             ),
             const SizedBox(height: 10),
-            _PreviewRow(
-              label: '件数',
-              value: '${preview.eventCount}件',
-            ),
+            _PreviewRow(label: '件数', value: '${preview.eventCount}件'),
             if (preview.spansMultipleDays) ...[
               const SizedBox(height: 10),
               Container(
@@ -1046,10 +753,7 @@ class _TextShareDialogState extends State<_TextShareDialog> {
                 ),
                 child: const Text(
                   'エクスポート日を「今日」または「別の日付」で選択してください。',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.mutedInk,
-                  ),
+                  style: TextStyle(fontSize: 13, color: AppColors.mutedInk),
                 ),
               ),
             ] else ...[
@@ -1092,8 +796,9 @@ class _TextShareDialogState extends State<_TextShareDialog> {
                                 backgroundColor: AppColors.darkSurface,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
                                 ),
                                 margin: const EdgeInsets.all(16),
                                 duration: const Duration(seconds: 2),
@@ -1277,9 +982,8 @@ class _ImageShareDialogState extends State<_ImageShareDialog> {
                   child: _ToggleChip(
                     label: '日付なし',
                     selected: _mode == TimelineImageExportMode.noDate,
-                    onTap: () => setState(
-                      () => _mode = TimelineImageExportMode.noDate,
-                    ),
+                    onTap: () =>
+                        setState(() => _mode = TimelineImageExportMode.noDate),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1304,10 +1008,7 @@ class _ImageShareDialogState extends State<_ImageShareDialog> {
                 ),
                 child: const Text(
                   'エクスポート日を「今日」または「別の日付」で選択してください。',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.mutedInk,
-                  ),
+                  style: TextStyle(fontSize: 13, color: AppColors.mutedInk),
                 ),
               ),
             ] else ...[
@@ -1320,9 +1021,7 @@ class _ImageShareDialogState extends State<_ImageShareDialog> {
                       Center(
                         child: RepaintBoundary(
                           key: _captureKey,
-                          child: TimelineImageShareCard(
-                            viewModel: viewModel!,
-                          ),
+                          child: TimelineImageShareCard(viewModel: viewModel!),
                         ),
                       ),
                       if (isLongTimeline) ...[

@@ -55,11 +55,11 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
   /// The deep-link callback is handled automatically by supabase_flutter.
   Future<void> signInWithGoogle() async {
     try {
-      final success =
-          await supabase.Supabase.instance.client.auth.signInWithOAuth(
-        supabase.OAuthProvider.google,
-        redirectTo: 'dev.otibo.medo://callback',
-      );
+      final success = await supabase.Supabase.instance.client.auth
+          .signInWithOAuth(
+            supabase.OAuthProvider.google,
+            redirectTo: 'dev.otibo.medo://callback',
+          );
       if (!success) {
         throw Exception('Google sign-in was not initiated successfully.');
       }
@@ -76,11 +76,11 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
       );
     }
     try {
-      final success =
-          await supabase.Supabase.instance.client.auth.signInWithOAuth(
-        supabase.OAuthProvider.apple,
-        redirectTo: 'dev.otibo.medo://callback',
-      );
+      final success = await supabase.Supabase.instance.client.auth
+          .signInWithOAuth(
+            supabase.OAuthProvider.apple,
+            redirectTo: 'dev.otibo.medo://callback',
+          );
       if (!success) {
         throw Exception('Apple sign-in was not initiated successfully.');
       }
@@ -94,6 +94,23 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
     try {
       await supabase.Supabase.instance.client.auth.signOut();
       // The onAuthStateChange listener will update [state] automatically.
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Delete the authenticated Supabase account through a server-side function.
+  Future<void> deleteAccount() async {
+    try {
+      final client = supabase.Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) {
+        throw StateError('No authenticated user to delete.');
+      }
+
+      await client.functions.invoke('delete-account');
+      await client.auth.signOut();
+      state = const AsyncValue.data(AppAuthState());
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

@@ -3,12 +3,13 @@ title: Documentation Guide
 status: active
 draft_status: n/a
 created_at: "2026-04-16"
-updated_at: "2026-04-22"
+updated_at: "2026-05-09"
 references:
   - _docs/standards/documentation_guidelines.md
   - _docs/standards/documentation_operations.md
   - README.md
   - _docs/guide/medo/timeline_editor.md
+  - _docs/guide/medo/privacy_policy_operations.md
   - _docs/reference/medo/timeline_domain_reference.md
   - _docs/intent/medo/reverse_timeline_interaction_model.md
 related_issues: []
@@ -39,6 +40,7 @@ related_prs: []
 
 - `README.md`: プロジェクト概要、実行コマンド、主要ドキュメントへの入口
 - `_docs/guide/medo/timeline_editor.md`: 現在の UI 操作手順と運用上のコツ
+- `_docs/guide/medo/privacy_policy_operations.md`: ユーザーデータ、課金状態、アカウント削除、第三者サービス連携を変える際の privacy policy 更新条件
 - `_docs/reference/medo/timeline_domain_reference.md`: モデル、定数、状態管理 API の事実ベースの仕様
 - `_docs/intent/medo/reverse_timeline_interaction_model.md`: 逆算 UI と状態設計の判断理由
 - `_docs/guide/flutter/environment_setup.md`: Flutter 実行環境のセットアップ補足

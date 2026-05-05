@@ -57,13 +57,13 @@ class _PlanManagerSheetState extends ConsumerState<PlanManagerSheet> {
       final currentPlanId = ref.read(currentPlanIdProvider);
       final plans = await repo.listPlans();
       if (currentPlanId != null) {
-      final current = plans.where((p) => p.id == currentPlanId).firstOrNull;
-      if (current != null && mounted && !_userEditedName) {
-        _nameCtrl.removeListener(_onNameChanged);
-        _nameCtrl.text = current.title;
-        _nameCtrl.addListener(_onNameChanged);
+        final current = plans.where((p) => p.id == currentPlanId).firstOrNull;
+        if (current != null && mounted && !_userEditedName) {
+          _nameCtrl.removeListener(_onNameChanged);
+          _nameCtrl.text = current.title;
+          _nameCtrl.addListener(_onNameChanged);
+        }
       }
-    }
       if (mounted) {
         setState(() {
           _plans = plans;
@@ -124,6 +124,7 @@ class _PlanManagerSheetState extends ConsumerState<PlanManagerSheet> {
       final fresh = _withFreshBlockIds(ref.read(timelineProvider));
       final plan = await repo.createPlan(state: fresh, title: name);
       if (!mounted) return;
+      await repo.saveCurrentPlanId(plan.id);
       ref.read(timelineProvider.notifier).loadState(fresh);
       ref.read(currentPlanIdProvider.notifier).set(plan.id);
       widget.onDismiss();
@@ -137,6 +138,7 @@ class _PlanManagerSheetState extends ConsumerState<PlanManagerSheet> {
     final repo = ref.read(planRepositoryProvider);
     final plan = await repo.loadPlan(summary.id);
     if (!mounted || plan == null) return;
+    await repo.saveCurrentPlanId(plan.id);
     ref.read(timelineProvider.notifier).loadState(plan.state);
     ref.read(currentPlanIdProvider.notifier).set(plan.id);
     widget.onDismiss();
@@ -219,10 +221,7 @@ class _PlanManagerSheetState extends ConsumerState<PlanManagerSheet> {
               padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottomPadding),
               child: switch (_tab) {
                 0 => _buildSaveTab(key: const ValueKey('save')),
-                1 => _buildLoadTab(
-                  currentPlanId,
-                  key: const ValueKey('load'),
-                ),
+                1 => _buildLoadTab(currentPlanId, key: const ValueKey('load')),
                 _ => _buildHistoryTab(key: const ValueKey('history')),
               },
             ),
@@ -558,9 +557,6 @@ class _Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: AppTextStyles.label,
-    );
+    return Text(text, style: AppTextStyles.label);
   }
 }

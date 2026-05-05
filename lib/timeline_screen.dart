@@ -12,6 +12,7 @@ import 'compact_overview.dart';
 import 'edit_sheet.dart';
 import 'models.dart';
 import 'persistence/persistence_providers.dart';
+import 'persistence/plan_repository.dart';
 import 'plan_panel.dart';
 import 'platform_time_picker.dart';
 import 'billing/gate_helper.dart';
@@ -32,6 +33,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   final _scrollController = ScrollController();
   bool _sheetVisible = false;
   bool _templateSheetVisible = false;
+  bool _timelineListVisible = false;
+  bool _timelineSwitching = false;
+  bool _suppressAutoSave = false;
   final Map<int, Offset> _activePointers = {};
   double _basePixelsPerMinute = kPixelsPerMinute;
   double _initialPinchDistance = 0;
@@ -97,6 +101,20 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     return true;
   }
 
+  Future<void> _saveCurrentPlanNow({TimelineState? state}) async {
+    _saveDebounce?.cancel();
+    final planId = ref.read(currentPlanIdProvider);
+    if (planId == null) return;
+    await ref
+        .read(planRepositoryProvider)
+        .savePlan(
+          planId: planId,
+          state: state ?? ref.read(timelineProvider),
+          createSnapshot: false,
+        );
+    if (mounted) setState(() => _saveIndicatorVisible = false);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,7 +130,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     });
 
     ref.listenManual(timelineProvider, (prev, next) {
-      if (_isPinching) return;
+      if (_isPinching || _suppressAutoSave) return;
       _saveDebounce?.cancel();
       _saveIndicatorTimer?.cancel();
       if (mounted) setState(() => _saveIndicatorVisible = true);
@@ -139,31 +157,178 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         final plans = await repo.listPlans();
         if (!mounted) return;
         if (plans.isNotEmpty) {
-          final plan = await repo.loadPlan(plans.first.id);
+          final currentPlanId = await repo.loadCurrentPlanId();
+          final plan = await repo.loadPlan(currentPlanId ?? plans.first.id);
           if (!mounted || plan == null) return;
+          _suppressAutoSave = true;
           ref.read(currentPlanIdProvider.notifier).set(plan.id);
           ref.read(timelineProvider.notifier).loadState(plan.state);
+          _suppressAutoSave = false;
         } else {
           final plan = await repo.createPlan(state: ref.read(timelineProvider));
           if (!mounted) return;
           ref.read(currentPlanIdProvider.notifier).set(plan.id);
+          await repo.saveCurrentPlanId(plan.id);
         }
       } catch (e, st) {
+        _suppressAutoSave = false;
         debugPrint('Timeline init error: $e\n$st');
       }
     });
   }
 
-  int? _activePanel; // 0=save, 1=load, 2=history
+  bool _exportPanelVisible = false;
   bool _saveIndicatorVisible = false;
   Timer? _saveIndicatorTimer;
 
-  void _togglePanel(int index) {
+  void _toggleExportPanel() {
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _activePanel = _activePanel == index ? null : index);
+    setState(() {
+      _timelineListVisible = false;
+      _exportPanelVisible = !_exportPanelVisible;
+    });
   }
 
-  void _closePanel() => setState(() => _activePanel = null);
+  void _closeExportPanel() => setState(() => _exportPanelVisible = false);
+
+  void _showTimelineList() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (_sheetVisible) _dismissSheet();
+    if (_templateSheetVisible) _dismissTemplateSheet();
+    if (_isSearchActive) _closeSearch();
+    ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
+    setState(() {
+      _exportPanelVisible = false;
+      _timelineListVisible = true;
+    });
+  }
+
+  void _closeTimelineList() => setState(() => _timelineListVisible = false);
+
+  Future<void> _selectTimeline(TimelinePlanSummary summary) async {
+    if (_timelineSwitching) return;
+    setState(() => _timelineSwitching = true);
+    try {
+      await _saveCurrentPlanNow();
+      final repo = ref.read(planRepositoryProvider);
+      final plan = await repo.loadPlan(summary.id);
+      if (!mounted || plan == null) return;
+      await repo.saveCurrentPlanId(plan.id);
+      _suppressAutoSave = true;
+      ref.read(currentPlanIdProvider.notifier).set(plan.id);
+      ref
+          .read(timelineProvider.notifier)
+          .loadState(
+            plan.state.copyWith(
+              selectedBlockId: null,
+              preciseDraggingId: null,
+              activeInlineEditorId: null,
+            ),
+          );
+      _suppressAutoSave = false;
+      setState(() {
+        _timelineListVisible = false;
+        _timelineSwitching = false;
+      });
+    } catch (e, st) {
+      _suppressAutoSave = false;
+      debugPrint('Timeline switch error: $e\n$st');
+      if (mounted) setState(() => _timelineSwitching = false);
+    }
+  }
+
+  Future<void> _createTimelineFromList(String title) async {
+    if (_timelineSwitching) return;
+    setState(() => _timelineSwitching = true);
+    try {
+      await _saveCurrentPlanNow();
+      final repo = ref.read(planRepositoryProvider);
+      final currentState = ref.read(timelineProvider);
+      final plan = await repo.createPlan(
+        state: const TimelineState(),
+        title: title.trim().isEmpty ? '無題のタイムライン' : title.trim(),
+        createInitialSnapshot: false,
+      );
+      if (!mounted) return;
+      await repo.saveCurrentPlanId(plan.id);
+      _suppressAutoSave = true;
+      ref.read(currentPlanIdProvider.notifier).set(plan.id);
+      ref
+          .read(timelineProvider.notifier)
+          .loadState(
+            plan.state.copyWith(pixelsPerMinute: currentState.pixelsPerMinute),
+          );
+      _suppressAutoSave = false;
+      setState(() {
+        _timelineSwitching = false;
+      });
+    } catch (e, st) {
+      _suppressAutoSave = false;
+      debugPrint('Timeline create error: $e\n$st');
+      if (mounted) setState(() => _timelineSwitching = false);
+    }
+  }
+
+  Future<void> _renameTimelineFromList(
+    TimelinePlanSummary summary,
+    String title,
+  ) async {
+    if (_timelineSwitching) return;
+    setState(() => _timelineSwitching = true);
+    try {
+      await ref.read(planRepositoryProvider).renamePlan(summary.id, title);
+      if (mounted) setState(() => _timelineSwitching = false);
+    } catch (e, st) {
+      debugPrint('Timeline rename error: $e\n$st');
+      if (mounted) setState(() => _timelineSwitching = false);
+    }
+  }
+
+  Future<void> _deleteTimelineFromList(TimelinePlanSummary summary) async {
+    if (_timelineSwitching) return;
+    setState(() => _timelineSwitching = true);
+    try {
+      await _saveCurrentPlanNow();
+      final repo = ref.read(planRepositoryProvider);
+      final currentPlanId = ref.read(currentPlanIdProvider);
+      final currentState = ref.read(timelineProvider);
+
+      await repo.deletePlan(summary.id);
+      if (!mounted) return;
+
+      if (summary.id == currentPlanId) {
+        final remaining = await repo.listPlans();
+        final nextPlan = remaining.isNotEmpty
+            ? await repo.loadPlan(remaining.first.id)
+            : await repo.createPlan(
+                state: const TimelineState(),
+                title: '無題のタイムライン',
+                createInitialSnapshot: false,
+              );
+        if (!mounted) return;
+        await repo.saveCurrentPlanId(nextPlan!.id);
+        _suppressAutoSave = true;
+        ref.read(currentPlanIdProvider.notifier).set(nextPlan.id);
+        ref
+            .read(timelineProvider.notifier)
+            .loadState(
+              nextPlan.state.copyWith(
+                pixelsPerMinute: currentState.pixelsPerMinute,
+                selectedBlockId: null,
+                preciseDraggingId: null,
+                activeInlineEditorId: null,
+              ),
+            );
+        _suppressAutoSave = false;
+      }
+
+      setState(() => _timelineSwitching = false);
+    } catch (e, st) {
+      _suppressAutoSave = false;
+      debugPrint('Timeline delete error: $e\n$st');
+      if (mounted) setState(() => _timelineSwitching = false);
+    }
+  }
 
   void _showSheet() {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -181,12 +346,16 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (!isPro) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => const PaywallScreen(feature: PaywallFeature.templates),
+          builder: (_) =>
+              const PaywallScreen(feature: PaywallFeature.templates),
         ),
       );
       return;
     }
-    setState(() => _templateSheetVisible = true);
+    setState(() {
+      _timelineListVisible = false;
+      _templateSheetVisible = true;
+    });
   }
 
   void _dismissTemplateSheet() {
@@ -223,7 +392,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void _openSearch() {
     _dismissInlineEditorIfNeeded();
     if (_sheetVisible) _dismissSheet();
-    if (_activePanel != null) _closePanel();
+    if (_exportPanelVisible) _closeExportPanel();
+    if (_timelineListVisible) _closeTimelineList();
     setState(() => _isSearchActive = true);
   }
 
@@ -275,8 +445,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       final cb = computed[i];
       if (cb.block.type == BlockType.action) {
         final h = cb.block.duration * ppm;
-        estimatedOffset +=
-            isOverview ? h.clamp(kMinOverviewBlockHeight, double.infinity) : h;
+        estimatedOffset += isOverview
+            ? h.clamp(kMinOverviewBlockHeight, double.infinity)
+            : h;
       } else {
         estimatedOffset += _kPointBlockApproxHeight;
       }
@@ -286,9 +457,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final targetCb = computed[sourceIndex];
     final targetHeight = targetCb.block.type == BlockType.action
         ? (isOverview
-            ? (targetCb.block.duration * ppm)
-                .clamp(kMinOverviewBlockHeight, double.infinity)
-            : targetCb.block.duration * ppm)
+              ? (targetCb.block.duration * ppm).clamp(
+                  kMinOverviewBlockHeight,
+                  double.infinity,
+                )
+              : targetCb.block.duration * ppm)
         : _kPointBlockApproxHeight;
 
     // Top edge of the target block
@@ -323,7 +496,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       prev,
       next,
     ) {
-      if (next != null && !_sheetVisible && state.viewMode == TimelineViewMode.edit) {
+      if (next != null &&
+          !_sheetVisible &&
+          state.viewMode == TimelineViewMode.edit) {
         _showSheet();
       }
     });
@@ -335,8 +510,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         child: Column(
           children: [
             _PlanHeader(
-              activePanel: _activePanel,
-              onTab: _togglePanel,
+              exportPanelVisible: _exportPanelVisible,
+              onExportTap: _toggleExportPanel,
               saveIndicatorVisible: _saveIndicatorVisible,
               viewMode: state.viewMode,
               onToggleViewMode: () {
@@ -379,13 +554,17 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           // Visual bottom spacer — toolbar (56) + margin (16) + safe area + extra
                           SliverToBoxAdapter(
                             child: SizedBox(
-                              height: MediaQuery.of(context).padding.bottom + 88,
+                              height:
+                                  MediaQuery.of(context).padding.bottom + 88,
                             ),
                           ),
                           // Target anchor — visual bottom
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.only(left: 20, right: 28),
+                              padding: const EdgeInsets.only(
+                                left: 20,
+                                right: 28,
+                              ),
                               child: _TargetTimeAnchor(
                                 targetTime: state.targetTime,
                                 targetTimeTitle: state.targetTimeTitle,
@@ -404,7 +583,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             )
                           else ...[
                             SliverPadding(
-                              padding: const EdgeInsets.only(left: 20, right: 28),
+                              padding: const EdgeInsets.only(
+                                left: 20,
+                                right: 28,
+                              ),
                               sliver: SliverReorderableList(
                                 itemCount: computed.length,
                                 onReorder: _onReorder,
@@ -421,8 +603,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                                           state.selectedBlockId == cb.block.id,
                                       isSearchHighlighted:
                                           state.searchHighlightedBlockId ==
-                                              cb.block.id,
-                                      preciseDraggingId: state.preciseDraggingId,
+                                          cb.block.id,
+                                      preciseDraggingId:
+                                          state.preciseDraggingId,
                                       allBlocks: state.blocks,
                                       index: index,
                                       sourceIndex: sourceIndex,
@@ -546,11 +729,37 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     ),
                   ],
 
-                  // 浮遊ツールバー（edit view only）
-                  if (state.viewMode == TimelineViewMode.edit && !_sheetVisible)
+                  if (_timelineListVisible) ...[
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _closeTimelineList,
+                        child: Container(color: AppColors.scrim),
+                      ),
+                    ),
                     Positioned(
-                      left: 52,
-                      right: 52,
+                      left: 20,
+                      right: 20,
+                      bottom: MediaQuery.of(context).padding.bottom + 28,
+                      child: TimelineListIslandModal(
+                        onClose: _closeTimelineList,
+                        onSelect: _selectTimeline,
+                        onCreate: _createTimelineFromList,
+                        onRename: _renameTimelineFromList,
+                        onDelete: _deleteTimelineFromList,
+                        switching: _timelineSwitching,
+                      ),
+                    ),
+                  ],
+
+                  // 浮遊ツールバー（edit view only）
+                  if (state.viewMode == TimelineViewMode.edit &&
+                      !_sheetVisible &&
+                      !_templateSheetVisible &&
+                      !_timelineListVisible)
+                    Positioned(
+                      left: 88,
+                      right: 20,
                       bottom: MediaQuery.of(context).padding.bottom + 16,
                       child: _FloatingToolbar(
                         onAdd: () {
@@ -566,8 +775,19 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       ),
                     ),
 
+                  if (state.viewMode == TimelineViewMode.edit &&
+                      !_sheetVisible &&
+                      !_templateSheetVisible &&
+                      !_timelineListVisible)
+                    Positioned(
+                      left: 20,
+                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                      child: _TimelineListButton(onTap: _showTimelineList),
+                    ),
+
                   if (state.activeInlineEditorId != null &&
                       !_sheetVisible &&
+                      !_timelineListVisible &&
                       state.viewMode == TimelineViewMode.edit)
                     Positioned.fill(
                       child: GestureDetector(
@@ -578,12 +798,12 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       ),
                     ),
 
-                  // プランパネル（バックドロップ + パネル本体）
-                  if (_activePanel != null) ...[
+                  // エクスポートパネル（バックドロップ + パネル本体）
+                  if (_exportPanelVisible) ...[
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: _closePanel,
+                        onTap: _closeExportPanel,
                         child: Container(color: AppColors.scrim),
                       ),
                     ),
@@ -591,10 +811,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       top: 0,
                       left: 0,
                       right: 0,
-                      child: PlanPanel(
-                        initialTab: _activePanel!,
-                        onDismiss: _closePanel,
-                      ),
+                      child: ExportPanel(onDismiss: _closeExportPanel),
                     ),
                   ],
                 ],
@@ -613,8 +830,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
 class _PlanHeader extends StatelessWidget {
   const _PlanHeader({
-    required this.onTab,
-    this.activePanel,
+    required this.onExportTap,
+    this.exportPanelVisible = false,
     this.saveIndicatorVisible = false,
     this.viewMode = TimelineViewMode.edit,
     required this.onToggleViewMode,
@@ -623,20 +840,14 @@ class _PlanHeader extends StatelessWidget {
     required this.onTemplateTap,
   });
 
-  final void Function(int) onTab;
-  final int? activePanel;
+  final VoidCallback onExportTap;
+  final bool exportPanelVisible;
   final bool saveIndicatorVisible;
   final TimelineViewMode viewMode;
   final VoidCallback onToggleViewMode;
   final VoidCallback onSearchTap;
   final bool isSearchActive;
   final VoidCallback onTemplateTap;
-
-  static final _icons = [
-    PhosphorIcons.floppyDisk(), // セーブ
-    PhosphorIcons.folderOpen(), // ロード
-    PhosphorIcons.calendarBlank(), // エクスポート
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -684,29 +895,28 @@ class _PlanHeader extends StatelessWidget {
               ),
             ),
           ),
-          for (var i = 0; i < 3; i++)
-            Pressable(
-              onTap: () => onTab(i),
-              scale: 0.88,
-              child: Container(
-                margin: const EdgeInsets.only(left: AppSpacing.sm),
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: activePanel == i
-                      ? AppColors.selectionFill
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Icon(
-                  _icons[i],
-                  size: 22,
-                  color: activePanel == i
-                      ? AppColors.accentOlive
-                      : AppColors.mutedInk,
-                ),
+          Pressable(
+            onTap: onExportTap,
+            scale: 0.88,
+            child: Container(
+              margin: const EdgeInsets.only(left: AppSpacing.sm),
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: exportPanelVisible
+                    ? AppColors.selectionFill
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Icon(
+                PhosphorIcons.calendarBlank(),
+                size: 22,
+                color: exportPanelVisible
+                    ? AppColors.accentOlive
+                    : AppColors.mutedInk,
               ),
             ),
+          ),
           // Template button
           Pressable(
             onTap: onTemplateTap,
@@ -753,9 +963,7 @@ class _PlanHeader extends StatelessWidget {
           Pressable(
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SettingsScreen(),
-                ),
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
               );
             },
             scale: 0.88,
@@ -809,12 +1017,14 @@ class _SearchPopover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasMatches = matchCount > 0;
-    final countText = hasMatches ? '${activeMatchIndex + 1}/$matchCount' : '0/0';
+    final countText = hasMatches
+        ? '${activeMatchIndex + 1}/$matchCount'
+        : '0/0';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -840,7 +1050,7 @@ class _SearchPopover extends StatelessWidget {
               color: AppColors.mutedInk,
             ),
             const SizedBox(width: 8),
-              Expanded(
+            Expanded(
               child: TextField(
                 controller: controller,
                 focusNode: focusNode,
@@ -851,18 +1061,12 @@ class _SearchPopover extends StatelessWidget {
                 autofocus: true,
                 decoration: const InputDecoration(
                   hintText: '行動タイトルを検索',
-                  hintStyle: TextStyle(
-                    color: AppColors.mutedInk,
-                    fontSize: 14,
-                  ),
+                  hintStyle: TextStyle(color: AppColors.mutedInk, fontSize: 14),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 6),
                 ),
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.ink,
-                ),
+                style: const TextStyle(fontSize: 14, color: AppColors.ink),
               ),
             ),
             // Match count
@@ -870,7 +1074,9 @@ class _SearchPopover extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: hasMatches ? AppColors.selectionFill : Colors.transparent,
+                  color: hasMatches
+                      ? AppColors.selectionFill
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(
@@ -878,22 +1084,26 @@ class _SearchPopover extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: hasMatches ? AppColors.accentOlive : AppColors.mutedInk,
+                    color: hasMatches
+                        ? AppColors.accentOlive
+                        : AppColors.mutedInk,
                   ),
                 ),
               ),
-            const SizedBox(width: 2),
+            const SizedBox(width: 4),
             // Prev
             Pressable(
               onTap: onPrev,
               scale: 0.88,
               child: SizedBox(
-                width: 28,
-                height: 28,
+                width: 34,
+                height: 34,
                 child: Icon(
                   PhosphorIcons.caretUp(),
-                  size: 16,
-                  color: hasMatches ? AppColors.mutedInk : AppColors.mutedInk.withValues(alpha: 0.3),
+                  size: 18,
+                  color: hasMatches
+                      ? AppColors.mutedInk
+                      : AppColors.mutedInk.withValues(alpha: 0.3),
                 ),
               ),
             ),
@@ -902,12 +1112,14 @@ class _SearchPopover extends StatelessWidget {
               onTap: onNext,
               scale: 0.88,
               child: SizedBox(
-                width: 28,
-                height: 28,
+                width: 34,
+                height: 34,
                 child: Icon(
                   PhosphorIcons.caretDown(),
-                  size: 16,
-                  color: hasMatches ? AppColors.mutedInk : AppColors.mutedInk.withValues(alpha: 0.3),
+                  size: 18,
+                  color: hasMatches
+                      ? AppColors.mutedInk
+                      : AppColors.mutedInk.withValues(alpha: 0.3),
                 ),
               ),
             ),
@@ -916,11 +1128,11 @@ class _SearchPopover extends StatelessWidget {
               onTap: onClose,
               scale: 0.88,
               child: SizedBox(
-                width: 28,
-                height: 28,
+                width: 34,
+                height: 34,
                 child: Icon(
                   PhosphorIcons.x(),
-                  size: 16,
+                  size: 18,
                   color: AppColors.mutedInk,
                 ),
               ),
@@ -1060,10 +1272,7 @@ class _TargetTimeAnchorState extends ConsumerState<_TargetTimeAnchor> {
                     bottom: -_connectorGap,
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Container(
-                        width: 2,
-                        color: AppColors.timelineLine,
-                      ),
+                      child: Container(width: 2, color: AppColors.timelineLine),
                     ),
                   ),
                   // L字の横棒（縦線右端からブロック方向へ）
@@ -1194,6 +1403,667 @@ class _TargetTimeAnchorState extends ConsumerState<_TargetTimeAnchor> {
 // Add Button
 // ---------------------------------------------------------------------------
 
+class _TimelineListButton extends StatelessWidget {
+  const _TimelineListButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      scale: 0.9,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: AppShadows.floatingToolbar,
+          border: Border.all(color: AppColors.softGray),
+        ),
+        child: Icon(
+          PhosphorIcons.stack(),
+          size: 22,
+          color: AppColors.darkSurface,
+        ),
+      ),
+    );
+  }
+}
+
+class TimelineListIslandModal extends ConsumerStatefulWidget {
+  const TimelineListIslandModal({
+    super.key,
+    required this.onClose,
+    required this.onSelect,
+    required this.onCreate,
+    required this.onRename,
+    required this.onDelete,
+    required this.switching,
+  });
+
+  final VoidCallback onClose;
+  final ValueChanged<TimelinePlanSummary> onSelect;
+  final Future<void> Function(String title) onCreate;
+  final Future<void> Function(TimelinePlanSummary summary, String title)
+  onRename;
+  final Future<void> Function(TimelinePlanSummary summary) onDelete;
+  final bool switching;
+
+  @override
+  ConsumerState<TimelineListIslandModal> createState() =>
+      _TimelineListIslandModalState();
+}
+
+class _TimelineListIslandModalState
+    extends ConsumerState<TimelineListIslandModal> {
+  List<TimelinePlanSummary> _plans = [];
+  final _createTitleController = TextEditingController();
+  final _createTitleFocusNode = FocusNode();
+  final _editTitleController = TextEditingController();
+  final _editTitleFocusNode = FocusNode();
+  bool _loading = true;
+  bool _creating = false;
+  String? _editingPlanId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlans();
+  }
+
+  @override
+  void dispose() {
+    _createTitleController.dispose();
+    _createTitleFocusNode.dispose();
+    _editTitleController.dispose();
+    _editTitleFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPlans() async {
+    try {
+      final plans = await ref.read(planRepositoryProvider).listPlans();
+      if (!mounted) return;
+      setState(() {
+        _plans = plans;
+        _loading = false;
+      });
+    } catch (e, st) {
+      debugPrint('Timeline list load error: $e\n$st');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _formatUpdatedAt(DateTime value) {
+    final local = value.toLocal();
+    return '${local.month.toString().padLeft(2, '0')}/${local.day.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _showCreateForm() {
+    setState(() {
+      _creating = true;
+      _editingPlanId = null;
+      _createTitleController.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _createTitleFocusNode.requestFocus();
+    });
+  }
+
+  void _cancelCreate() {
+    setState(() {
+      _creating = false;
+      _createTitleController.clear();
+    });
+  }
+
+  Future<void> _submitCreate() async {
+    await widget.onCreate(_createTitleController.text);
+    if (!mounted) return;
+    setState(() {
+      _creating = false;
+      _createTitleController.clear();
+      _loading = true;
+    });
+    await _loadPlans();
+  }
+
+  void _startRename(TimelinePlanSummary summary) {
+    setState(() {
+      _creating = false;
+      _editingPlanId = summary.id;
+      _editTitleController.text = summary.title;
+      _editTitleController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: summary.title.length,
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _editTitleFocusNode.requestFocus();
+    });
+  }
+
+  void _cancelRename() {
+    setState(() {
+      _editingPlanId = null;
+      _editTitleController.clear();
+    });
+  }
+
+  Future<void> _submitRename(TimelinePlanSummary summary) async {
+    await widget.onRename(summary, _editTitleController.text);
+    if (!mounted) return;
+    setState(() {
+      _editingPlanId = null;
+      _editTitleController.clear();
+      _loading = true;
+    });
+    await _loadPlans();
+  }
+
+  Future<void> _confirmDelete(TimelinePlanSummary summary) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.canvas,
+        title: const Text('タイムラインを削除しますか？'),
+        content: Text('「${summary.title}」を削除します。この操作は取り消せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await widget.onDelete(summary);
+    if (!mounted) return;
+    setState(() {
+      _editingPlanId = null;
+      _loading = true;
+    });
+    await _loadPlans();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPlanId = ref.watch(currentPlanIdProvider);
+    final isPro = ref.watch(effectiveIsProProvider);
+    final canCreate = isPro || _plans.length < kFreeTimelineLimit;
+    final freeAvailablePlanIds = <String>{
+      ?currentPlanId,
+      for (final plan in _plans)
+        if (currentPlanId == null || plan.id != currentPlanId) plan.id,
+    }.take(kFreeTimelineLimit).toSet();
+    final bottomLimit = MediaQuery.of(context).size.height * 0.58;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(maxHeight: bottomLimit.clamp(280.0, 520.0)),
+        decoration: BoxDecoration(
+          color: AppColors.canvas,
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          boxShadow: AppShadows.sheet,
+          border: Border.all(color: AppColors.softGray),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'タイムライン',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.darkSurface,
+                      ),
+                    ),
+                  ),
+                  Pressable(
+                    onTap: widget.onClose,
+                    scale: 0.88,
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Icon(
+                        PhosphorIcons.x(),
+                        size: 18,
+                        color: AppColors.mutedInk,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (_creating) ...[
+                _TimelineCreateForm(
+                  controller: _createTitleController,
+                  focusNode: _createTitleFocusNode,
+                  busy: widget.switching,
+                  onSubmit: _submitCreate,
+                  onCancel: _cancelCreate,
+                ),
+                const SizedBox(height: 10),
+              ],
+              Flexible(
+                child: _loading
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accentOlive,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _plans.length,
+                        itemBuilder: (context, index) {
+                          final plan = _plans[index];
+                          final isCurrent = plan.id == currentPlanId;
+                          final isAvailable =
+                              isPro || freeAvailablePlanIds.contains(plan.id);
+                          return _TimelineListRow(
+                            summary: plan,
+                            subtitle:
+                                '${plan.targetTimeTitle} · ${formatTime(plan.targetTime)} · ${plan.blockCount}ブロック · ${_formatUpdatedAt(plan.updatedAt)}'
+                                '${isAvailable ? '' : ' · Proで利用可'}',
+                            isCurrent: isCurrent,
+                            isEditing: _editingPlanId == plan.id,
+                            disabled:
+                                widget.switching || isCurrent || !isAvailable,
+                            editController: _editTitleController,
+                            editFocusNode: _editTitleFocusNode,
+                            onTap: () => widget.onSelect(plan),
+                            onRename: () => _startRename(plan),
+                            onDelete: () => _confirmDelete(plan),
+                            onSubmitRename: () => _submitRename(plan),
+                            onCancelRename: _cancelRename,
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 10),
+              Pressable(
+                onTap: canCreate && !widget.switching && !_creating
+                    ? _showCreateForm
+                    : null,
+                scale: 0.97,
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: canCreate
+                        ? AppColors.darkSurface
+                        : AppColors.softGray,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: Center(
+                    child: widget.switching
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.canvas,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                PhosphorIcons.plus(),
+                                size: 18,
+                                color: canCreate
+                                    ? AppColors.canvas
+                                    : AppColors.mutedInk,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                canCreate ? '新しいタイムライン' : 'Freeは2件まで',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: canCreate
+                                      ? AppColors.canvas
+                                      : AppColors.mutedInk,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineCreateForm extends StatelessWidget {
+  const _TimelineCreateForm({
+    required this.controller,
+    required this.focusNode,
+    required this.busy,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool busy;
+  final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.accentOlive, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'タイムライン名',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.mutedInk,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: AppColors.softGray),
+            ),
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: !busy,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => onSubmit(),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                hintText: '例: 朝の準備',
+                hintStyle: TextStyle(color: AppColors.mutedInk),
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Pressable(
+                  onTap: busy ? null : onCancel,
+                  scale: 0.97,
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.softGray,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'キャンセル',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.mutedInk,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Pressable(
+                  onTap: busy ? null : onSubmit,
+                  scale: 0.97,
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.darkSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Center(
+                      child: busy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.canvas,
+                              ),
+                            )
+                          : const Text(
+                              '作成',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.canvas,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineListRow extends StatelessWidget {
+  const _TimelineListRow({
+    required this.summary,
+    required this.subtitle,
+    required this.isCurrent,
+    required this.isEditing,
+    required this.disabled,
+    required this.editController,
+    required this.editFocusNode,
+    required this.onTap,
+    required this.onRename,
+    required this.onDelete,
+    required this.onSubmitRename,
+    required this.onCancelRename,
+  });
+
+  final TimelinePlanSummary summary;
+  final String subtitle;
+  final bool isCurrent;
+  final bool isEditing;
+  final bool disabled;
+  final TextEditingController editController;
+  final FocusNode editFocusNode;
+  final VoidCallback onTap;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+  final VoidCallback onSubmitRename;
+  final VoidCallback onCancelRename;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Pressable(
+        key: ValueKey('timeline-row-${summary.id}'),
+        onTap: disabled ? null : onTap,
+        scale: 0.98,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: isCurrent ? AppColors.selectionFill : AppColors.softGray,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: isCurrent
+                ? Border.all(color: AppColors.accentOlive, width: 1.5)
+                : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: isEditing
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.canvas,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(color: AppColors.accentOlive),
+                        ),
+                        child: TextField(
+                          controller: editController,
+                          focusNode: editFocusNode,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => onSubmitRename(),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            hintText: 'タイムライン名',
+                            hintStyle: TextStyle(color: AppColors.mutedInk),
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            summary.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.mutedInk,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(width: 8),
+              if (isCurrent && !isEditing)
+                Icon(
+                  PhosphorIcons.checkCircle(),
+                  size: 18,
+                  color: AppColors.accentOlive,
+                ),
+              if (isEditing) ...[
+                Pressable(
+                  key: ValueKey('timeline-rename-submit-${summary.id}'),
+                  onTap: onSubmitRename,
+                  scale: 0.88,
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      PhosphorIcons.check(),
+                      size: 18,
+                      color: AppColors.accentOlive,
+                    ),
+                  ),
+                ),
+                Pressable(
+                  key: ValueKey('timeline-rename-cancel-${summary.id}'),
+                  onTap: onCancelRename,
+                  scale: 0.88,
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      PhosphorIcons.x(),
+                      size: 18,
+                      color: AppColors.mutedInk,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Pressable(
+                  key: ValueKey('timeline-rename-${summary.id}'),
+                  onTap: onRename,
+                  scale: 0.88,
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      PhosphorIcons.pencilSimple(),
+                      size: 18,
+                      color: AppColors.mutedInk,
+                    ),
+                  ),
+                ),
+                Pressable(
+                  key: ValueKey('timeline-delete-${summary.id}'),
+                  onTap: onDelete,
+                  scale: 0.88,
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      PhosphorIcons.trash(),
+                      size: 18,
+                      color: AppColors.mutedInk,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FloatingToolbar extends StatelessWidget {
   const _FloatingToolbar({required this.onAdd, required this.onAddPoint});
 
@@ -1242,11 +2112,7 @@ class _FloatingToolbar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    PhosphorIcons.plus(),
-                    size: 20,
-                    color: AppColors.canvas,
-                  ),
+                  Icon(PhosphorIcons.plus(), size: 20, color: AppColors.canvas),
                   const SizedBox(width: 6),
                   const Text(
                     '前の行動を追加',
