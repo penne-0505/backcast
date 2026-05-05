@@ -1,6 +1,6 @@
-import 'package:ato/models.dart';
-import 'package:ato/state.dart';
-import 'package:ato/timeline_image_export.dart';
+import 'package:medo/models.dart';
+import 'package:medo/state.dart';
+import 'package:medo/timeline_image_export.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

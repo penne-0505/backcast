@@ -1,5 +1,5 @@
 ---
-title: Ato Timeline Text Export Reference
+title: Medo Timeline Text Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-05-02"
@@ -14,7 +14,7 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Ato` の現在の逆算タイムラインを、人に送れるプレーンテキスト予定表へ変換する API をまとめたものです。
+本リファレンスは、`Medo` の現在の逆算タイムラインを、人に送れるプレーンテキスト予定表へ変換する API をまとめたものです。
 対象実装は `lib/timeline_text_export.dart` です。
 
 この層は UI、共有シート、clipboard 処理を持たない純粋ロジックです。
@@ -63,7 +63,7 @@ final text = generateTimelineText(
 
 ### Header
 
-1 行目は常に `Ato // <target title>`。target title が空白の場合は `目標時刻`。
+1 行目は常に `Medo // <target title>`。target title が空白の場合は `目標時刻`。
 
 ### Metadata Line
 

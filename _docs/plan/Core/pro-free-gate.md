@@ -15,7 +15,7 @@ related_prs: []
 
 ## Overview
 
-Ato の Pro / Free 境界を `isProProvider` を source of truth として整理する。
+Medo の Pro / Free 境界を `isProProvider` を source of truth として整理する。
 
 初期対象は、タイムライン保持数、テンプレート、画像エクスポートの3つとする。Free でも逆算タイムラインの基本編集は成立させ、日常利用を過度に阻害しない。一方で、省力化・共有品質・大量運用にあたる機能を Pro 価値として扱う。
 

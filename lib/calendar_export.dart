@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import 'models.dart';
 
-const String _defaultProductId = '-//Ato//Calendar Export//EN';
-const String _defaultCalendarName = 'Ato';
-const String _uidDomain = 'dev.otibo.ato';
+const String _defaultProductId = '-//Medo//Calendar Export//EN';
+const String _defaultCalendarName = 'Medo';
+const String _uidDomain = 'dev.otibo.medo';
 
 @immutable
 class CalendarExportRequest {

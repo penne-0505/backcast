@@ -58,7 +58,7 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
       final success =
           await supabase.Supabase.instance.client.auth.signInWithOAuth(
         supabase.OAuthProvider.google,
-        redirectTo: 'dev.otibo.ato://callback',
+        redirectTo: 'dev.otibo.medo://callback',
       );
       if (!success) {
         throw Exception('Google sign-in was not initiated successfully.');
@@ -79,7 +79,7 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
       final success =
           await supabase.Supabase.instance.client.auth.signInWithOAuth(
         supabase.OAuthProvider.apple,
-        redirectTo: 'dev.otibo.ato://callback',
+        redirectTo: 'dev.otibo.medo://callback',
       );
       if (!success) {
         throw Exception('Apple sign-in was not initiated successfully.');

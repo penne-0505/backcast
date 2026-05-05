@@ -32,7 +32,7 @@ class TimelineImageShareCard extends StatelessWidget {
           Row(
             children: [
               const Text(
-                'Ato',
+                'Medo',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,

@@ -71,7 +71,7 @@ class TimelineTemplateBlocks extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
-  AppDatabase.defaults() : super(driftDatabase(name: 'ato'));
+  AppDatabase.defaults() : super(driftDatabase(name: 'medo'));
 
   @override
   int get schemaVersion => 2;

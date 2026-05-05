@@ -648,10 +648,10 @@ class _PlanHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
-          Image.asset('assets/images/ato_icon.png', width: 28, height: 28),
+          Image.asset('assets/images/medo_icon.png', width: 28, height: 28),
           const SizedBox(width: 8),
           const Text(
-            'Ato',
+            'Medo',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 17,

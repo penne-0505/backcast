@@ -17,7 +17,7 @@ related_prs: []
 
 ## Overview
 
-`Ato` の現在の逆算タイムラインを、人へそのまま送れるプレーンテキストへ変換し、OS の共有シートまたはコピーで外部共有できるようにする。
+`Medo` の現在の逆算タイムラインを、人へそのまま送れるプレーンテキストへ変換し、OS の共有シートまたはコピーで外部共有できるようにする。
 
 本機能は画像エクスポートとは分離する。まずテキスト表現を確定させることで、後続の画像共有でも同じ情報設計を再利用できるようにする。
 
@@ -47,7 +47,7 @@ related_prs: []
 単日かつ日付ありの場合は以下を標準形とする。
 
 ```text
-Ato // 会議開始
+Medo // 会議開始
 2026-05-02 Sat  /  TOTAL 35m
 
 10:20-10:40 ┃ 移動
@@ -67,7 +67,7 @@ Ato // 会議開始
 
 ### Header Rules
 
-- 1 行目は常に `Ato // <target title>`
+- 1 行目は常に `Medo // <target title>`
 - target title が空白の場合は `目標時刻` を使う
 - 2 行目は metadata line とする
 - metadata line と event lines の間には空行を 1 行入れる
@@ -115,7 +115,7 @@ HH:mm       ◆ target title
 日跨ぎが発生する場合だけ、date section divider を挿入する。
 
 ```text
-Ato // 到着
+Medo // 到着
 2026-05-02 Sat -> 2026-05-03 Sun  /  TOTAL 1h20m
 
 ── 2026-05-02 Sat

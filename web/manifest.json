@@ -1,11 +1,11 @@
 {
-    "name": "Ato",
-    "short_name": "Ato",
+    "name": "Medo",
+    "short_name": "Medo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#F6F5F2",
     "theme_color": "#F6F5F2",
-    "description": "Ato reverse planning app.",
+    "description": "Medo reverse planning app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

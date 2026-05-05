@@ -1,6 +1,6 @@
-import 'package:ato/models.dart';
-import 'package:ato/state.dart';
-import 'package:ato/timeline_text_export.dart';
+import 'package:medo/models.dart';
+import 'package:medo/state.dart';
+import 'package:medo/timeline_text_export.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,7 +19,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 会議開始\n'
+        'Medo // 会議開始\n'
         'TOTAL 0m\n'
         '\n'
         '13:00       ◆ 会議開始',
@@ -44,7 +44,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 会議開始\n'
+        'Medo // 会議開始\n'
         'TOTAL 35m\n'
         '\n'
         '12:25-12:45 ┃ 移動\n'
@@ -69,7 +69,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 目標時刻\n'
+        'Medo // 目標時刻\n'
         '2026-05-02 Sat  /  TOTAL 0m\n'
         '\n'
         '10:00       ◆ 目標時刻',
@@ -93,7 +93,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         '2026-05-02 Sat  /  TOTAL 30m\n'
         '\n'
         '09:30-10:00 ┃ 無題\n'
@@ -117,7 +117,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         'TOTAL 30m\n'
         '\n'
         '09:30-10:00 ┃ 移動 駅前\n'
@@ -143,7 +143,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         'TOTAL 30m\n'
         '\n'
         '09:30-10:00 ┃ 移動\n'
@@ -173,7 +173,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         '2026-05-02 Sat -> 2026-05-03 Sun  /  TOTAL 2h\n'
         '\n'
         '── 2026-05-02 Sat\n'
@@ -205,7 +205,7 @@ void main() {
       );
       expect(
         result,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         '2026-05-02 Sat -> 2026-05-03 Sun  /  TOTAL 1h\n'
         '\n'
         '── 2026-05-02 Sat\n'
@@ -246,7 +246,7 @@ void main() {
       );
       expect(
         sameDayResult,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         '2026-05-03 Sun  /  TOTAL 30m\n'
         '\n'
         '09:30-10:00 ┃ 移動\n'
@@ -262,7 +262,7 @@ void main() {
       );
       expect(
         crossDayResult,
-        'Ato // 到着\n'
+        'Medo // 到着\n'
         '2026-05-02 Sat -> 2026-05-03 Sun  /  TOTAL 1h\n'
         '\n'
         '── 2026-05-02 Sat\n'

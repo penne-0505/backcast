@@ -1,5 +1,5 @@
 ---
-title: Ato Persistence Repository Reference
+title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
@@ -15,7 +15,7 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Ato` の複数プラン保存・ロードと履歴閲覧、テンプレート永続化のために追加した永続化 Repository の現状仕様をまとめます。
+本リファレンスは、`Medo` の複数プラン保存・ロードと履歴閲覧、テンプレート永続化のために追加した永続化 Repository の現状仕様をまとめます。
 対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart` です。
 
 現時点では Repository 層の基本機能のみを実装しています。

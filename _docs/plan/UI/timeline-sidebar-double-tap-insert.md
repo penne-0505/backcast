@@ -20,7 +20,7 @@ related_prs: []
 
 ## Overview
 
-`Ato` の編集ビューで、画面左の timeline rail をダブルタップすると、最も近い block 境界に新しい `action` block を挿入できるようにする。
+`Medo` の編集ビューで、画面左の timeline rail をダブルタップすると、最も近い block 境界に新しい `action` block を挿入できるようにする。
 
 本機能は「時刻を直接指定して予定を作る」機能ではない。既存の逆算モデルを保ったまま、block と block の境界へすばやく行動を差し込むための編集補助として扱う。
 

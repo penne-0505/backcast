@@ -26,13 +26,13 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const AtoApp(),
+      child: const MedoApp(),
     ),
   );
 }
 
-class AtoApp extends ConsumerWidget {
-  const AtoApp({super.key});
+class MedoApp extends ConsumerWidget {
+  const MedoApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +49,7 @@ class AtoApp extends ConsumerWidget {
     ref.read(billingProvider);
 
     return MaterialApp(
-      title: 'Ato',
+      title: 'Medo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         textTheme: GoogleFonts.notoSansJpTextTheme(),

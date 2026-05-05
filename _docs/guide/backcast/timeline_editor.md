@@ -1,5 +1,5 @@
 ---
-title: Ato Timeline Editor Guide
+title: Medo Timeline Editor Guide
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
@@ -17,7 +17,7 @@ related_prs: []
 
 ## Overview
 
-`Ato` のタイムラインエディタを使って、目標時刻から逆算した行動計画を組み立てるためのガイドです。
+`Medo` のタイムラインエディタを使って、目標時刻から逆算した行動計画を組み立てるためのガイドです。
 現状のアプリは 1 画面構成で、タイムラインの編集と詳細編集シートを行き来しながら状態を更新します。
 編集ビューに加え、固定高さ行でタイムライン全体を一覧する **Compact Overview** ビューが利用できます。
 Drift / SQLite ベースの永続化 Repository は実装済みですが、画面からの自動保存・起動時復元・プラン選択 UI はまだ接続していません。

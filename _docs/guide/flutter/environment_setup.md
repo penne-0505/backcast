@@ -14,7 +14,7 @@ related_prs: []
 
 ## Overview
 
-`Ato` の Flutter 開発環境を、`flutter_riverpod` を前提に使い始められる状態へ整えたときのセットアップ内容をまとめる。
+`Medo` の Flutter 開発環境を、`flutter_riverpod` を前提に使い始められる状態へ整えたときのセットアップ内容をまとめる。
 
 ## Prerequisites
 

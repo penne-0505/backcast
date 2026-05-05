@@ -1,4 +1,4 @@
-package dev.otibo.ato
+package dev.otibo.medo
 
 import android.Manifest
 import android.content.ContentProviderOperation
@@ -15,7 +15,7 @@ import java.util.TimeZone
 
 class MainActivity : FlutterActivity() {
 	companion object {
-		private const val CHANNEL = "ato/calendar_export"
+		private const val CHANNEL = "medo/calendar_export"
 		private const val METHOD_SAVE_CALENDAR_EXPORT = "saveCalendarExport"
 		private const val REQUEST_CODE_CALENDAR_PERMISSIONS = 0xA70
 	}

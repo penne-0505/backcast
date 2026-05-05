@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:ato/notifications/reminder_notifications.dart';
+import 'package:medo/notifications/reminder_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -25,7 +25,7 @@ void main() {
         DateTime.utc(2026, 4, 23, 8, 30),
         DateTime.utc(2026, 4, 23, 8, 50),
       ]);
-      expect(result.scheduled.first.title, 'Ato');
+      expect(result.scheduled.first.title, 'Medo');
       expect(result.scheduled.first.body, '会議開始まであと30分');
     });
 

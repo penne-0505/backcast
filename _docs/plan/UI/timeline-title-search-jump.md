@@ -21,7 +21,7 @@ related_prs: []
 
 ## Overview
 
-`Ato` のタイムライン上で block title を検索し、一致した block の位置へジャンプできるようにする。
+`Medo` のタイムライン上で block title を検索し、一致した block の位置へジャンプできるようにする。
 
 本機能は「一覧性」を高める compact overview view とは別に、ユーザーが既に名前を覚えている block へ直接戻るための移動機能として扱う。初回スコープでは検索対象を `Block.title` に限定し、検索結果へのジャンプと一時ハイライトに集中する。
 

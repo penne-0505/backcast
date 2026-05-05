@@ -1,5 +1,5 @@
 ---
-title: Ato Calendar Export Reference
+title: Medo Calendar Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
@@ -14,7 +14,7 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Ato` のタイムラインを iOS / Android のカレンダーアプリへ取り込みやすい iCalendar (`.ics`) 文字列へ変換する API と、端末カレンダーへの native 登録 delivery をまとめたものです。
+本リファレンスは、`Medo` のタイムラインを iOS / Android のカレンダーアプリへ取り込みやすい iCalendar (`.ics`) 文字列へ変換する API と、端末カレンダーへの native 登録 delivery をまとめたものです。
 対象実装は `lib/calendar_export.dart`、`lib/calendar_export_request_builder.dart`、`lib/calendar_export_delivery.dart` です。
 
 `lib/calendar_export.dart` は UI、共有シート、ファイル保存、端末カレンダー権限処理を持たない純粋ロジックです。
@@ -34,8 +34,8 @@ related_prs: []
   - `blocks (List<CalendarExportBlock>)`: 開始日時から前向きに並べるイベント列
   - `anchor (CalendarExportAnchor)`: すべてのブロック後に 0 分イベントとして出力するアンカー
   - `generatedAt (DateTime?)`: `DTSTAMP` に使う生成日時。未指定時は `startDateTime`
-  - `productId (String)`: `PRODID`。既定値は `-//Ato//Calendar Export//EN`
-  - `calendarName (String)`: `X-WR-CALNAME`。既定値は `Ato`
+  - `productId (String)`: `PRODID`。既定値は `-//Medo//Calendar Export//EN`
+  - `calendarName (String)`: `X-WR-CALNAME`。既定値は `Medo`
 - **Returns**: なし
 - **Errors**: なし
 - **Examples**:
@@ -151,7 +151,7 @@ final ics = generateCalendarIcs(
 
 ### Android
 
-- `MainActivity.kt` の `MethodChannel("ato/calendar_export")` で `saveCalendarExport` を処理する
+- `MainActivity.kt` の `MethodChannel("medo/calendar_export")` で `saveCalendarExport` を処理する
 - `CalendarContract.Events` へ `ContentProviderOperation` の batch insert を行う
 - 書き込み先カレンダーは `calendarId` 引数、または `resolveWritableCalendarId()` で決定する
 - 権限がない場合は `ActivityCompat.requestPermissions` で READ/WRITE_CALENDAR を要求する

@@ -7,7 +7,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Ato</string>
+		<string>Medo</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>Ato</string>
+		<string>Medo</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -26,10 +26,10 @@
 		<array>
 			<dict>
 				<key>CFBundleURLName</key>
-				<string>dev.otibo.ato</string>
+				<string>dev.otibo.medo</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>dev.otibo.ato</string>
+					<string>dev.otibo.medo</string>
 				</array>
 			</dict>
 		</array>
@@ -37,9 +37,9 @@
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>NSCalendarsUsageDescription</key>
-		<string>Ato はタイムラインをカレンダーに直接登録するためにカレンダーへのアクセスを使用します。</string>
+		<string>Medo はタイムラインをカレンダーに直接登録するためにカレンダーへのアクセスを使用します。</string>
 		<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-		<string>Ato はタイムラインをカレンダーに直接登録するためにカレンダーへのアクセスを使用します。</string>
+		<string>Medo はタイムラインをカレンダーに直接登録するためにカレンダーへのアクセスを使用します。</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UIApplicationSceneManifest</key>

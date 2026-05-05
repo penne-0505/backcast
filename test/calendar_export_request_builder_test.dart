@@ -1,7 +1,7 @@
-import 'package:ato/calendar_export.dart';
-import 'package:ato/calendar_export_request_builder.dart';
-import 'package:ato/models.dart';
-import 'package:ato/state.dart';
+import 'package:medo/calendar_export.dart';
+import 'package:medo/calendar_export_request_builder.dart';
+import 'package:medo/models.dart';
+import 'package:medo/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

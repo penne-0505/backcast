@@ -44,7 +44,7 @@ String generateTimelineText(TimelineTextExportRequest request) {
   final lines = <String>[];
 
   // Header
-  lines.add('Ato // $targetTitle');
+  lines.add('Medo // $targetTitle');
 
   // Metadata
   final durationStr = _formatDuration(totalDuration);

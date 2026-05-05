@@ -1,8 +1,8 @@
-import 'package:ato/models.dart';
-import 'package:ato/persistence/app_database.dart';
-import 'package:ato/persistence/plan_repository.dart';
-import 'package:ato/persistence/timeline_state_codec.dart';
-import 'package:ato/state.dart';
+import 'package:medo/models.dart';
+import 'package:medo/persistence/app_database.dart';
+import 'package:medo/persistence/plan_repository.dart';
+import 'package:medo/persistence/timeline_state_codec.dart';
+import 'package:medo/state.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:ato/theme.dart';
-import 'package:ato/timeline_image_export.dart';
-import 'package:ato/timeline_image_share_card.dart';
+import 'package:medo/theme.dart';
+import 'package:medo/timeline_image_export.dart';
+import 'package:medo/timeline_image_share_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,7 +46,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Ato'), findsOneWidget);
+      expect(find.text('Medo'), findsOneWidget);
       expect(find.text('会議開始'), findsNWidgets(2));
       expect(find.text('TOTAL 35m'), findsOneWidget);
       expect(find.text('移動'), findsOneWidget);

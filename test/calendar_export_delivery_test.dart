@@ -1,5 +1,5 @@
-import 'package:ato/calendar_export.dart';
-import 'package:ato/calendar_export_delivery.dart';
+import 'package:medo/calendar_export.dart';
+import 'package:medo/calendar_export_delivery.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

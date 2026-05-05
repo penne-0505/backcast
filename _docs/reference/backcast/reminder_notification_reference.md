@@ -1,5 +1,5 @@
 ---
-title: Ato Reminder Notification Reference
+title: Medo Reminder Notification Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
@@ -14,7 +14,7 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Ato` の目標時刻に対して「AまであとN分」というローカル通知を予約する API をまとめたものです。
+本リファレンスは、`Medo` の目標時刻に対して「AまであとN分」というローカル通知を予約する API をまとめたものです。
 対象実装は `lib/notifications/reminder_notifications.dart` です。
 
 この層は UI を持たず、通知権限の要求、通知計画の作成、予約、キャンセルをサービスとして提供します。
@@ -42,7 +42,7 @@ related_prs: []
   - `notificationId (int)`: native 通知 API に渡す安定 ID
   - `fireDateTime (DateTime)`: 通知予定日時
   - `minutesBefore (int)`: 対象日時の何分前か
-  - `title (String)`: 通知タイトル。現状は `Ato`
+  - `title (String)`: 通知タイトル。現状は `Medo`
   - `body (String)`: 通知本文。例: `会議開始まであと10分`
   - `payload (String)`: 通知タップ時に参照できる JSON 文字列
 - **Returns**: なし

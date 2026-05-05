@@ -22,10 +22,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>dev.otibo.ato</string>
+			<string>dev.otibo.medo</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>dev.otibo.ato</string>
+				<string>dev.otibo.medo</string>
 			</array>
 		</dict>
 	</array>

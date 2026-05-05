@@ -1,5 +1,5 @@
 ---
-title: Ato Timeline Domain Reference
+title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
@@ -19,7 +19,7 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Ato` の逆算タイムラインを構成するモデル、定数、状態管理 API の現状仕様をまとめたものです。
+本リファレンスは、`Medo` の逆算タイムラインを構成するモデル、定数、状態管理 API の現状仕様をまとめたものです。
 対象は主に `lib/models.dart` と `lib/state.dart` で、UI 側から参照されるドメインルールを中心に記述します。
 
 ## API

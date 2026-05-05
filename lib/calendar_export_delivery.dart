@@ -68,7 +68,7 @@ class CalendarExportDelivery {
   }
 }
 
-const MethodChannel _channel = MethodChannel('ato/calendar_export');
+const MethodChannel _channel = MethodChannel('medo/calendar_export');
 
 bool _defaultIsNativePlatform() {
   if (kIsWeb) {

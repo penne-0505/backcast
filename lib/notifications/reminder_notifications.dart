@@ -6,9 +6,9 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
-const String _notificationTitle = 'Ato';
-const String _androidChannelId = 'ato_reminders';
-const String _androidChannelName = 'Ato reminders';
+const String _notificationTitle = 'Medo';
+const String _androidChannelId = 'medo_reminders';
+const String _androidChannelName = 'Medo reminders';
 const String _androidChannelDescription = 'Target countdown reminders';
 const String _androidNotificationIcon = 'notification_icon';
 const int _fnvOffset = 0x811c9dc5;

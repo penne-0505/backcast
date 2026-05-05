@@ -19,7 +19,7 @@ related_prs: []
 
 ## Overview
 
-`Ato` のカレンダー登録を、単にボタン押下で native API へ渡す状態から、登録前に内容を確認でき、失敗理由を切り分けやすく、OS 権限の変化に追従できる状態へ強化する。
+`Medo` のカレンダー登録を、単にボタン押下で native API へ渡す状態から、登録前に内容を確認でき、失敗理由を切り分けやすく、OS 権限の変化に追従できる状態へ強化する。
 
 既存の `CalendarExportRequest` / `projectCalendarExportEvents` / `generateCalendarIcs` は維持し、実装の主眼は「登録 request の組み立て」「登録前プレビュー」「native delivery の結果・権限・登録先扱い」を明確にすることに置く。
 

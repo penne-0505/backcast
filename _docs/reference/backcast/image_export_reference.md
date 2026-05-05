@@ -1,5 +1,5 @@
 ---
-title: Ato Timeline Image Export Reference
+title: Medo Timeline Image Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-05-03"
@@ -15,7 +15,7 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Ato` の現在の逆算タイムラインを、共有専用の画像カードとして生成し PNG として外部共有する API をまとめたものです。
+本リファレンスは、`Medo` の現在の逆算タイムラインを、共有専用の画像カードとして生成し PNG として外部共有する API をまとめたものです。
 対象実装は以下のファイルです。
 
 - `lib/timeline_image_export.dart` — 純粋ロジック（view model 構築）
@@ -64,7 +64,7 @@ final vm = buildTimelineImageExportViewModel(
 
 ### `class TimelineImageShareCard extends StatelessWidget`
 
-- **Summary**: 共有専用の画像カード Widget。幅 320px で固定レイアウトし、Ato パレットと縦タイムライン構造を保つ。
+- **Summary**: 共有専用の画像カード Widget。幅 320px で固定レイアウトし、Medo パレットと縦タイムライン構造を保つ。
 - **Parameters**:
   - `viewModel (TimelineImageExportViewModel)`: 描画するデータ
 - **Usage**: [RepaintBoundary] で囲み、[GlobalKey] を紐付けて `ImageExportDelivery.capturePng` に渡すことを想定している。
@@ -74,18 +74,18 @@ final vm = buildTimelineImageExportViewModel(
 - **Summary**: PNG キャプチャと OS 共有シートの delivery 層
 - **Methods**:
   - `Future<Uint8List> capturePng(GlobalKey key, {double pixelRatio = 3.0})`: [RenderRepaintBoundary] を画像化して PNG bytes を返す。
-  - `Future<void> sharePng(Uint8List bytes, {required BuildContext context, String fileName = 'ato_share.png'})`: 一時ファイルに保存して `share_plus` で共有する。iPad では `sharePositionOrigin` を自動取得する。
+  - `Future<void> sharePng(Uint8List bytes, {required BuildContext context, String fileName = 'medo_share.png'})`: 一時ファイルに保存して `share_plus` で共有する。iPad では `sharePositionOrigin` を自動取得する。
 
 ## Visual Direction
 
 - 出力は「小さな計画カード」として見える
-- 上部に `Ato // <target title>` の見出し
+- 上部に `Medo // <target title>` の見出し
 - 日付または date range と total duration を見える位置に配置
 - `action` は時間幅を持つ行動として角丸カードで表示。左縁にブロック色、所要時間があればピルを表示
 - `actionPoint` は縦線上の小さな丸として表示
 - `targetAnchor` は `TARGET` ラベル付きの大きな olive 丸で表示
 - 操作 UI、スクロールバー、編集カーソルは含めない
-- 背景、文字色、ブロック色は既存の Ato palette と大きく乖離させない
+- 背景、文字色、ブロック色は既存の Medo palette と大きく乖離させない
 
 ## Notes
 

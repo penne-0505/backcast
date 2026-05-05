@@ -44,7 +44,7 @@ class ImageExportDelivery {
   Future<void> sharePng(
     Uint8List bytes, {
     required BuildContext context,
-    String fileName = 'ato_share.png',
+    String fileName = 'medo_share.png',
   }) async {
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/$fileName');

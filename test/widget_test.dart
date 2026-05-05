@@ -1,19 +1,19 @@
-import 'package:ato/main.dart';
-import 'package:ato/block_item.dart';
-import 'package:ato/models.dart';
-import 'package:ato/persistence/app_database.dart';
-import 'package:ato/persistence/persistence_providers.dart';
+import 'package:medo/main.dart';
+import 'package:medo/block_item.dart';
+import 'package:medo/models.dart';
+import 'package:medo/persistence/app_database.dart';
+import 'package:medo/persistence/persistence_providers.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 late AppDatabase db;
 
-Future<void> pumpAtoApp(WidgetTester tester) async {
+Future<void> pumpMedoApp(WidgetTester tester) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const AtoApp(),
+      child: const MedoApp(),
     ),
   );
   await tester.pump();
@@ -117,7 +117,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   testWidgets('renders header and target anchor', (tester) async {
-    await pumpAtoApp(tester);
+    await pumpMedoApp(tester);
 
     expect(find.text('目標時刻'), findsOneWidget);
     expect(find.text('前の行動を追加しましょう'), findsOneWidget);
@@ -126,7 +126,7 @@ void main() {
   testWidgets(
     'inline editing consumes the next block tap before opening edit sheet',
     (tester) async {
-      await pumpAtoApp(tester);
+      await pumpMedoApp(tester);
 
       await tester.tap(find.text('前の行動を追加'));
       await tester.pump();
@@ -154,7 +154,7 @@ void main() {
   testWidgets(
     'drag handle enters precise mode after hold and allows 1-minute adjustment',
     (tester) async {
-      await pumpAtoApp(tester);
+      await pumpMedoApp(tester);
 
       await tester.tap(find.text('前の行動を追加'));
       await tester.pump();

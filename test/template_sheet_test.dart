@@ -1,14 +1,14 @@
-import 'package:ato/billing/gate_helper.dart';
-import 'package:ato/billing/paywall_screen.dart';
-import 'package:ato/main.dart';
-import 'package:ato/models.dart';
-import 'package:ato/persistence/app_database.dart';
-import 'package:ato/persistence/persistence_providers.dart';
-import 'package:ato/persistence/plan_repository.dart';
-import 'package:ato/persistence/timeline_template_repository.dart';
-import 'package:ato/state.dart';
-import 'package:ato/template_sheet.dart';
-import 'package:ato/timeline_screen.dart';
+import 'package:medo/billing/gate_helper.dart';
+import 'package:medo/billing/paywall_screen.dart';
+import 'package:medo/main.dart';
+import 'package:medo/models.dart';
+import 'package:medo/persistence/app_database.dart';
+import 'package:medo/persistence/persistence_providers.dart';
+import 'package:medo/persistence/plan_repository.dart';
+import 'package:medo/persistence/timeline_template_repository.dart';
+import 'package:medo/state.dart';
+import 'package:medo/template_sheet.dart';
+import 'package:medo/timeline_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +24,7 @@ class _TestCurrentPlanIdNotifier extends CurrentPlanIdNotifier {
   String? build() => _value;
 }
 
-Future<void> pumpAtoApp(
+Future<void> pumpMedoApp(
   WidgetTester tester, {
   bool isPro = true,
 }) async {
@@ -34,7 +34,7 @@ Future<void> pumpAtoApp(
         databaseProvider.overrideWithValue(db),
         effectiveIsProProvider.overrideWithValue(isPro),
       ],
-      child: const AtoApp(),
+      child: const MedoApp(),
     ),
   );
   await tester.pump();
@@ -65,7 +65,7 @@ void main() {
 
     testWidgets('shows empty state when no templates exist', (tester) async {
       await _setLargeScreen(tester);
-      await pumpAtoApp(tester);
+      await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
       final templateButton = find.byWidgetPredicate(
@@ -81,7 +81,7 @@ void main() {
 
     testWidgets('Free user navigates to paywall from template button', (tester) async {
       await _setLargeScreen(tester);
-      await pumpAtoApp(tester, isPro: false);
+      await pumpMedoApp(tester, isPro: false);
       await tester.pumpAndSettle();
 
       final templateButton = find.byWidgetPredicate(
@@ -97,7 +97,7 @@ void main() {
 
     testWidgets('saves current timeline as template', (tester) async {
       await _setLargeScreen(tester);
-      await pumpAtoApp(tester);
+      await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
       final templateButton = find.byWidgetPredicate(
@@ -139,7 +139,7 @@ void main() {
         title: '朝のルーティン',
       );
 
-      await pumpAtoApp(tester);
+      await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
       final templateButton = find.byWidgetPredicate(
