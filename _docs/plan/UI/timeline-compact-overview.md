@@ -7,9 +7,9 @@ updated_at: "2026-05-02"
 references:
   - README.md
   - TODO.md
-  - _docs/guide/backcast/timeline_editor.md
-  - _docs/reference/backcast/timeline_domain_reference.md
-  - _docs/intent/backcast/reverse_timeline_interaction_model.md
+  - _docs/guide/medo/timeline_editor.md
+  - _docs/reference/medo/timeline_domain_reference.md
+  - _docs/intent/medo/reverse_timeline_interaction_model.md
 related_issues: []
 related_prs: []
 ---
@@ -120,7 +120,7 @@ related_prs: []
 4. reorder 方式を実装する。まず `ReorderableListView` / `SliverReorderableList` の固定 row 版を検討し、gesture が重い場合は選択 + 上下ボタンへ切り替える
 5. row tap / edit action から編集ビューへ戻り、該当 block または target anchor を選択する導線を実装する
 6. 現在時刻が範囲内にある場合、該当位置の近くに軽い marker を表示する
-7. `_docs/guide/backcast/timeline_editor.md` と `_docs/reference/backcast/timeline_domain_reference.md` に俯瞰ビューの使い方と制約を追記する
+7. `_docs/guide/medo/timeline_editor.md` と `_docs/reference/medo/timeline_domain_reference.md` に俯瞰ビューの使い方と制約を追記する
 
 ## Test Plan
 

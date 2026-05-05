@@ -8,7 +8,7 @@ references:
   - README.md
   - TODO.md
   - _docs/plan/Core/timeline-text-share.md
-  - _docs/reference/backcast/timeline_domain_reference.md
+  - _docs/reference/medo/timeline_domain_reference.md
   - https://api.flutter.dev/flutter/rendering/RenderRepaintBoundary-class.html
   - https://pub.dev/packages/share_plus
   - https://pub.dev/packages/screenshot

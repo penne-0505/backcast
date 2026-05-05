@@ -7,9 +7,9 @@ updated_at: "2026-05-02"
 references:
   - README.md
   - TODO.md
-  - _docs/intent/backcast/calendar_export_ics.md
-  - _docs/reference/backcast/calendar_export_reference.md
-  - _docs/reference/backcast/timeline_domain_reference.md
+  - _docs/intent/medo/calendar_export_ics.md
+  - _docs/reference/medo/calendar_export_reference.md
+  - _docs/reference/medo/timeline_domain_reference.md
   - https://developer.apple.com/documentation/EventKit/accessing-calendar-using-eventkit-and-eventkitui
   - https://developer.android.com/identity/providers/calendar-provider
   - https://www.rfc-editor.org/rfc/rfc5545
@@ -66,7 +66,7 @@ related_prs: []
 6. Android native channel に writable calendar の取得、選択 calendar id の受け取り、登録結果の件数返却を追加する
 7. iOS native channel の権限要求を iOS 17+ とそれ以前で分岐し、write-only access を優先する
 8. iOS / Android の permission description と native error code を、この計画で定義した domain error へ対応付ける
-9. `_docs/reference/backcast/calendar_export_reference.md` と `_docs/intent/backcast/calendar_export_ics.md` を、実装後の responsibility boundary に合わせて更新する
+9. `_docs/reference/medo/calendar_export_reference.md` と `_docs/intent/medo/calendar_export_ics.md` を、実装後の responsibility boundary に合わせて更新する
 10. README の現状制約に、カレンダー登録の対応範囲と未対応範囲を反映する
 
 ## Test Plan

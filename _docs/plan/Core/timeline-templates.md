@@ -7,8 +7,8 @@ updated_at: "2026-05-03"
 references:
   - TODO.md
   - _docs/plan/Core/pro-free-gate.md
-  - _docs/reference/backcast/persistence_repository_reference.md
-  - _docs/guide/backcast/timeline_editor.md
+  - _docs/reference/medo/persistence_repository_reference.md
+  - _docs/guide/medo/timeline_editor.md
 related_issues: []
 related_prs: []
 ---

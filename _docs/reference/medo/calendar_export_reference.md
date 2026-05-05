@@ -6,8 +6,8 @@ created_at: "2026-04-23"
 updated_at: "2026-05-02"
 references:
   - README.md
-  - _docs/reference/backcast/timeline_domain_reference.md
-  - _docs/intent/backcast/calendar_export_ics.md
+  - _docs/reference/medo/timeline_domain_reference.md
+  - _docs/intent/medo/calendar_export_ics.md
 related_issues: []
 related_prs: []
 ---

@@ -8,9 +8,9 @@ references:
   - _docs/standards/documentation_guidelines.md
   - _docs/standards/documentation_operations.md
   - README.md
-  - _docs/guide/backcast/timeline_editor.md
-  - _docs/reference/backcast/timeline_domain_reference.md
-  - _docs/intent/backcast/reverse_timeline_interaction_model.md
+  - _docs/guide/medo/timeline_editor.md
+  - _docs/reference/medo/timeline_domain_reference.md
+  - _docs/intent/medo/reverse_timeline_interaction_model.md
 related_issues: []
 related_prs: []
 ---
@@ -38,9 +38,9 @@ related_prs: []
 ## 現在の主要プロジェクトドキュメント
 
 - `README.md`: プロジェクト概要、実行コマンド、主要ドキュメントへの入口
-- `_docs/guide/backcast/timeline_editor.md`: 現在の UI 操作手順と運用上のコツ
-- `_docs/reference/backcast/timeline_domain_reference.md`: モデル、定数、状態管理 API の事実ベースの仕様
-- `_docs/intent/backcast/reverse_timeline_interaction_model.md`: 逆算 UI と状態設計の判断理由
+- `_docs/guide/medo/timeline_editor.md`: 現在の UI 操作手順と運用上のコツ
+- `_docs/reference/medo/timeline_domain_reference.md`: モデル、定数、状態管理 API の事実ベースの仕様
+- `_docs/intent/medo/reverse_timeline_interaction_model.md`: 逆算 UI と状態設計の判断理由
 - `_docs/guide/flutter/environment_setup.md`: Flutter 実行環境のセットアップ補足
 
 ## 利用者へのお願い

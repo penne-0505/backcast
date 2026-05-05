@@ -6,10 +6,10 @@ created_at: "2026-04-20"
 updated_at: "2026-04-23"
 references:
   - README.md
-  - _docs/guide/backcast/timeline_editor.md
-  - _docs/reference/backcast/timeline_domain_reference.md
-  - _docs/reference/backcast/persistence_repository_reference.md
-  - _docs/intent/backcast/drift_persistence_repository.md
+  - _docs/guide/medo/timeline_editor.md
+  - _docs/reference/medo/timeline_domain_reference.md
+  - _docs/reference/medo/persistence_repository_reference.md
+  - _docs/intent/medo/drift_persistence_repository.md
 related_issues: []
 related_prs: []
 ---

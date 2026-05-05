@@ -7,8 +7,8 @@ updated_at: "2026-05-02"
 references:
   - README.md
   - TODO.md
-  - _docs/reference/backcast/timeline_domain_reference.md
-  - _docs/intent/backcast/calendar_export_ics.md
+  - _docs/reference/medo/timeline_domain_reference.md
+  - _docs/intent/medo/calendar_export_ics.md
   - https://pub.dev/packages/share_plus
   - https://api.flutter.dev/flutter/services/Clipboard/setData.html
 related_issues: []
@@ -161,7 +161,7 @@ Medo // 到着
 5. Flutter 標準 `Clipboard.setData` による copy delivery を追加する
 6. export UI に「テキストで共有」を追加し、共有前プレビュー、共有、コピーの操作を配置する
 7. iPad / tablet で share sheet が落ちないよう、呼び出し元 widget の `RenderBox` から `sharePositionOrigin` を渡す
-8. `_docs/reference/backcast/` に text export の reference を追加し、README の export 説明へ反映する
+8. `_docs/reference/medo/` に text export の reference を追加し、README の export 説明へ反映する
 
 ## Test Plan
 

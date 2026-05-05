@@ -6,8 +6,8 @@ created_at: "2026-04-23"
 updated_at: "2026-04-23"
 references:
   - README.md
-  - _docs/intent/backcast/local_reminder_notifications.md
-  - _docs/reference/backcast/timeline_domain_reference.md
+  - _docs/intent/medo/local_reminder_notifications.md
+  - _docs/reference/medo/timeline_domain_reference.md
 related_issues: []
 related_prs: []
 ---

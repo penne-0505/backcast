@@ -6,13 +6,13 @@ created_at: "2026-04-20"
 updated_at: "2026-05-02"
 references:
   - README.md
-  - _docs/guide/backcast/timeline_editor.md
-  - _docs/intent/backcast/reverse_timeline_interaction_model.md
-  - _docs/intent/backcast/calendar_export_ics.md
-  - _docs/intent/backcast/local_reminder_notifications.md
-  - _docs/reference/backcast/calendar_export_reference.md
-  - _docs/reference/backcast/reminder_notification_reference.md
-  - _docs/reference/backcast/persistence_repository_reference.md
+  - _docs/guide/medo/timeline_editor.md
+  - _docs/intent/medo/reverse_timeline_interaction_model.md
+  - _docs/intent/medo/calendar_export_ics.md
+  - _docs/intent/medo/local_reminder_notifications.md
+  - _docs/reference/medo/calendar_export_reference.md
+  - _docs/reference/medo/reminder_notification_reference.md
+  - _docs/reference/medo/persistence_repository_reference.md
 related_issues: []
 related_prs: []
 ---
@@ -368,8 +368,8 @@ related_prs: []
 
 - 現状の状態は永続化されず、プロセス存続中のみ保持される
 - Drift / SQLite の永続化 Repository は `lib/persistence/` に実装済みだが、`TimelineNotifier` 自体は現時点では自動保存・起動時復元を行わない
-- カレンダー書き出し API は `lib/calendar_export.dart` に分離されており、詳細は `_docs/reference/backcast/calendar_export_reference.md` を参照
-- ローカル通知リマインダー API は `lib/notifications/reminder_notifications.dart` に分離されており、詳細は `_docs/reference/backcast/reminder_notification_reference.md` を参照
+- カレンダー書き出し API は `lib/calendar_export.dart` に分離されており、詳細は `_docs/reference/medo/calendar_export_reference.md` を参照
+- ローカル通知リマインダー API は `lib/notifications/reminder_notifications.dart` に分離されており、詳細は `_docs/reference/medo/reminder_notification_reference.md` を参照
 - `firstOrNull` は Dart SDK の拡張メソッドを利用している
 - `test/widget_test.dart` では `computeBlocks`、`formatTime`、画面スモークテストを実施している
 - `test/persistence/plan_repository_test.dart` では Repository の保存・ロード・履歴操作を検証している

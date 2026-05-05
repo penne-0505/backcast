@@ -84,7 +84,7 @@ import UIKit
               "savedCount": savedCount,
               "calendarName": calendarName ?? NSNull(),
             ])
-          } catch let saveError as NSError where saveError.domain == "Ato.CalendarExport" && saveError.code == 1 {
+          } catch let saveError as NSError where saveError.domain == "Medo.CalendarExport" && saveError.code == 1 {
             result(FlutterError(code: "no_writable_calendar", message: saveError.localizedDescription, details: nil))
           } catch {
             result(FlutterError(code: "save_failed", message: error.localizedDescription, details: nil))
@@ -109,7 +109,7 @@ import UIKit
       calendar = firstWritable
     } else {
       throw NSError(
-        domain: "Ato.CalendarExport",
+        domain: "Medo.CalendarExport",
         code: 1,
         userInfo: [NSLocalizedDescriptionKey: "No writable calendar is available."]
       )
@@ -139,7 +139,7 @@ import UIKit
           let rawEvents = root["events"] as? [[String: Any]],
           !rawEvents.isEmpty else {
       throw NSError(
-        domain: "Ato.CalendarExport",
+        domain: "Medo.CalendarExport",
         code: 2,
         userInfo: [NSLocalizedDescriptionKey: "Missing calendar export events."]
       )
@@ -149,7 +149,7 @@ import UIKit
       guard let title = event["title"] as? String,
             !title.isEmpty else {
         throw NSError(
-          domain: "Ato.CalendarExport",
+          domain: "Medo.CalendarExport",
           code: 3,
           userInfo: [NSLocalizedDescriptionKey: "Missing title for event at index \(index)."]
         )
@@ -158,7 +158,7 @@ import UIKit
       guard let startAtMillis = Self.numberValue(event["startAtMillis"]),
             let endAtMillis = Self.numberValue(event["endAtMillis"]) else {
         throw NSError(
-          domain: "Ato.CalendarExport",
+          domain: "Medo.CalendarExport",
           code: 4,
           userInfo: [NSLocalizedDescriptionKey: "Missing time range for event at index \(index)."]
         )

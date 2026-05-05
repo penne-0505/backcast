@@ -6,9 +6,9 @@ created_at: "2026-05-02"
 updated_at: "2026-05-02"
 references:
   - TODO.md
-  - _docs/guide/backcast/timeline_editor.md
-  - _docs/reference/backcast/persistence_repository_reference.md
-  - _docs/intent/backcast/drift_persistence_repository.md
+  - _docs/guide/medo/timeline_editor.md
+  - _docs/reference/medo/persistence_repository_reference.md
+  - _docs/intent/medo/drift_persistence_repository.md
 related_issues: []
 related_prs: []
 ---
@@ -143,7 +143,7 @@ related_prs: []
 8. `isProProvider` に基づき、Free は2件まで、Pro は無制限として作成可否を制御する。
 9. existing `PlanPanel` の load 操作が persisted `currentPlanId` と矛盾しないように統合する。
 10. Free / Pro / downgrade / restore Pro の状態遷移を targeted test と手動確認で検証する。
-11. 実装後、`_docs/reference/backcast/persistence_repository_reference.md` と `_docs/guide/backcast/timeline_editor.md` を更新する。
+11. 実装後、`_docs/reference/medo/persistence_repository_reference.md` と `_docs/guide/medo/timeline_editor.md` を更新する。
 
 ## Test Plan
 

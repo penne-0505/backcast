@@ -6,7 +6,7 @@ created_at: "2026-05-02"
 updated_at: "2026-05-02"
 references:
   - README.md
-  - _docs/reference/backcast/timeline_domain_reference.md
+  - _docs/reference/medo/timeline_domain_reference.md
   - _docs/plan/Core/timeline-text-share.md
 related_issues: []
 related_prs: []

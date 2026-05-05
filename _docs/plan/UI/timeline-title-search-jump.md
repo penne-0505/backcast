@@ -7,9 +7,9 @@ updated_at: "2026-05-02"
 references:
   - README.md
   - TODO.md
-  - _docs/guide/backcast/timeline_editor.md
-  - _docs/reference/backcast/timeline_domain_reference.md
-  - _docs/intent/backcast/reverse_timeline_interaction_model.md
+  - _docs/guide/medo/timeline_editor.md
+  - _docs/reference/medo/timeline_domain_reference.md
+  - _docs/intent/medo/reverse_timeline_interaction_model.md
   - _docs/plan/UI/timeline-compact-overview.md
   - lib/models.dart
   - lib/state.dart
