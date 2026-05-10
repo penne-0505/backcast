@@ -70,11 +70,13 @@ Flutter アプリは `anon` / publishable key のみを使い、`user_pro_entitl
 
 Paywall は RevenueCat の `current` offering から Pro package を取得し、価格・期間を表示して `Purchases.purchasePackage(...)` で Google Play / App Store の購入フローを開始します。購入成功後は RevenueCat `CustomerInfo` と Supabase の `currentProEntitlementProvider` を再読込します。RevenueCat webhook から Supabase へ反映されるまで短い遅延があり得るため、購入直後は「確認中」として扱い、最終的な Pro 判定は引き続き Supabase の `user_pro_entitlements` を source of truth にします。
 
+設定画面のサブスクリプションセクションでは、Free ユーザーのプランカードは Paywall へ遷移します。Pro ユーザーの `Proプラン利用中` カードは Paywall には戻さず、RevenueCat `CustomerInfo.managementURL` から Google Play / App Store の購読管理画面を外部アプリで開きます。`managementURL` が取得できない場合は、購入復元または各ストアのサブスクリプション管理を確認する案内を表示します。
+
 Web / Linux / Windows など RevenueCat SDK を使わない実行環境では、アプリ起動時に `Purchases.configure(...)`、`logIn`、`logOut`、offering 取得、restore を呼ばず、billing state は Free 相当に倒します。Paywall は Pro package なしとして表示され、ストア購入フローは Android / iOS / macOS の対応環境だけで有効になります。
 
 レビュー担当者や検証用アカウントには、Supabase `reviewer_entitlement_allowlist` にメールアドレスと期限を登録できます。Google OAuth 後に `sync-reviewer-entitlement` Edge Function が現在ユーザーのメールアドレスを照合し、期限内で有効な場合だけ `user_pro_entitlements` に `status = temporary` の Pro 状態を作成します。メールは小文字・trim 済みで登録し、審査完了後は `disabled_at` を設定するか期限切れにしてください。
 
-closed testing で課金導線を確認する場合は、Play Store の opt-in 経由でインストールし、Supabase login 後に Paywall から sandbox purchase を開始します。その後、RevenueCat dashboard の customer / entitlement、Supabase `user_pro_entitlements.is_pro`、アプリ内の Pro gate 解放を順に確認します。購入済み状態の再同期には Paywall または設定画面の「購入を復元」を使用します。
+closed testing で課金導線を確認する場合は、Play Store の opt-in 経由でインストールし、Supabase login 後に Paywall から sandbox purchase を開始します。その後、RevenueCat dashboard の customer / entitlement、Supabase `user_pro_entitlements.is_pro`、アプリ内の Pro gate 解放を順に確認します。購入済み状態の再同期には Paywall または設定画面の「購入を復元」を使用し、購読の解約・更新停止は設定画面の Pro プランカードから開くストア側の管理画面で確認します。
 
 Supabase 側のローカル成果物は以下です。
 

@@ -117,6 +117,18 @@ final proPackageProvider = FutureProvider<ProPackageState?>((ref) async {
   );
 });
 
+final subscriptionManagementUrlProvider = FutureProvider<Uri?>((ref) async {
+  if (!ref.watch(revenueCatBillingAvailableProvider)) return null;
+
+  final customerInfo = await ref
+      .watch(revenueCatGatewayProvider)
+      .getCustomerInfo();
+  final rawUrl = customerInfo.managementURL?.trim();
+  if (rawUrl == null || rawUrl.isEmpty) return null;
+
+  return Uri.tryParse(rawUrl);
+});
+
 /// Notifier that syncs RevenueCat [CustomerInfo] into a [BillingState].
 class BillingNotifier extends AsyncNotifier<BillingState> {
   @override

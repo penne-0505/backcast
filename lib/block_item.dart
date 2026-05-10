@@ -295,7 +295,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
         (bufferMinutes > 0 && effectiveDuration > 0
                 ? (height * block.duration / effectiveDuration).clamp(
                     24.0,
-                    height,
+                    double.infinity,
                   )
                 : height)
             .toDouble();
@@ -352,21 +352,22 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                               boxShadow: widget.isSelected
                                   ? AppShadows.cardSelected
                                   : AppShadows.card,
-                              border: _isPreciseImpactTarget
-                                  ? Border.all(
-                                      color: AppColors.accentOlive.withValues(
+                            ),
+                            foregroundDecoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(
+                                color: _isPreciseImpactTarget
+                                    ? AppColors.accentOlive.withValues(
                                         alpha: 0.70,
-                                      ),
-                                      width: 1.5,
-                                    )
-                                  : (widget.isSearchHighlighted &&
-                                            !widget.isSelected
-                                        ? Border.all(
-                                            color: AppColors.accentOlive
-                                                .withValues(alpha: 0.25),
-                                            width: 1.5,
-                                          )
-                                        : null),
+                                      )
+                                    : (widget.isSearchHighlighted &&
+                                              !widget.isSelected
+                                          ? AppColors.accentOlive.withValues(
+                                              alpha: 0.25,
+                                            )
+                                          : Colors.transparent),
+                                width: 1.5,
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -508,7 +509,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                     child: _ActionBufferSegment(
                                       minutes: bufferMinutes,
                                       color: color,
-                                      startTime: actionEndTime,
+                                      actionEndTime: actionEndTime,
                                       endTime: widget.computedBlock.endTime,
                                     ),
                                   ),
@@ -633,21 +634,19 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                       boxShadow: widget.isSelected
                           ? AppShadows.cardSelected
                           : AppShadows.card,
-                      border: _isPreciseImpactTarget
-                          ? Border.all(
-                              color: AppColors.accentOlive.withValues(
-                                alpha: 0.70,
-                              ),
-                              width: 1.5,
-                            )
-                          : (widget.isSearchHighlighted && !widget.isSelected
-                                ? Border.all(
-                                    color: AppColors.accentOlive.withValues(
+                    ),
+                    foregroundDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                        color: _isPreciseImpactTarget
+                            ? AppColors.accentOlive.withValues(alpha: 0.70)
+                            : (widget.isSearchHighlighted && !widget.isSelected
+                                  ? AppColors.accentOlive.withValues(
                                       alpha: 0.25,
-                                    ),
-                                    width: 1.5,
-                                  )
-                                : null),
+                                    )
+                                  : Colors.transparent),
+                        width: 1.5,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -723,65 +722,157 @@ class _ActionBufferSegment extends StatelessWidget {
   const _ActionBufferSegment({
     required this.minutes,
     required this.color,
-    required this.startTime,
+    required this.actionEndTime,
     required this.endTime,
   });
 
   final int minutes;
   final Color color;
-  final int startTime;
+  final int actionEndTime;
   final int endTime;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 2, 12, 12),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: FractionallySizedBox(
-          widthFactor: 0.88,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border.all(
-                color: color.withValues(alpha: 0.24),
-                width: 1,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final isCompact = availableHeight < 28;
+        final isUltraCompact = availableHeight < 14;
+
+        if (isUltraCompact) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '余裕 +$minutes分',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.mutedInk,
-                      ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DashedLine(color: color.withValues(alpha: 0.35)),
+              const SizedBox(height: 3),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.35),
+                      width: 1,
                     ),
                   ),
+                  child: isCompact
+                      ? Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '+$minutes分',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: color.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '余裕 +$minutes分',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: color.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${formatTime(actionEndTime)}-${formatTime(endTime)}',
+                              style: AppTextStyles.time(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.mutedInk,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${formatTime(startTime)}-${formatTime(endTime)}',
-                  style: AppTextStyles.time(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.mutedInk,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
+}
+
+class _DashedLine extends StatelessWidget {
+  const _DashedLine({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _DashedLinePainter(color: color),
+      size: const Size(double.infinity, 1),
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  const _DashedLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 4.0;
+    const dashSpace = 3.0;
+    double startX = 0;
+
+    while (startX < size.width) {
+      final endX = (startX + dashWidth).clamp(0.0, size.width);
+      canvas.drawLine(
+        Offset(startX, size.height / 2),
+        Offset(endX, size.height / 2),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _SwipeDeleteBackground extends StatelessWidget {

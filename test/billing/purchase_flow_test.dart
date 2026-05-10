@@ -141,14 +141,90 @@ void main() {
         expect(restoredState.purchaseMessage, 'この環境では購入の復元を利用できません。');
       },
     );
+
+    test('subscription management URL comes from CustomerInfo', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+        managementURL: 'https://play.google.com/store/account/subscriptions',
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final url = await container.read(
+        subscriptionManagementUrlProvider.future,
+      );
+
+      expect(
+        url,
+        Uri.parse('https://play.google.com/store/account/subscriptions'),
+      );
+      expect(gateway.customerInfoCount, 1);
+    });
+
+    test(
+      'subscription management URL is unavailable without active store link',
+      () async {
+        final gateway = _FakeRevenueCatGateway(
+          offerings: _offeringsWithMonthlyPackage(),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            revenueCatBillingAvailableProvider.overrideWithValue(true),
+            revenueCatGatewayProvider.overrideWithValue(gateway),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final url = await container.read(
+          subscriptionManagementUrlProvider.future,
+        );
+
+        expect(url, isNull);
+        expect(gateway.customerInfoCount, 1);
+      },
+    );
+
+    test(
+      'subscription management URL skips RevenueCat on unsupported platforms',
+      () async {
+        final gateway = _FakeRevenueCatGateway(
+          offerings: _offeringsWithMonthlyPackage(),
+          managementURL: 'https://play.google.com/store/account/subscriptions',
+        );
+        final container = ProviderContainer(
+          overrides: [
+            revenueCatBillingAvailableProvider.overrideWithValue(false),
+            revenueCatGatewayProvider.overrideWithValue(gateway),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final url = await container.read(
+          subscriptionManagementUrlProvider.future,
+        );
+
+        expect(url, isNull);
+        expect(gateway.customerInfoCount, 0);
+      },
+    );
   });
 }
 
 class _FakeRevenueCatGateway extends RevenueCatGateway {
-  _FakeRevenueCatGateway({required this.offerings, this.purchaseError});
+  _FakeRevenueCatGateway({
+    required this.offerings,
+    this.purchaseError,
+    this.managementURL,
+  });
 
   final Offerings offerings;
   final PlatformException? purchaseError;
+  final String? managementURL;
   int customerInfoCount = 0;
   int offeringsCount = 0;
   int purchaseCount = 0;
@@ -163,7 +239,7 @@ class _FakeRevenueCatGateway extends RevenueCatGateway {
   @override
   Future<CustomerInfo> getCustomerInfo() async {
     customerInfoCount += 1;
-    return _customerInfo();
+    return _customerInfo(managementURL: managementURL);
   }
 
   @override
@@ -173,13 +249,13 @@ class _FakeRevenueCatGateway extends RevenueCatGateway {
     if (error != null) {
       throw error;
     }
-    return _customerInfo();
+    return _customerInfo(managementURL: managementURL);
   }
 
   @override
   Future<CustomerInfo> restorePurchases() async {
     restoreCount += 1;
-    return _customerInfo();
+    return _customerInfo(managementURL: managementURL);
   }
 
   @override
@@ -276,7 +352,7 @@ Offerings _emptyOfferings() {
   return Offerings.fromJson(json);
 }
 
-CustomerInfo _customerInfo() {
+CustomerInfo _customerInfo({String? managementURL}) {
   return CustomerInfo(
     const EntitlementInfos({}, {}),
     const {},
@@ -287,5 +363,6 @@ CustomerInfo _customerInfo() {
     'user-id',
     const {},
     '2026-05-09T00:00:00Z',
+    managementURL: managementURL,
   );
 }

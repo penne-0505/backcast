@@ -187,53 +187,13 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 2. Apple Watch対応: 現在時刻インジケーターと残り時間を腕で確認
 (以下優先)
 3. iOS対応: RevenueCatのiOS API keyを実値化し、iOSのPro判定・restore導線を確認する
-4. ドキュメント運用: 実装済みタスクのTODO lifecycleを復旧し、完了済み/未完了を追跡可能に戻す
+4. ローカライズ方針: 海外展開を見据えた i18n / ローカライズ方針を立てる
 
 
 
 ---
 
 ## Backlog
-
-- **Title**: [Feat] Add RevenueCat purchase flow to Paywall
-- **ID**: Core-Feat-36
-- **Priority**: P0
-- **Size**: M
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: closed testing のテスターがアプリ内 Paywall から Google Play sandbox purchase を開始し、RevenueCat / Supabase sync 後に Pro gate が開く導線を再現できる。
-- **Steps**:
-  1. [x] Plan の "Purchase Flow" に従い、RevenueCat offerings / package 取得と表示用 state を追加する
-  2. [x] Paywall に Pro package の価格・期間表示と購入ボタンを追加し、商品未設定・loading・error を扱う
-  3. [x] 購入ボタンから `Purchases.purchasePackage(...)` を呼び、キャンセル・失敗・成功を区別して UI に反映する
-  4. [x] 購入成功後に RevenueCat CustomerInfo と `currentProEntitlementProvider` を再読込し、webhook 反映待ちを考慮した状態表示にする
-  5. [x] 既存の restore 導線を維持し、purchase / restore のどちらでも entitlement provider refresh が走ることを確認する
-  6. [ ] Plan の "Test Plan" に従い、unit / widget / Android closed testing sandbox purchase の検証を実施する
-  7. [x] 実装結果を README または guide/reference の課金導線説明に反映する
-- **Description**: 現状の Paywall は restore のみで、新規購入を開始できない。12人クローズドテストで「Play Store からインストール → ログイン → テスト購入 → RevenueCat webhook → Supabase entitlement → Pro解放」を各テスターが再現できるよう、RevenueCat の purchase flow を Paywall に接続する。
-- **Plan**: `_docs/plan/Core/revenuecat-purchase-flow.md`
-
----
-
-- **Title**: [Feat] Add action-level buffer time
-- **ID**: Core-Feat-37
-- **Priority**: P1
-- **Size**: L
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: 各 action block が実所要時間とは別に buffer time を持ち、Pro ユーザーは block 本体のダブルタップと詳細編集シートから buffer を設定でき、逆算・表示・テンプレート・共有・カレンダー登録に一貫して反映される。
-- **Steps**:
-  1. [x] Plan の "Data Model" に従い、`Block` / codec / Drift schema / migration に `bufferMinutes` を追加する
-  2. [x] Plan の "Interaction Model" に従い、action body double tap で buffer を5分増やす導線を実装する
-  3. [x] Plan の "Visual Model" に従い、buffer 部分を action 本体より少し横幅の狭い別枠として表示する
-  4. [x] Plan の "Pro / Free Behavior" に従い、Free では既存 buffer を保持・計算反映しつつ新規追加・編集をロックする
-  5. [x] Plan の "Export / Sharing" に従い、テンプレート、カレンダー登録、テキスト共有、画像共有へ buffer を反映する
-  6. [x] Plan の "Test Plan" に従い、model / persistence / gesture / export / downgrade の検証を追加する
-  7. [x] README、timeline editor guide、domain / persistence / export references を実装結果に合わせて更新する
-- **Description**: Medo の Pro 価値として、行動ごとに余裕時間を設定できる機能を追加する。buffer は通常の余裕 block ではなく action に紐づく余裕として管理し、`duration + bufferMinutes` を逆算に使う。
-- **Plan**: `_docs/plan/Core/action-buffer-time.md`
-
----
 
 - **Title**: [Feat] Add timeline alternative comparison
 - **ID**: UI-Feat-38

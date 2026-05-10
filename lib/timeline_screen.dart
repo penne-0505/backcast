@@ -1263,21 +1263,13 @@ class _TargetTimeAnchorState extends ConsumerState<_TargetTimeAnchor> {
   @override
   Widget build(BuildContext context) {
     final notifier = ref.read(timelineProvider.notifier);
+    final targetLineColor = AppColors.mutedInk.withValues(alpha: 0.42);
 
     return Padding(
       padding: const EdgeInsets.only(top: _connectorGap),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left accent bar
-          Container(
-            width: 3,
-            decoration: BoxDecoration(
-              color: AppColors.accentOlive,
-              borderRadius: BorderRadius.circular(AppRadius.xs),
-            ),
-          ),
-          const SizedBox(width: 4),
           // Left sidebar
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -1301,17 +1293,36 @@ class _TargetTimeAnchorState extends ConsumerState<_TargetTimeAnchor> {
                     bottom: -_connectorGap,
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Container(width: 2, color: AppColors.timelineLine),
+                      child: Container(
+                        width: 2,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              targetLineColor.withValues(alpha: 0.0),
+                              targetLineColor,
+                              targetLineColor,
+                              targetLineColor.withValues(alpha: 0.0),
+                            ],
+                            stops: const [0.0, 0.12, 0.88, 1.0],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  // L字の横棒（縦線右端からブロック方向へ）
                   Positioned(
-                    left: 46,
-                    bottom: -_connectorGap,
+                    right: -2,
+                    top: -_connectorGap,
                     child: Container(
-                      width: 20,
-                      height: 2,
-                      color: AppColors.accentOlive,
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: AppColors.mutedInk,
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(2),
+                        ),
+                      ),
                     ),
                   ),
                   Positioned(

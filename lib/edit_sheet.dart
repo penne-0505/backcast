@@ -353,6 +353,7 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                   _DurationStepper(
                     controller: _durationCtrl,
                     focusNode: _durationFocusNode,
+                    unitLabel: '分',
                     canDecrement: selected.duration > 5,
                     canIncrement: true,
                     onDecrement: () => notifier.updateBlock(
@@ -377,7 +378,7 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                   const SizedBox(height: 16),
                   const _SectionLabel('余裕時間'),
                   const SizedBox(height: 6),
-                  if (isPro)
+                  if (isPro) ...[
                     _DurationStepper(
                       controller: _bufferCtrl,
                       focusNode: _bufferFocusNode,
@@ -385,6 +386,12 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       canIncrement:
                           selected.normalizedBufferMinutes <
                           kMaxActionBufferMinutes,
+                      fillColor: AppColors
+                          .blockColors[
+                            selected.colorIndex % AppColors.blockColors.length
+                          ]
+                          .withValues(alpha: 0.08),
+                      leadingIcon: PhosphorIcons.timer(),
                       onDecrement: () => notifier.setActionBufferMinutes(
                         selected.id,
                         selected.normalizedBufferMinutes - kBufferStepMinutes,
@@ -396,11 +403,34 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       onChanged: (v) {
                         final n = int.tryParse(v);
                         if (n != null) {
-                          notifier.setActionBufferMinutes(selected.id, n);
+                          final clamped = n.clamp(
+                            0,
+                            kMaxActionBufferMinutes,
+                          );
+                          final normalized = normalizeActionBufferMinutes(
+                            BlockType.action,
+                            clamped,
+                          );
+                          if (normalized != n) {
+                            _bufferCtrl.text = normalized.toString();
+                          }
+                          notifier.setActionBufferMinutes(
+                            selected.id,
+                            normalized,
+                          );
                         }
                       },
-                    )
-                  else
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '0〜60分の範囲で5分単位で設定できます',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.mutedInk.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ] else
                     _LockedBufferControl(
                       minutes: selected.normalizedBufferMinutes,
                       onTap: _showActionBufferPaywall,
@@ -504,6 +534,9 @@ class _DurationStepper extends StatefulWidget {
     required this.onChanged,
     this.canDecrement = true,
     this.canIncrement = true,
+    this.fillColor,
+    this.leadingIcon,
+    this.unitLabel = '分',
   });
 
   final TextEditingController controller;
@@ -513,6 +546,9 @@ class _DurationStepper extends StatefulWidget {
   final void Function(String) onChanged;
   final bool canDecrement;
   final bool canIncrement;
+  final Color? fillColor;
+  final IconData? leadingIcon;
+  final String unitLabel;
 
   @override
   State<_DurationStepper> createState() => _DurationStepperState();
@@ -542,7 +578,7 @@ class _DurationStepperState extends State<_DurationStepper> {
   void _startRepeatDecrement() {
     _onTapDecrement();
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+    _repeatTimer = Timer.periodic(const Duration(milliseconds: 180), (_) {
       if (!widget.canDecrement) {
         _stopRepeat();
         return;
@@ -554,7 +590,7 @@ class _DurationStepperState extends State<_DurationStepper> {
   void _startRepeatIncrement() {
     _onTapIncrement();
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+    _repeatTimer = Timer.periodic(const Duration(milliseconds: 180), (_) {
       if (!widget.canIncrement) {
         _stopRepeat();
         return;
@@ -593,11 +629,25 @@ class _DurationStepperState extends State<_DurationStepper> {
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: AppColors.softGray,
+        color: widget.fillColor ?? AppColors.softGray,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
         children: [
+          if (widget.leadingIcon != null) ...[
+            SizedBox(
+              width: 44,
+              height: 56,
+              child: Center(
+                child: Icon(
+                  widget.leadingIcon,
+                  size: 18,
+                  color: AppColors.mutedInk,
+                ),
+              ),
+            ),
+            Container(width: 1, height: 24, color: AppColors.accentDivider),
+          ],
           ShakeWidget(
             shake: _shakeLeft,
             child: Pressable(
@@ -654,9 +704,9 @@ class _DurationStepperState extends State<_DurationStepper> {
                       ),
                     ),
                   ),
-                  const Text(
-                    '分',
-                    style: TextStyle(
+                  Text(
+                    widget.unitLabel,
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.mutedInk,

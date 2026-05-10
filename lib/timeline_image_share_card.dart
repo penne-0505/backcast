@@ -150,30 +150,27 @@ class TimelineImageShareCard extends StatelessWidget {
                 if (event.bufferMinutes > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: FractionallySizedBox(
-                      widthFactor: 0.88,
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.30),
+                          width: 1,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.canvas.withValues(alpha: 0.78),
-                          borderRadius: BorderRadius.circular(AppRadius.xs),
-                          border: Border.all(
-                            color: color.withValues(alpha: 0.28),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          '余裕 +${event.bufferMinutes}分',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.mutedInk,
-                            height: 1.2,
-                          ),
+                      ),
+                      child: Text(
+                        '余裕 +${event.bufferMinutes}分',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: color.withValues(alpha: 0.8),
+                          height: 1.2,
                         ),
                       ),
                     ),

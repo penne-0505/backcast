@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_providers.dart';
 import '../billing/billing_providers.dart';
@@ -10,8 +11,15 @@ import '../billing/gate_helper.dart';
 import '../billing/paywall_screen.dart';
 import '../theme.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isOpeningSubscriptionManagement = false;
 
   Future<void> _confirmDeleteAccount(
     BuildContext context,
@@ -43,9 +51,58 @@ class SettingsScreen extends ConsumerWidget {
     await ref.read(authProvider.notifier).deleteAccount();
   }
 
+  Future<void> _handlePlanTap(BuildContext context, bool isPro) async {
+    if (!isPro) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              const PaywallScreen(feature: PaywallFeature.timelineCount),
+        ),
+      );
+      return;
+    }
+
+    if (_isOpeningSubscriptionManagement) return;
+    setState(() => _isOpeningSubscriptionManagement = true);
+
+    try {
+      final url = await ref.read(subscriptionManagementUrlProvider.future);
+      if (!context.mounted) return;
+      if (url == null) {
+        _showSubscriptionMessage(
+          context,
+          '購読管理画面を開けませんでした。購入を復元するか、Google Play / App Store のサブスクリプション管理を確認してください。',
+        );
+        return;
+      }
+
+      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!opened && context.mounted) {
+        _showSubscriptionMessage(
+          context,
+          '購読管理画面を開けませんでした。Google Play / App Store のサブスクリプション管理を確認してください。',
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      _showSubscriptionMessage(context, '購読管理画面を開けませんでした。時間をおいて再試行してください。');
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningSubscriptionManagement = false);
+      }
+    }
+  }
+
+  void _showSubscriptionMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final authAsync = ref.watch(authProvider);
+    final isPro = ref.watch(effectiveIsProProvider);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -130,16 +187,9 @@ class SettingsScreen extends ConsumerWidget {
               _SectionHeader(title: 'サブスクリプション'),
               const SizedBox(height: AppSpacing.md),
               _ProStatusCard(
-                isPro: ref.watch(effectiveIsProProvider),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const PaywallScreen(
-                        feature: PaywallFeature.timelineCount,
-                      ),
-                    ),
-                  );
-                },
+                isPro: isPro,
+                isBusy: _isOpeningSubscriptionManagement,
+                onTap: () => _handlePlanTap(context, isPro),
               ),
               const SizedBox(height: AppSpacing.md),
               _RestorePurchasesButton(
@@ -399,9 +449,14 @@ class _SignOutButton extends StatelessWidget {
 }
 
 class _ProStatusCard extends StatelessWidget {
-  const _ProStatusCard({required this.isPro, required this.onTap});
+  const _ProStatusCard({
+    required this.isPro,
+    required this.isBusy,
+    required this.onTap,
+  });
 
   final bool isPro;
+  final bool isBusy;
   final VoidCallback onTap;
 
   @override
@@ -454,7 +509,9 @@ class _ProStatusCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isPro ? '全てのPro機能が利用可能です' : 'タップしてPro機能を確認',
+                    isPro
+                        ? (isBusy ? '購読管理を開いています' : 'ストアで購読を管理')
+                        : 'タップしてPro機能を確認',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.mutedInk,
@@ -464,7 +521,7 @@ class _ProStatusCard extends StatelessWidget {
               ),
             ),
             Icon(
-              PhosphorIcons.caretRight(),
+              isBusy ? PhosphorIcons.circleNotch() : PhosphorIcons.caretRight(),
               size: 16,
               color: AppColors.mutedInk,
             ),
