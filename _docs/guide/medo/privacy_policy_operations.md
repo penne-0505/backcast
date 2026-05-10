@@ -7,7 +7,7 @@ updated_at: "2026-05-09"
 references:
   - README.md
   - _docs/standards/privacy-policy.md
-  - _docs/plan/Core/revenuecat-supabase-entitlement-sync.md
+  - _docs/archives/plan/Core/revenuecat-supabase-entitlement-sync.md
 related_issues: []
 related_prs: []
 ---
