@@ -7,7 +7,7 @@ updated_at: "2026-05-10"
 references:
   - README.md
   - _docs/reference/medo/timeline_domain_reference.md
-  - _docs/plan/Core/timeline-text-share.md
+  - _docs/archives/plan/Core/timeline-text-share.md
 related_issues: []
 related_prs: []
 ---
