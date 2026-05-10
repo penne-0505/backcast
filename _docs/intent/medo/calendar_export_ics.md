@@ -6,6 +6,7 @@ created_at: "2026-04-23"
 updated_at: "2026-05-02"
 references:
   - README.md
+  - _docs/archives/plan/Core/calendar-registration-enhancement.md
   - _docs/reference/medo/calendar_export_reference.md
   - _docs/reference/medo/timeline_domain_reference.md
 related_issues: []

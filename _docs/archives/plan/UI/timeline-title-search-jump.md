@@ -10,7 +10,7 @@ references:
   - _docs/guide/medo/timeline_editor.md
   - _docs/reference/medo/timeline_domain_reference.md
   - _docs/intent/medo/reverse_timeline_interaction_model.md
-  - _docs/plan/UI/timeline-compact-overview.md
+  - _docs/archives/plan/UI/timeline-compact-overview.md
   - lib/models.dart
   - lib/state.dart
   - lib/timeline_screen.dart

@@ -6,8 +6,8 @@ created_at: "2026-05-10"
 updated_at: "2026-05-10"
 references:
   - TODO.md
-  - _docs/plan/Core/revenuecat-supabase-entitlement-sync.md
-  - _docs/plan/Core/revenuecat-purchase-flow.md
+  - _docs/archives/plan/Core/revenuecat-supabase-entitlement-sync.md
+  - _docs/archives/plan/Core/revenuecat-purchase-flow.md
   - _docs/standards/privacy-policy.md
 related_issues: []
 related_prs: []

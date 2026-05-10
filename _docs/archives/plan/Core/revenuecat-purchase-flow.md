@@ -6,8 +6,8 @@ created_at: "2026-05-09"
 updated_at: "2026-05-09"
 references:
   - TODO.md
-  - _docs/plan/Core/revenuecat-supabase-entitlement-sync.md
-  - _docs/plan/Core/pro-free-gate.md
+  - _docs/archives/plan/Core/revenuecat-supabase-entitlement-sync.md
+  - _docs/archives/plan/Core/pro-free-gate.md
 related_issues: []
 related_prs: []
 ---

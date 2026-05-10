@@ -7,7 +7,7 @@ updated_at: "2026-05-09"
 references:
   - TODO.md
   - _docs/standards/privacy-policy.md
-  - _docs/plan/Core/pro-free-gate.md
+  - _docs/archives/plan/Core/pro-free-gate.md
   - https://supabase.com/docs/guides/api/securing-your-api
   - https://supabase.com/docs/guides/database/postgres/row-level-security
   - https://supabase.com/docs/guides/functions

@@ -6,9 +6,9 @@ created_at: "2026-05-10"
 updated_at: "2026-05-10"
 references:
   - TODO.md
-  - _docs/plan/UI/timeline-slot-toggle.md
-  - _docs/plan/Core/action-buffer-time.md
-  - _docs/plan/Core/pro-free-gate.md
+  - _docs/archives/plan/UI/timeline-slot-toggle.md
+  - _docs/archives/plan/Core/action-buffer-time.md
+  - _docs/archives/plan/Core/pro-free-gate.md
   - _docs/guide/medo/timeline_editor.md
   - _docs/reference/medo/persistence_repository_reference.md
   - _docs/reference/medo/timeline_domain_reference.md

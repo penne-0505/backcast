@@ -6,9 +6,9 @@ created_at: "2026-05-02"
 updated_at: "2026-05-04"
 references:
   - TODO.md
-  - _docs/plan/UI/timeline-slot-toggle.md
-  - _docs/plan/Core/timeline-templates.md
-  - _docs/plan/Core/timeline-image-share.md
+  - _docs/archives/plan/UI/timeline-slot-toggle.md
+  - _docs/archives/plan/Core/timeline-templates.md
+  - _docs/archives/plan/Core/timeline-image-share.md
 related_issues: []
 related_prs: []
 ---
@@ -46,7 +46,7 @@ Medo の Pro / Free 境界を `isProProvider` を source of truth として整�
 - Free で2件保持済みの場合、新規タイムライン作成はできない。
 - Pro から Free へ戻ったときに3件以上のタイムラインが存在しても、データは削除しない。
 - Free への縮退時は、利用可能な範囲を2件に制限し、Pro 復帰時に全件を再び利用可能にする。
-- 詳細な UI / data model は `_docs/plan/UI/timeline-slot-toggle.md` に従う。
+- 詳細な UI / data model は `_docs/archives/plan/UI/timeline-slot-toggle.md` に従う。
 
 ### Templates
 
@@ -56,7 +56,7 @@ Medo の Pro / Free 境界を `isProProvider` を source of truth として整�
 - Pro から Free へ戻っても既存テンプレートデータは削除しない。
 - Free 中は既存テンプレートが端末内に残っていても作成・保存・適用できない。
 - Pro に戻った場合、既存テンプレートは再び利用可能にする。
-- テンプレート機能本体の保存・一覧・適用・編集・削除仕様は `_docs/plan/Core/timeline-templates.md` に従う。
+- テンプレート機能本体の保存・一覧・適用・編集・削除仕様は `_docs/archives/plan/Core/timeline-templates.md` に従う。
 
 Free で残す導線は次に限定する。
 
@@ -71,7 +71,7 @@ Free でテンプレートボタンを押した場合は、テンプレート UI
 - Free は画像エクスポートを使用不可とする。
 - Pro は画像エクスポートを使用できる。
 - Free で画像エクスポート導線を押した場合は、画像生成処理を開始せず、Pro 説明 / paywall へ遷移する。
-- 画像エクスポート自体の生成仕様は `_docs/plan/Core/timeline-image-share.md` に従う。
+- 画像エクスポート自体の生成仕様は `_docs/archives/plan/Core/timeline-image-share.md` に従う。
 
 ## Paywall
 
