@@ -40,7 +40,8 @@ class TimelineState {
 
   // Search UI state — not persisted
   final String searchQuery;
-  final List<String> searchMatches; // block ids in timeline order (past → target)
+  final List<String>
+  searchMatches; // block ids in timeline order (past → target)
   final int activeSearchMatchIndex; // -1 when no match
   final String? searchHighlightedBlockId;
   final DateTime? searchHighlightExpiresAt;
@@ -77,7 +78,8 @@ class TimelineState {
       viewMode: viewMode ?? this.viewMode,
       searchQuery: searchQuery ?? this.searchQuery,
       searchMatches: searchMatches ?? this.searchMatches,
-      activeSearchMatchIndex: activeSearchMatchIndex ?? this.activeSearchMatchIndex,
+      activeSearchMatchIndex:
+          activeSearchMatchIndex ?? this.activeSearchMatchIndex,
       searchHighlightedBlockId: searchHighlightedBlockId == _sentinel
           ? this.searchHighlightedBlockId
           : searchHighlightedBlockId as String?,
@@ -133,6 +135,18 @@ class TimelineNotifier extends Notifier<TimelineState> {
     state = state.copyWith(
       blocks: state.blocks.map((b) => b.id == id ? updater(b) : b).toList(),
     );
+  }
+
+  void incrementActionBuffer(String id) {
+    final current = _blockById(id)?.normalizedBufferMinutes ?? 0;
+    setActionBufferMinutes(id, current + kBufferStepMinutes);
+  }
+
+  void setActionBufferMinutes(String id, int minutes) {
+    updateBlock(id, (block) {
+      if (block.type != BlockType.action) return block;
+      return block.copyWith(bufferMinutes: minutes);
+    });
   }
 
   void deleteBlock(String id) {
@@ -259,8 +273,9 @@ class TimelineNotifier extends Notifier<TimelineState> {
   void highlightSearchBlock(String? blockId) {
     state = state.copyWith(
       searchHighlightedBlockId: blockId,
-      searchHighlightExpiresAt:
-          blockId == null ? null : DateTime.now().add(const Duration(seconds: 3)),
+      searchHighlightExpiresAt: blockId == null
+          ? null
+          : DateTime.now().add(const Duration(seconds: 3)),
     );
   }
 
@@ -281,7 +296,8 @@ class TimelineNotifier extends Notifier<TimelineState> {
     bool isPrecise,
   ) {
     final snap = isPrecise ? 1 : kSnapMinutes;
-    final deltaDuration = ((-deltaY / state.pixelsPerMinute) / snap).round() * snap;
+    final deltaDuration =
+        ((-deltaY / state.pixelsPerMinute) / snap).round() * snap;
     var newDuration = startDuration + deltaDuration;
     if (newDuration < 5) newDuration = 5;
     updateBlock(id, (b) => b.copyWith(duration: newDuration));
@@ -297,7 +313,8 @@ class TimelineNotifier extends Notifier<TimelineState> {
     final cb = computed[index];
 
     if (block.type == BlockType.action) {
-      var newDuration = cb.endTime - newStartTimeMinutes;
+      var newDuration =
+          cb.endTime - newStartTimeMinutes - block.normalizedBufferMinutes;
       while (newDuration < 0) {
         newDuration += 24 * 60;
       }
@@ -311,7 +328,10 @@ class TimelineNotifier extends Notifier<TimelineState> {
       } else {
         final nextBlock = blocks[index + 1];
         final nextCb = computed[index + 1];
-        var newDuration = nextCb.endTime - newStartTimeMinutes;
+        var newDuration =
+            nextCb.endTime -
+            newStartTimeMinutes -
+            nextBlock.normalizedBufferMinutes;
         while (newDuration < 0) {
           newDuration += 24 * 60;
         }
@@ -319,6 +339,10 @@ class TimelineNotifier extends Notifier<TimelineState> {
         updateBlock(nextBlock.id, (b) => b.copyWith(duration: newDuration));
       }
     }
+  }
+
+  Block? _blockById(String id) {
+    return state.blocks.where((block) => block.id == id).firstOrNull;
   }
 }
 

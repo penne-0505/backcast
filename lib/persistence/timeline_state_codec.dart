@@ -3,7 +3,8 @@ import 'dart:convert';
 import '../models.dart';
 import '../state.dart';
 
-const int timelineStatePersistenceSchemaVersion = 1;
+const int timelineStatePersistenceSchemaVersion = 2;
+const int _oldestSupportedTimelineStateSchemaVersion = 1;
 
 String encodeTimelineState(TimelineState state) {
   return jsonEncode(timelineStateToJson(state));
@@ -28,7 +29,8 @@ Map<String, Object?> timelineStateToJson(TimelineState state) {
 
 TimelineState timelineStateFromJson(Map<String, Object?> json) {
   final schemaVersion = _readInt(json, 'schemaVersion');
-  if (schemaVersion != timelineStatePersistenceSchemaVersion) {
+  if (schemaVersion < _oldestSupportedTimelineStateSchemaVersion ||
+      schemaVersion > timelineStatePersistenceSchemaVersion) {
     throw FormatException(
       'Unsupported timeline schema version: $schemaVersion',
     );
@@ -59,6 +61,7 @@ Map<String, Object?> blockToJson(Block block) {
     'type': block.type.name,
     'title': block.title,
     'duration': block.duration,
+    'bufferMinutes': block.normalizedBufferMinutes,
     'colorIndex': block.colorIndex,
   };
 }
@@ -77,12 +80,23 @@ Block blockFromJson(Map<String, Object?> json) {
     type: type,
     title: _readString(json, 'title'),
     duration: _readInt(json, 'duration'),
+    bufferMinutes: normalizeActionBufferMinutes(
+      type,
+      _readOptionalInt(json, 'bufferMinutes') ?? 0,
+    ),
     colorIndex: _readInt(json, 'colorIndex'),
   );
 }
 
 int _readInt(Map<String, Object?> json, String key) {
   final value = json[key];
+  if (value is int) return value;
+  throw FormatException('$key must be an integer.');
+}
+
+int? _readOptionalInt(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value == null) return null;
   if (value is int) return value;
   throw FormatException('$key must be an integer.');
 }

@@ -110,6 +110,7 @@ class BlockItem extends ConsumerStatefulWidget {
     required this.index,
     required this.sourceIndex,
     this.sheetVisible = false,
+    this.onActionBufferDoubleTap,
   });
 
   final ComputedBlock computedBlock;
@@ -120,6 +121,7 @@ class BlockItem extends ConsumerStatefulWidget {
   final int index;
   final int sourceIndex;
   final bool sheetVisible;
+  final void Function(String blockId)? onActionBufferDoubleTap;
 
   @override
   ConsumerState<BlockItem> createState() => _BlockItemState();
@@ -212,6 +214,14 @@ class _BlockItemState extends ConsumerState<BlockItem> {
         .deleteBlock(widget.computedBlock.block.id);
   }
 
+  void _handleActionBodyDoubleTap(Block block) {
+    if (widget.sheetVisible) return;
+    if (_dismissInlineEditorIfNeeded()) return;
+    if (widget.preciseDraggingId != null) return;
+    HapticFeedback.selectionClick();
+    widget.onActionBufferDoubleTap?.call(block.id);
+  }
+
   Widget _wrapSwipeDelete({required Block block, required Widget child}) {
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -273,14 +283,28 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   Widget _buildDuration(Block block, TimelineNotifier notifier) {
     final ppm = ref.watch(timelineProvider.select((s) => s.pixelsPerMinute));
     final isOverview = ppm < kOverviewThresholdPpm;
-    final naturalHeight = block.duration * ppm;
-    final height = isOverview
-        ? naturalHeight.clamp(kMinOverviewBlockHeight, double.infinity)
-        : naturalHeight;
-    final isCompact = height < 56.0;
+    final bufferMinutes = block.normalizedBufferMinutes;
+    final effectiveDuration = block.effectiveDuration;
+    final naturalHeight = effectiveDuration * ppm;
+    final height =
+        (isOverview
+                ? naturalHeight.clamp(kMinOverviewBlockHeight, double.infinity)
+                : naturalHeight)
+            .toDouble();
+    final actionSectionHeight =
+        (bufferMinutes > 0 && effectiveDuration > 0
+                ? (height * block.duration / effectiveDuration).clamp(
+                    24.0,
+                    height,
+                  )
+                : height)
+            .toDouble();
+    final isCompact = actionSectionHeight < 56.0;
+    final actionFlex = block.duration > 0 ? block.duration : 1;
     final color =
         AppColors.blockColors[block.colorIndex % AppColors.blockColors.length];
     final startTime = widget.computedBlock.startTime;
+    final actionEndTime = startTime + block.duration;
 
     return SizedBox(
       height: height,
@@ -344,85 +368,151 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                           )
                                         : null),
                             ),
-                            child: Padding(
-                              padding: isCompact
-                                  ? const EdgeInsets.fromLTRB(12, 2, 10, 2)
-                                  : const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: isCompact
-                                    ? MainAxisAlignment.center
-                                    : MainAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 60),
-                                    child: Stack(
-                                      children: [
-                                        ShaderMask(
-                                          shaderCallback: (bounds) =>
-                                              const LinearGradient(
-                                                begin: Alignment.centerLeft,
-                                                end: Alignment.centerRight,
-                                                stops: [0.60, 1.0],
-                                                colors: [
-                                                  Colors.white,
-                                                  Colors.transparent,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  flex: bufferMinutes > 0 ? actionFlex : 1,
+                                  child: Stack(
+                                    children: [
+                                      Padding(
+                                        padding: isCompact
+                                            ? const EdgeInsets.fromLTRB(
+                                                12,
+                                                2,
+                                                10,
+                                                2,
+                                              )
+                                            : const EdgeInsets.fromLTRB(
+                                                16,
+                                                20,
+                                                16,
+                                                8,
+                                              ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment: isCompact
+                                              ? MainAxisAlignment.center
+                                              : MainAxisAlignment.start,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 60,
+                                              ),
+                                              child: Stack(
+                                                children: [
+                                                  ShaderMask(
+                                                    shaderCallback: (bounds) =>
+                                                        const LinearGradient(
+                                                          begin: Alignment
+                                                              .centerLeft,
+                                                          end: Alignment
+                                                              .centerRight,
+                                                          stops: [0.60, 1.0],
+                                                          colors: [
+                                                            Colors.white,
+                                                            Colors.transparent,
+                                                          ],
+                                                        ).createShader(bounds),
+                                                    blendMode: BlendMode.dstIn,
+                                                    child: TextField(
+                                                      controller: _titleCtrl,
+                                                      focusNode:
+                                                          _titleFocusNode,
+                                                      maxLines: 1,
+                                                      textInputAction:
+                                                          TextInputAction.done,
+                                                      onChanged: (v) =>
+                                                          notifier.updateBlock(
+                                                            block.id,
+                                                            (b) => b.copyWith(
+                                                              title: v,
+                                                            ),
+                                                          ),
+                                                      onTap: () {},
+                                                      onTapOutside: (_) =>
+                                                          FocusManager
+                                                              .instance
+                                                              .primaryFocus
+                                                              ?.unfocus(),
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            border: InputBorder
+                                                                .none,
+                                                            isDense: true,
+                                                            contentPadding:
+                                                                EdgeInsets.zero,
+                                                          ),
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 15,
+                                                        color: AppColors.ink,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Positioned(
+                                                    right: 0,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    width: 40,
+                                                    child: IgnorePointer(
+                                                      child: SizedBox.expand(),
+                                                    ),
+                                                  ),
                                                 ],
-                                              ).createShader(bounds),
-                                          blendMode: BlendMode.dstIn,
-                                          child: TextField(
-                                            controller: _titleCtrl,
-                                            focusNode: _titleFocusNode,
-                                            maxLines: 1,
-                                            textInputAction:
-                                                TextInputAction.done,
-                                            onChanged: (v) =>
-                                                notifier.updateBlock(
-                                                  block.id,
-                                                  (b) => b.copyWith(title: v),
+                                              ),
+                                            ),
+                                            if (actionSectionHeight >=
+                                                80.0) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '${formatTime(startTime)} - ${formatTime(actionEndTime)}',
+                                                style: AppTextStyles.time(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.mutedInk,
                                                 ),
-                                            onTap: () {},
-                                            onTapOutside: (_) => FocusManager
-                                                .instance
-                                                .primaryFocus
-                                                ?.unfocus(),
-                                            decoration: const InputDecoration(
-                                              border: InputBorder.none,
-                                              isDense: true,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                              color: AppColors.ink,
-                                            ),
-                                          ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
-                                        Positioned(
-                                          right: 0,
-                                          top: 0,
-                                          bottom: 0,
-                                          width: 40,
-                                          child: IgnorePointer(
-                                            child: SizedBox.expand(),
-                                          ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        height: (actionSectionHeight * 0.42)
+                                            .clamp(28.0, actionSectionHeight)
+                                            .toDouble(),
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            if (_dismissInlineEditorIfNeeded()) {
+                                              return;
+                                            }
+                                            notifier.selectBlock(block.id);
+                                          },
+                                          onDoubleTap: () =>
+                                              _handleActionBodyDoubleTap(block),
+                                          child: const SizedBox.expand(),
                                         ),
-                                      ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (bufferMinutes > 0)
+                                  Expanded(
+                                    flex: bufferMinutes,
+                                    child: _ActionBufferSegment(
+                                      minutes: bufferMinutes,
+                                      color: color,
+                                      startTime: actionEndTime,
+                                      endTime: widget.computedBlock.endTime,
                                     ),
                                   ),
-                                  if (height >= 80.0) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${formatTime(startTime)} - ${formatTime(startTime + block.duration)}',
-                                      style: AppTextStyles.time(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.mutedInk,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
+                              ],
                             ),
                           ),
                         ),
@@ -432,7 +522,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                     Positioned(
                       right: 56,
                       top: 0,
-                      bottom: 0,
+                      height: actionSectionHeight,
                       child: Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -624,6 +714,71 @@ class _BlockItemState extends ConsumerState<BlockItem> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActionBufferSegment extends StatelessWidget {
+  const _ActionBufferSegment({
+    required this.minutes,
+    required this.color,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final int minutes;
+  final Color color;
+  final int startTime;
+  final int endTime;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 2, 12, 12),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: FractionallySizedBox(
+          widthFactor: 0.88,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(
+                color: color.withValues(alpha: 0.24),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '余裕 +$minutes分',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.mutedInk,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${formatTime(startTime)}-${formatTime(endTime)}',
+                  style: AppTextStyles.time(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.mutedInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

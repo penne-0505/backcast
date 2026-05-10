@@ -3,7 +3,7 @@ title: Medo Timeline Text Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-05-02"
-updated_at: "2026-05-02"
+updated_at: "2026-05-10"
 references:
   - README.md
   - _docs/reference/medo/timeline_domain_reference.md
@@ -76,10 +76,11 @@ final text = generateTimelineText(
 時間列は 12 文字幅として扱い、記号の開始位置を揃える。
 
 - `action`: `HH:mm-HH:mm ┃ title`
+- `action` with buffer: `HH:mm-HH:mm ┃ title <duration>分 + 余裕<bufferMinutes>分`
 - `actionPoint`: `HH:mm       ● title`
 - `target anchor`: `HH:mm       ◆ title`
 
-0 分要素は 0 分のまま扱い、1 分へ伸ばさない。block title が空白の場合は `無題`。title 内の改行は半角スペースへ置換する。生成ロジック側では title の折り返しをしない。
+`action` の時間範囲と `TOTAL` は `duration + bufferMinutes` を使う。余裕時間がある場合だけ、行タイトル末尾に実作業の `duration` と余裕時間を明示する。0 分要素は 0 分のまま扱い、1 分へ伸ばさない。block title が空白の場合は `無題`。title 内の改行は半角スペースへ置換する。生成ロジック側では title の折り返しをしない。
 
 ### Date Boundary (withDate で日跨ぎ時のみ)
 

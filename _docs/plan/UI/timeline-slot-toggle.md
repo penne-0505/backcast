@@ -3,7 +3,7 @@ title: Timeline List Management
 status: proposed
 draft_status: n/a
 created_at: "2026-05-02"
-updated_at: "2026-05-09"
+updated_at: "2026-05-10"
 references:
   - TODO.md
   - _docs/guide/medo/timeline_editor.md
@@ -17,7 +17,7 @@ related_prs: []
 
 複数タイムライン機能を、既存の `plans` を日常的に扱う「タイムライン一覧」として実装する。
 
-ユーザーは複数のタイムラインを保存し、floating button から画面下部に浮く island modal を開いて切り替えられる。各タイムラインには名前を付けられ、現在のタイムライン名はヘッダー付近でインライン編集できる。
+ユーザーは複数のタイムラインを保存し、floating button から画面下部に浮く island modal を開いて切り替えられる。各タイムラインには名前を付けられ、名前の編集は island modal 内の row 編集ボタンから行う。
 
 初期リリースでは Free は最大2つ、Pro は無制限とする。固定2スロットや toggle 専用 UI ではなく、将来の利用実態にも耐える list-first の設計にする。
 
@@ -30,6 +30,7 @@ related_prs: []
 - Free が2つ保持済みの場合、一覧内の新規作成は無効化し、必要なら控えめな Pro 導線を一覧内に置く。
 - Pro では一覧から任意個数のタイムラインを作成・選択できる。
 - Pro から Free へ戻った場合、超過分のタイムラインは削除しない。Free 中は利用可能な範囲へ縮退し、Pro 復帰時に再び全件利用できるようにする。
+- ヘッダーは既に検索、エクスポート、テンプレート、表示切替、設定の入口を持つため、timeline name の inline edit は置かない。名前編集は island modal の row 編集ボタンへ集約する。
 
 ## Existing Implementation Notes
 
@@ -47,7 +48,7 @@ related_prs: []
 - list UI から新規 timeline を作成できるようにする。
 - Free / Pro の保持数上限を作成導線へ反映する。
 - 起動時に最後に開いていた plan を復元する。
-- タイムライン名をヘッダー付近に表示し、インライン編集できるようにする。
+- タイムライン名を island modal の一覧 row に表示し、編集ボタンから変更できるようにする。
 - 切り替え前に現在 plan の未保存変更を保存してから、次の plan を読み込む。
 - ヘッダーの export panel は plan load を扱わない。plan 切り替えは timeline list island modal に集約する。
 - 実装後、timeline editor guide と persistence reference を更新する。
@@ -57,7 +58,6 @@ related_prs: []
 - 固定 slot モデル。
 - toggle のみで完結する2件専用 UI。
 - list 内での並び替え。
-- timeline 削除 UI。
 - snapshot / history UI の再設計。
 - 複数端末同期やクラウド保存。
 - Free 超過分の自動削除。
@@ -90,10 +90,11 @@ related_prs: []
 
 ## Interaction Model
 
-### Header Timeline Name
+### Timeline Name Editing
 
-- ヘッダー付近に現在のタイムライン名を表示する。
-- タップまたは既存 inline edit パターンに沿って編集できる。
+- 現在のタイムライン名は timeline list island modal の current row で確認できる。
+- 名前変更は island modal の row 編集ボタンから行う。
+- ヘッダー付近には timeline name inline editor を置かない。狭い画面でヘッダー操作領域を圧迫し、主要操作と競合しやすいため。
 - 編集対象は `plans.title` とする。
 - 空文字または whitespace のみの場合は `無題のタイムライン` に正規化する。
 - `targetTimeTitle` とは別概念として扱う。
@@ -136,7 +137,7 @@ related_prs: []
 - **Functional**: timeline list island modal で既存 timeline を rename / delete できる。
 - **Functional**: current timeline 削除後も persisted `currentPlanId` は削除済み ID を指さない。
 - **Functional**: Free が2件保持済みの場合、新規作成はできない。
-- **Functional**: 各タイムラインは独立した名前を持ち、ヘッダー付近でインライン編集できる。
+- **Functional**: 各タイムラインは独立した名前を持ち、timeline list island modal の編集ボタンから変更できる。
 - **Functional**: Pro から Free へ戻っても超過分のデータは削除されない。
 - **Functional**: 再起動後、最後に開いていた current plan が復元される。
 - **Non-Functional**: timeline list island modal は既存の block 追加 floating toolbar、inline edit、edit sheet、template sheet、reorder、pinch zoom と競合しない。
@@ -149,7 +150,7 @@ related_prs: []
 2. 起動時の plan 復元を、`updatedAt` 降順の先頭ではなく persisted `currentPlanId` 優先に置き換える。
 3. `PlanRepository` または専用 repository に timeline count、canCreateTimeline、create timeline、switch timeline、rename timeline を追加する。
 4. 自動保存 debounce を flush できる境界を作り、timeline 切替前に現在 plan を保存する。
-5. ヘッダー付近に timeline name inline editor を追加し、`plans.title` を更新する。
+5. timeline list island modal の row 編集ボタンから `plans.title` を更新する。
 6. floating button から画面下部の timeline list island modal を開けるようにする。
 7. timeline list island modal の row 表示、current 表示、select、上部作成フォーム、rename、delete、Free 上限到達時の disabled 状態を実装する。
 8. `isProProvider` に基づき、Free は2件まで、Pro は無制限として作成可否を制御する。
@@ -176,7 +177,7 @@ related_prs: []
   - Free で2件未満なら新規作成できる
   - Free で2件到達済みなら新規作成が disabled になる
   - Pro では2件以上でも新規作成できる
-  - header inline edit で timeline name が更新される
+  - row 編集ボタンから timeline name が更新される
   - 切替後に edit sheet / inline editor / selected block が残らない
 - Manual test
   - Android / iOS 相当の narrow viewport で floating button と timeline list island modal が既存 toolbar と重ならない

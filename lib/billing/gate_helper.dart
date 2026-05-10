@@ -25,4 +25,7 @@ enum PaywallFeature {
 
   /// Image export gate.
   imageExport,
+
+  /// Action-level buffer editing gate.
+  actionBuffer,
 }

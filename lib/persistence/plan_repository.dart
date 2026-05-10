@@ -355,12 +355,12 @@ class PlanRepository {
 
   String _defaultPlanTitle(TimelineState state) {
     final title = state.targetTimeTitle.trim();
-    return title.isEmpty ? 'Untitled plan' : title;
+    return title.isEmpty ? '無題のタイムライン' : title;
   }
 
   String _normalizePlanTitle(String title) {
     final trimmed = title.trim();
-    return trimmed.isEmpty ? 'Untitled plan' : trimmed;
+    return trimmed.isEmpty ? '無題のタイムライン' : trimmed;
   }
 
   TimelineState _stateForPersistence(TimelineState state) {
@@ -396,6 +396,7 @@ class PlanRepository {
             type: block.type.name,
             title: block.title,
             duration: block.duration,
+            bufferMinutes: Value(block.normalizedBufferMinutes),
             colorIndex: block.colorIndex,
             position: i,
           ),
@@ -439,6 +440,7 @@ class PlanRepository {
       type: type,
       title: row.title,
       duration: row.duration,
+      bufferMinutes: normalizeActionBufferMinutes(type, row.bufferMinutes),
       colorIndex: row.colorIndex,
     );
   }

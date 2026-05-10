@@ -3,7 +3,7 @@ title: Medo Timeline Image Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-05-03"
-updated_at: "2026-05-03"
+updated_at: "2026-05-10"
 references:
   - README.md
   - _docs/reference/medo/timeline_domain_reference.md
@@ -42,6 +42,7 @@ related_prs: []
 - **type**: `action`, `actionPoint`, `targetAnchor` のいずれか
 - **colorIndex**: ブロック色のインデックス。`targetAnchor` では `-1`
 - **durationMinutes**: `action` の場合のみ所要時間（分）。`actionPoint` と `targetAnchor` では `null`。
+- **bufferMinutes**: `action` の余裕時間（分）。未設定時は 0。
 
 ### `TimelineImageExportViewModel buildTimelineImageExportViewModel(...)`
 
@@ -82,6 +83,7 @@ final vm = buildTimelineImageExportViewModel(
 - 上部に `Medo // <target title>` の見出し
 - 日付または date range と total duration を見える位置に配置
 - `action` は時間幅を持つ行動として角丸カードで表示。左縁にブロック色、所要時間があればピルを表示
+- `action.bufferMinutes > 0` の場合は、行動カード内に一段狭い余裕時間セグメントを追加し、`余裕 +<minutes>分` と表示する
 - `actionPoint` は縦線上の小さな丸として表示
 - `targetAnchor` は `TARGET` ラベル付きの大きな olive 丸で表示
 - 操作 UI、スクロールバー、編集カーソルは含めない
@@ -90,6 +92,7 @@ final vm = buildTimelineImageExportViewModel(
 ## Notes
 
 - 本 API は `DateTime.now()` に直接依存しない
+- metadata の total duration と action の time range は `duration + bufferMinutes` を使う。`durationMinutes` は実作業時間、`bufferMinutes` は余裕時間として view model 上で分けて保持する
 - `pixelRatio` のデフォルトは 3.0 とし、高 DPI 端末でのぼやけを抑制する
 - 画像生成（`capturePng`）と共有 delivery（`sharePng`）は分離されている
 - 長いタイムライン（イベント数 50 超）ではプレビュー時に警告を表示する

@@ -3,7 +3,7 @@ title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-02"
+updated_at: "2026-05-10"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -33,6 +33,8 @@ related_prs: []
 - **Examples**:
   - `kPixelsPerMinute = 6.0`: 1 分あたり 6px としてブロック高さを計算
   - `kSnapMinutes = 5`: 通常ドラッグ時のスナップ粒度
+  - `kBufferStepMinutes = 5`: 行動ごとの余裕時間の編集粒度
+  - `kMaxActionBufferMinutes = 60`: `action.bufferMinutes` の上限
   - `kTargetTimeId = 'target-time'`: 目標アンカーの選択状態識別子
 
 ### `enum TimelineViewMode`
@@ -63,11 +65,15 @@ related_prs: []
   - `type (BlockType)`: 行動か行動ポイントか
   - `title (String)`: 表示名
   - `duration (int)`: 分単位の所要時間。`actionPoint` では 0 を想定
+  - `bufferMinutes (int)`: 分単位の余裕時間。`action` のみ有効で、`actionPoint` では 0 に正規化される
   - `colorIndex (int)`: `AppColors.blockColors` を参照するためのインデックス
 - **Returns**: `copyWith` で差分更新済みの新しい `Block`
 - **Errors**: モデル自体はバリデーション例外を投げない
 - **Examples**:
-  - `Block(id: '1', type: BlockType.action, title: '移動', duration: 30, colorIndex: 0)`
+  - `Block(id: '1', type: BlockType.action, title: '移動', duration: 30, bufferMinutes: 10, colorIndex: 0)`
+- **Notes**:
+  - `normalizedBufferMinutes` は `bufferMinutes` を 0〜60 分、5 分刻みに丸めた値
+  - `effectiveDuration` は `action` では `duration + normalizedBufferMinutes`、`actionPoint` では 0
 
 ### `class ComputedBlock`
 
@@ -91,6 +97,29 @@ related_prs: []
 - **Errors**: 例外は投げない。負の時刻も内部的には保持し、表示時に `formatTime` 側で 24 時間に正規化する
 - **Examples**:
   - `targetTime = 13:00`, `30 分` と `20 分` の 2 ブロックなら、先頭ブロックは `12:10` 開始になる
+  - `duration = 30`, `bufferMinutes = 10` の `action` は有効所要時間 40 分として逆算される
+
+### `int normalizeActionBufferMinutes(BlockType type, int minutes)`
+
+- **Summary**: 余裕時間をドメイン上の有効値へ正規化する
+- **Parameters**:
+  - `type (BlockType)`: ブロック種別
+  - `minutes (int)`: 入力値
+- **Returns**: `action` では 0〜60 分の 5 分刻み、`actionPoint` では常に 0
+- **Errors**: なし
+- **Examples**:
+  - `normalizeActionBufferMinutes(BlockType.action, 63) -> 60`
+  - `normalizeActionBufferMinutes(BlockType.actionPoint, 15) -> 0`
+
+### `int totalTimelineDuration(List<Block> blocks)`
+
+- **Summary**: タイムライン全体の有効所要時間を合計する
+- **Parameters**:
+  - `blocks (List<Block>)`: 対象ブロック列
+- **Returns**: `action.effectiveDuration` と `actionPoint = 0` の合計
+- **Errors**: なし
+- **Examples**:
+  - `duration = 20`, `bufferMinutes = 10` の `action` は 30 分として合計される
 
 ### `String formatTime(int minutes)`
 
@@ -251,6 +280,32 @@ related_prs: []
 - **Examples**:
   - タイトル変更、所要時間変更、色変更などに利用可能
 
+### `TimelineNotifier.incrementActionBuffer(String id)`
+
+- **Summary**: 指定 `action` の余裕時間を 5 分増やす
+- **Parameters**:
+  - `id (String)`: 対象ブロック ID
+- **Returns**: なし
+- **Errors**: 対象が存在しない、または `actionPoint` の場合は実質無変更
+- **Examples**:
+  - Pro ユーザーが行動ブロック本体下部をダブルタップしたときに呼ばれる
+- **Notes**:
+  - 上限は `kMaxActionBufferMinutes = 60`
+  - Pro / Free の判定は UI 層で行い、状態層はドメイン正規化のみ担当する
+
+### `TimelineNotifier.setActionBufferMinutes(String id, int minutes)`
+
+- **Summary**: 指定 `action` の余裕時間を設定する
+- **Parameters**:
+  - `id (String)`: 対象ブロック ID
+  - `minutes (int)`: 分単位の余裕時間
+- **Returns**: なし
+- **Errors**: 対象が存在しない、または `actionPoint` の場合は実質無変更
+- **Examples**:
+  - 詳細編集シートの「余裕時間」ステッパーから呼ばれる
+- **Notes**:
+  - 入力値は `Block.copyWith` 経由で 0〜60 分、5 分刻みに正規化される
+
 ### `TimelineNotifier.deleteBlock(String id)`
 
 - **Summary**: ブロックを削除し、選択状態を解除する
@@ -352,6 +407,7 @@ related_prs: []
   - `actionPoint` では末尾なら `targetTime`、途中なら次ブロックの `duration` を調整する
 - **Notes**:
   - 現状 UI からは未接続だが、開始時刻直接編集機能を追加する際の中核ロジック
+  - `action` の開始時刻編集では `bufferMinutes` を差し引いて実作業の `duration` だけを更新する。余裕時間は別枠として保持される
 
 ### Providers
 
@@ -366,8 +422,8 @@ related_prs: []
 
 ## Notes
 
-- 現状の状態は永続化されず、プロセス存続中のみ保持される
-- Drift / SQLite の永続化 Repository は `lib/persistence/` に実装済みだが、`TimelineNotifier` 自体は現時点では自動保存・起動時復元を行わない
+- Drift / SQLite の永続化 Repository と画面側 autosave は接続済みで、現在 plan はアプリ再起動後も復元される
+- `TimelineNotifier` 自体は UI 状態操作に集中し、永続化の schema 変換は `lib/persistence/` が担当する
 - カレンダー書き出し API は `lib/calendar_export.dart` に分離されており、詳細は `_docs/reference/medo/calendar_export_reference.md` を参照
 - ローカル通知リマインダー API は `lib/notifications/reminder_notifications.dart` に分離されており、詳細は `_docs/reference/medo/reminder_notification_reference.md` を参照
 - `firstOrNull` は Dart SDK の拡張メソッドを利用している

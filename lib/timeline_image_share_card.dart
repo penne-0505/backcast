@@ -8,10 +8,7 @@ import 'timeline_image_export.dart';
 /// [RepaintBoundary] で囲んで [RenderRepaintBoundary.toImage] により
 /// PNG としてキャプチャすることを想定している。
 class TimelineImageShareCard extends StatelessWidget {
-  const TimelineImageShareCard({
-    super.key,
-    required this.viewModel,
-  });
+  const TimelineImageShareCard({super.key, required this.viewModel});
 
   final TimelineImageExportViewModel viewModel;
 
@@ -78,7 +75,10 @@ class TimelineImageShareCard extends StatelessWidget {
           const SizedBox(height: 16),
           // Events
           for (var i = 0; i < viewModel.events.length; i++) ...[
-            _buildEvent(viewModel.events[i], isLast: i == viewModel.events.length - 1),
+            _buildEvent(
+              viewModel.events[i],
+              isLast: i == viewModel.events.length - 1,
+            ),
           ],
         ],
       ),
@@ -121,9 +121,7 @@ class TimelineImageShareCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border(
-                left: BorderSide(color: color, width: 3),
-              ),
+              border: Border(left: BorderSide(color: color, width: 3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,6 +144,37 @@ class TimelineImageShareCard extends StatelessWidget {
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                         color: color,
+                      ),
+                    ),
+                  ),
+                if (event.bufferMinutes > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: FractionallySizedBox(
+                      widthFactor: 0.88,
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.canvas.withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(AppRadius.xs),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.28),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          '余裕 +${event.bufferMinutes}分',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.mutedInk,
+                            height: 1.2,
+                          ),
+                        ),
                       ),
                     ),
                   ),

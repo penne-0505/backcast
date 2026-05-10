@@ -1,9 +1,6 @@
 import 'package:medo/models.dart';
 import 'package:medo/persistence/app_database.dart';
 import 'package:medo/persistence/persistence_providers.dart';
-import 'package:medo/persistence/plan_repository.dart';
-import 'package:medo/persistence/timeline_template_apply_service.dart';
-import 'package:medo/persistence/timeline_template_repository.dart';
 import 'package:medo/state.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,9 +13,7 @@ void main() {
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     container = ProviderContainer(
-      overrides: [
-        databaseProvider.overrideWithValue(db),
-      ],
+      overrides: [databaseProvider.overrideWithValue(db)],
     );
   });
 
@@ -40,6 +35,7 @@ void main() {
           type: BlockType.action,
           title: '現在の行動',
           duration: 20,
+          bufferMinutes: 5,
           colorIndex: 0,
         ),
       ],
@@ -56,6 +52,7 @@ void main() {
           type: BlockType.action,
           title: 'テンプレート行動',
           duration: 30,
+          bufferMinutes: 10,
           colorIndex: 2,
         ),
         Block(
@@ -69,7 +66,7 @@ void main() {
     );
   }
 
-  Future<void> _setupPlanAndTemplate() async {
+  Future<void> setupPlanAndTemplate() async {
     final planRepo = container.read(planRepositoryProvider);
     final templateRepo = container.read(timelineTemplateRepositoryProvider);
 
@@ -77,7 +74,7 @@ void main() {
       state: samplePlanState(),
       createInitialSnapshot: false,
     );
-    final template = await templateRepo.createTemplate(
+    await templateRepo.createTemplate(
       state: sampleTemplateState(),
       title: '朝の準備テンプレート',
     );
@@ -90,44 +87,45 @@ void main() {
 
   test('throws when no current plan is loaded', () async {
     final service = container.read(timelineTemplateApplyServiceProvider);
-    expect(
-      () => service.applyTemplate('any-id'),
-      throwsA(isA<StateError>()),
-    );
+    expect(() => service.applyTemplate('any-id'), throwsA(isA<StateError>()));
   });
 
-  test('applies template state with fresh block IDs and clears transient UI state',
-      () async {
-    await _setupPlanAndTemplate();
+  test(
+    'applies template state with fresh block IDs and clears transient UI state',
+    () async {
+      await setupPlanAndTemplate();
 
-    final templateRepo = container.read(timelineTemplateRepositoryProvider);
-    final templates = await templateRepo.listTemplates();
-    final templateId = templates.single.id;
+      final templateRepo = container.read(timelineTemplateRepositoryProvider);
+      final templates = await templateRepo.listTemplates();
+      final templateId = templates.single.id;
 
-    final service = container.read(timelineTemplateApplyServiceProvider);
-    await service.applyTemplate(templateId);
+      final service = container.read(timelineTemplateApplyServiceProvider);
+      await service.applyTemplate(templateId);
 
-    final currentState = container.read(timelineProvider);
+      final currentState = container.read(timelineProvider);
 
-    // Template content applied
-    expect(currentState.targetTime, 9 * 60);
-    expect(currentState.targetTimeTitle, 'テンプレート目標');
-    expect(currentState.blocks, hasLength(2));
-    expect(currentState.blocks.first.title, 'テンプレート行動');
-    expect(currentState.blocks.last.title, 'テンプレートポイント');
+      // Template content applied
+      expect(currentState.targetTime, 9 * 60);
+      expect(currentState.targetTimeTitle, 'テンプレート目標');
+      expect(currentState.blocks, hasLength(2));
+      expect(currentState.blocks.first.title, 'テンプレート行動');
+      expect(currentState.blocks.last.title, 'テンプレートポイント');
+      expect(currentState.blocks.first.bufferMinutes, 10);
+      expect(currentState.blocks.last.normalizedBufferMinutes, 0);
 
-    // Transient UI state cleared
-    expect(currentState.selectedBlockId, isNull);
-    expect(currentState.preciseDraggingId, isNull);
-    expect(currentState.activeInlineEditorId, isNull);
+      // Transient UI state cleared
+      expect(currentState.selectedBlockId, isNull);
+      expect(currentState.preciseDraggingId, isNull);
+      expect(currentState.activeInlineEditorId, isNull);
 
-    // Block IDs are fresh (different from original template block IDs)
-    expect(currentState.blocks.first.id, isNot('tmpl-block-1'));
-    expect(currentState.blocks.last.id, isNot('tmpl-block-2'));
-  });
+      // Block IDs are fresh (different from original template block IDs)
+      expect(currentState.blocks.first.id, isNot('tmpl-block-1'));
+      expect(currentState.blocks.last.id, isNot('tmpl-block-2'));
+    },
+  );
 
   test('creates a before-apply snapshot', () async {
-    await _setupPlanAndTemplate();
+    await setupPlanAndTemplate();
 
     final planRepo = container.read(planRepositoryProvider);
     final planId = container.read(currentPlanIdProvider)!;
@@ -149,10 +147,11 @@ void main() {
     expect(loaded, isNotNull);
     expect(loaded!.state.targetTimeTitle, '現在の目標');
     expect(loaded.state.blocks.single.id, 'plan-block-1');
+    expect(loaded.state.blocks.single.bufferMinutes, 5);
   });
 
   test('persists the applied state to the current plan', () async {
-    await _setupPlanAndTemplate();
+    await setupPlanAndTemplate();
 
     final planRepo = container.read(planRepositoryProvider);
     final planId = container.read(currentPlanIdProvider)!;
@@ -170,6 +169,7 @@ void main() {
     expect(loadedPlan.state.targetTimeTitle, 'テンプレート目標');
     expect(loadedPlan.state.blocks, hasLength(2));
     expect(loadedPlan.state.blocks.first.title, 'テンプレート行動');
+    expect(loadedPlan.state.blocks.first.bufferMinutes, 10);
   });
 
   test('applies an empty-blocks template', () async {

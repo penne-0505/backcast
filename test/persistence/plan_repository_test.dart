@@ -32,6 +32,7 @@ void main() {
           type: BlockType.action,
           title: '移動',
           duration: 30,
+          bufferMinutes: 10,
           colorIndex: 1,
         ),
         Block(
@@ -64,6 +65,26 @@ void main() {
     expect(restored.activeInlineEditorId, isNull);
   });
 
+  test('codec reads older snapshots without bufferMinutes as zero buffer', () {
+    final restored = timelineStateFromJson({
+      'schemaVersion': 1,
+      'targetTime': 9 * 60,
+      'targetTimeTitle': '会議開始',
+      'blocks': [
+        {
+          'id': 'block-1',
+          'type': BlockType.action.name,
+          'title': '移動',
+          'duration': 30,
+          'colorIndex': 1,
+        },
+      ],
+    });
+
+    expect(restored.blocks.single.bufferMinutes, 0);
+    expect(restored.blocks.single.effectiveDuration, 30);
+  });
+
   test('creates, lists, and loads a plan with ordered blocks', () async {
     final created = await repository.createPlan(
       state: sampleState(),
@@ -84,6 +105,7 @@ void main() {
       'block-1',
       'block-2',
     ]);
+    expect(loaded.state.blocks.first.bufferMinutes, 10);
     expect(loaded.state.selectedBlockId, isNull);
 
     final snapshots = await repository.listSnapshots(created.id);
@@ -128,6 +150,30 @@ void main() {
 
     final snapshot = await repository.loadSnapshot(snapshots.single.id);
     expect(snapshot!.state.blocks.single.id, 'block-3');
+  });
+
+  test('persists action buffer to plan rows and snapshots', () async {
+    final state = sampleState().copyWith(
+      blocks: const [
+        Block(
+          id: 'buffered',
+          type: BlockType.action,
+          title: '移動',
+          duration: 25,
+          bufferMinutes: 15,
+          colorIndex: 0,
+        ),
+      ],
+    );
+    final created = await repository.createPlan(state: state, title: '余裕あり');
+
+    final loaded = await repository.loadPlan(created.id);
+    expect(loaded!.state.blocks.single.bufferMinutes, 15);
+    expect(loaded.state.blocks.single.effectiveDuration, 40);
+
+    final snapshots = await repository.listSnapshots(created.id);
+    final snapshot = await repository.loadSnapshot(snapshots.single.id);
+    expect(snapshot!.state.blocks.single.bufferMinutes, 15);
   });
 
   test('restores a plan from a saved snapshot', () async {
@@ -219,7 +265,7 @@ void main() {
     ]);
   });
 
-  test('renames blank plan title to Untitled plan', () async {
+  test('renames blank plan title to untitled timeline', () async {
     final created = await repository.createPlan(
       state: sampleState(),
       title: '旧名前',
@@ -228,7 +274,7 @@ void main() {
     await repository.renamePlan(created.id, '   ');
 
     final loaded = await repository.loadPlan(created.id);
-    expect(loaded!.title, 'Untitled plan');
+    expect(loaded!.title, '無題のタイムライン');
   });
 
   test('renamePlan throws StateError when plan does not exist', () async {

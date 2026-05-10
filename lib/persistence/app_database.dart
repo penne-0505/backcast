@@ -22,6 +22,7 @@ class PlanBlocks extends Table {
   TextColumn get type => text()();
   TextColumn get title => text()();
   IntColumn get duration => integer()();
+  IntColumn get bufferMinutes => integer().withDefault(const Constant(0))();
   IntColumn get colorIndex => integer()();
   IntColumn get position => integer()();
 
@@ -60,6 +61,7 @@ class TimelineTemplateBlocks extends Table {
   TextColumn get type => text()();
   TextColumn get title => text()();
   IntColumn get duration => integer()();
+  IntColumn get bufferMinutes => integer().withDefault(const Constant(0))();
   IntColumn get colorIndex => integer()();
   IntColumn get position => integer()();
 
@@ -92,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.defaults() : super(driftDatabase(name: 'medo'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +108,13 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await m.createTable(appPreferences);
+      }
+      if (from < 4) {
+        await m.addColumn(planBlocks, planBlocks.bufferMinutes);
+        await m.addColumn(
+          timelineTemplateBlocks,
+          timelineTemplateBlocks.bufferMinutes,
+        );
       }
     },
   );

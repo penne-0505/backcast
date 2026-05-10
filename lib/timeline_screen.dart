@@ -160,6 +160,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           final currentPlanId = await repo.loadCurrentPlanId();
           final plan = await repo.loadPlan(currentPlanId ?? plans.first.id);
           if (!mounted || plan == null) return;
+          if (currentPlanId != plan.id) {
+            await repo.saveCurrentPlanId(plan.id);
+            if (!mounted) return;
+          }
           _suppressAutoSave = true;
           ref.read(currentPlanIdProvider.notifier).set(plan.id);
           ref.read(timelineProvider.notifier).loadState(plan.state);
@@ -362,6 +366,53 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     setState(() => _templateSheetVisible = false);
   }
 
+  void _showActionBufferLockedSnackBar() {
+    const estimatedSnackBarHeight = 48.0;
+    const planHeaderHeight = 58.0;
+    const topOffset = planHeaderHeight + 12.0;
+    final media = MediaQuery.of(context);
+    final bottomMargin =
+        media.size.height -
+        media.padding.top -
+        topOffset -
+        estimatedSnackBarHeight;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text(
+            '余裕時間の追加はProで使えます',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.canvas,
+            ),
+          ),
+          backgroundColor: AppColors.darkSurface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          margin: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            bottomMargin.clamp(16.0, double.infinity),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  void _handleActionBufferDoubleTap(String blockId) {
+    if (!ref.read(effectiveIsProProvider)) {
+      _showActionBufferLockedSnackBar();
+      return;
+    }
+    ref.read(timelineProvider.notifier).incrementActionBuffer(blockId);
+  }
+
   // display list = computed.reversed → display[k] = computed[n-1-k] = blocks[n-1-k]
   void _onReorder(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex--;
@@ -444,7 +495,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     for (int i = sourceIndex + 1; i < computed.length; i++) {
       final cb = computed[i];
       if (cb.block.type == BlockType.action) {
-        final h = cb.block.duration * ppm;
+        final h = cb.block.effectiveDuration * ppm;
         estimatedOffset += isOverview
             ? h.clamp(kMinOverviewBlockHeight, double.infinity)
             : h;
@@ -457,11 +508,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final targetCb = computed[sourceIndex];
     final targetHeight = targetCb.block.type == BlockType.action
         ? (isOverview
-              ? (targetCb.block.duration * ppm).clamp(
+              ? (targetCb.block.effectiveDuration * ppm).clamp(
                   kMinOverviewBlockHeight,
                   double.infinity,
                 )
-              : targetCb.block.duration * ppm)
+              : targetCb.block.effectiveDuration * ppm)
         : _kPointBlockApproxHeight;
 
     // Top edge of the target block
@@ -610,6 +661,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                                       index: index,
                                       sourceIndex: sourceIndex,
                                       sheetVisible: _sheetVisible,
+                                      onActionBufferDoubleTap:
+                                          _handleActionBufferDoubleTap,
                                     ),
                                   );
                                 },
@@ -851,138 +904,114 @@ class _PlanHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        boxShadow: AppShadows.header,
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
-        children: [
-          Image.asset('assets/images/medo_icon.png', width: 28, height: 28),
-          const SizedBox(width: 8),
-          const Text(
-            'Medo',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              letterSpacing: -0.6,
-              color: AppColors.darkSurface,
-            ),
-          ),
-          const Spacer(),
-          if (saveIndicatorVisible) const _SaveIndicatorDot(),
-          // Search entrypoint
-          Pressable(
-            onTap: onSearchTap,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        final actionSize = compact ? 34.0 : 38.0;
+        final actionGap = compact ? 4.0 : AppSpacing.sm;
+        final iconSize = compact ? 20.0 : 22.0;
+
+        Widget headerAction({
+          required VoidCallback onTap,
+          required IconData icon,
+          Color? color,
+          Color backgroundColor = Colors.transparent,
+        }) {
+          return Pressable(
+            onTap: onTap,
             scale: 0.88,
             child: Container(
-              margin: const EdgeInsets.only(left: AppSpacing.sm),
-              width: 38,
-              height: 38,
+              margin: EdgeInsets.only(left: actionGap),
+              width: actionSize,
+              height: actionSize,
               decoration: BoxDecoration(
-                color: isSearchActive
-                    ? AppColors.selectionFill
-                    : Colors.transparent,
+                color: backgroundColor,
                 borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Icon(
-                PhosphorIcons.magnifyingGlass(),
-                size: 22,
+                icon,
+                size: iconSize,
+                color: color ?? AppColors.mutedInk,
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.canvas,
+            boxShadow: AppShadows.header,
+          ),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 12 : 16,
+            10,
+            compact ? 12 : 16,
+            10,
+          ),
+          child: Row(
+            children: [
+              Image.asset('assets/images/medo_icon.png', width: 28, height: 28),
+              if (!compact) ...[
+                const SizedBox(width: 8),
+                const Text(
+                  'Medo',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 17,
+                    letterSpacing: -0.6,
+                    color: AppColors.darkSurface,
+                  ),
+                ),
+              ],
+              const Spacer(),
+              if (saveIndicatorVisible) const _SaveIndicatorDot(),
+              headerAction(
+                onTap: onSearchTap,
+                icon: PhosphorIcons.magnifyingGlass(),
+                backgroundColor: isSearchActive
+                    ? AppColors.selectionFill
+                    : Colors.transparent,
                 color: isSearchActive
                     ? AppColors.accentOlive
                     : AppColors.mutedInk,
               ),
-            ),
-          ),
-          Pressable(
-            onTap: onExportTap,
-            scale: 0.88,
-            child: Container(
-              margin: const EdgeInsets.only(left: AppSpacing.sm),
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: exportPanelVisible
+              headerAction(
+                onTap: onExportTap,
+                icon: PhosphorIcons.calendarBlank(),
+                backgroundColor: exportPanelVisible
                     ? AppColors.selectionFill
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(
-                PhosphorIcons.calendarBlank(),
-                size: 22,
                 color: exportPanelVisible
                     ? AppColors.accentOlive
                     : AppColors.mutedInk,
               ),
-            ),
-          ),
-          // Template button
-          Pressable(
-            onTap: onTemplateTap,
-            scale: 0.88,
-            child: Container(
-              margin: const EdgeInsets.only(left: AppSpacing.sm),
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(
-                PhosphorIcons.cards(),
-                size: 22,
-                color: AppColors.mutedInk,
-              ),
-            ),
-          ),
-          // View mode toggle
-          Pressable(
-            onTap: onToggleViewMode,
-            scale: 0.88,
-            child: Container(
-              margin: const EdgeInsets.only(left: AppSpacing.sm),
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: viewMode == TimelineViewMode.compact
-                    ? AppColors.selectionFill
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(
-                viewMode == TimelineViewMode.compact
+              headerAction(onTap: onTemplateTap, icon: PhosphorIcons.cards()),
+              headerAction(
+                onTap: onToggleViewMode,
+                icon: viewMode == TimelineViewMode.compact
                     ? PhosphorIcons.listDashes()
                     : PhosphorIcons.squaresFour(),
-                size: 22,
+                backgroundColor: viewMode == TimelineViewMode.compact
+                    ? AppColors.selectionFill
+                    : Colors.transparent,
                 color: viewMode == TimelineViewMode.compact
                     ? AppColors.accentOlive
                     : AppColors.mutedInk,
               ),
-            ),
-          ),
-          Pressable(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-              );
-            },
-            scale: 0.88,
-            child: Container(
-              margin: const EdgeInsets.only(left: AppSpacing.sm),
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.md),
+              headerAction(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsScreen(),
+                    ),
+                  );
+                },
+                icon: PhosphorIcons.gear(),
               ),
-              child: Icon(
-                PhosphorIcons.gear(),
-                size: 22,
-                color: AppColors.mutedInk,
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

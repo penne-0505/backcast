@@ -473,6 +473,18 @@ class $PlanBlocksTable extends PlanBlocks
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _bufferMinutesMeta = const VerificationMeta(
+    'bufferMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> bufferMinutes = GeneratedColumn<int>(
+    'buffer_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _colorIndexMeta = const VerificationMeta(
     'colorIndex',
   );
@@ -502,6 +514,7 @@ class $PlanBlocksTable extends PlanBlocks
     type,
     title,
     duration,
+    bufferMinutes,
     colorIndex,
     position,
   ];
@@ -554,6 +567,15 @@ class $PlanBlocksTable extends PlanBlocks
     } else if (isInserting) {
       context.missing(_durationMeta);
     }
+    if (data.containsKey('buffer_minutes')) {
+      context.handle(
+        _bufferMinutesMeta,
+        bufferMinutes.isAcceptableOrUnknown(
+          data['buffer_minutes']!,
+          _bufferMinutesMeta,
+        ),
+      );
+    }
     if (data.containsKey('color_index')) {
       context.handle(
         _colorIndexMeta,
@@ -599,6 +621,10 @@ class $PlanBlocksTable extends PlanBlocks
         DriftSqlType.int,
         data['${effectivePrefix}duration'],
       )!,
+      bufferMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}buffer_minutes'],
+      )!,
       colorIndex: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}color_index'],
@@ -622,6 +648,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
   final String type;
   final String title;
   final int duration;
+  final int bufferMinutes;
   final int colorIndex;
   final int position;
   const PlanBlock({
@@ -630,6 +657,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
     required this.type,
     required this.title,
     required this.duration,
+    required this.bufferMinutes,
     required this.colorIndex,
     required this.position,
   });
@@ -641,6 +669,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
     map['type'] = Variable<String>(type);
     map['title'] = Variable<String>(title);
     map['duration'] = Variable<int>(duration);
+    map['buffer_minutes'] = Variable<int>(bufferMinutes);
     map['color_index'] = Variable<int>(colorIndex);
     map['position'] = Variable<int>(position);
     return map;
@@ -653,6 +682,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
       type: Value(type),
       title: Value(title),
       duration: Value(duration),
+      bufferMinutes: Value(bufferMinutes),
       colorIndex: Value(colorIndex),
       position: Value(position),
     );
@@ -669,6 +699,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
       type: serializer.fromJson<String>(json['type']),
       title: serializer.fromJson<String>(json['title']),
       duration: serializer.fromJson<int>(json['duration']),
+      bufferMinutes: serializer.fromJson<int>(json['bufferMinutes']),
       colorIndex: serializer.fromJson<int>(json['colorIndex']),
       position: serializer.fromJson<int>(json['position']),
     );
@@ -682,6 +713,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
       'type': serializer.toJson<String>(type),
       'title': serializer.toJson<String>(title),
       'duration': serializer.toJson<int>(duration),
+      'bufferMinutes': serializer.toJson<int>(bufferMinutes),
       'colorIndex': serializer.toJson<int>(colorIndex),
       'position': serializer.toJson<int>(position),
     };
@@ -693,6 +725,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
     String? type,
     String? title,
     int? duration,
+    int? bufferMinutes,
     int? colorIndex,
     int? position,
   }) => PlanBlock(
@@ -701,6 +734,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
     type: type ?? this.type,
     title: title ?? this.title,
     duration: duration ?? this.duration,
+    bufferMinutes: bufferMinutes ?? this.bufferMinutes,
     colorIndex: colorIndex ?? this.colorIndex,
     position: position ?? this.position,
   );
@@ -711,6 +745,9 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
       type: data.type.present ? data.type.value : this.type,
       title: data.title.present ? data.title.value : this.title,
       duration: data.duration.present ? data.duration.value : this.duration,
+      bufferMinutes: data.bufferMinutes.present
+          ? data.bufferMinutes.value
+          : this.bufferMinutes,
       colorIndex: data.colorIndex.present
           ? data.colorIndex.value
           : this.colorIndex,
@@ -726,6 +763,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
           ..write('type: $type, ')
           ..write('title: $title, ')
           ..write('duration: $duration, ')
+          ..write('bufferMinutes: $bufferMinutes, ')
           ..write('colorIndex: $colorIndex, ')
           ..write('position: $position')
           ..write(')'))
@@ -733,8 +771,16 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, planId, type, title, duration, colorIndex, position);
+  int get hashCode => Object.hash(
+    id,
+    planId,
+    type,
+    title,
+    duration,
+    bufferMinutes,
+    colorIndex,
+    position,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -744,6 +790,7 @@ class PlanBlock extends DataClass implements Insertable<PlanBlock> {
           other.type == this.type &&
           other.title == this.title &&
           other.duration == this.duration &&
+          other.bufferMinutes == this.bufferMinutes &&
           other.colorIndex == this.colorIndex &&
           other.position == this.position);
 }
@@ -754,6 +801,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
   final Value<String> type;
   final Value<String> title;
   final Value<int> duration;
+  final Value<int> bufferMinutes;
   final Value<int> colorIndex;
   final Value<int> position;
   final Value<int> rowid;
@@ -763,6 +811,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
     this.type = const Value.absent(),
     this.title = const Value.absent(),
     this.duration = const Value.absent(),
+    this.bufferMinutes = const Value.absent(),
     this.colorIndex = const Value.absent(),
     this.position = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -773,6 +822,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
     required String type,
     required String title,
     required int duration,
+    this.bufferMinutes = const Value.absent(),
     required int colorIndex,
     required int position,
     this.rowid = const Value.absent(),
@@ -789,6 +839,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
     Expression<String>? type,
     Expression<String>? title,
     Expression<int>? duration,
+    Expression<int>? bufferMinutes,
     Expression<int>? colorIndex,
     Expression<int>? position,
     Expression<int>? rowid,
@@ -799,6 +850,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
       if (type != null) 'type': type,
       if (title != null) 'title': title,
       if (duration != null) 'duration': duration,
+      if (bufferMinutes != null) 'buffer_minutes': bufferMinutes,
       if (colorIndex != null) 'color_index': colorIndex,
       if (position != null) 'position': position,
       if (rowid != null) 'rowid': rowid,
@@ -811,6 +863,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
     Value<String>? type,
     Value<String>? title,
     Value<int>? duration,
+    Value<int>? bufferMinutes,
     Value<int>? colorIndex,
     Value<int>? position,
     Value<int>? rowid,
@@ -821,6 +874,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
       type: type ?? this.type,
       title: title ?? this.title,
       duration: duration ?? this.duration,
+      bufferMinutes: bufferMinutes ?? this.bufferMinutes,
       colorIndex: colorIndex ?? this.colorIndex,
       position: position ?? this.position,
       rowid: rowid ?? this.rowid,
@@ -845,6 +899,9 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
     if (duration.present) {
       map['duration'] = Variable<int>(duration.value);
     }
+    if (bufferMinutes.present) {
+      map['buffer_minutes'] = Variable<int>(bufferMinutes.value);
+    }
     if (colorIndex.present) {
       map['color_index'] = Variable<int>(colorIndex.value);
     }
@@ -865,6 +922,7 @@ class PlanBlocksCompanion extends UpdateCompanion<PlanBlock> {
           ..write('type: $type, ')
           ..write('title: $title, ')
           ..write('duration: $duration, ')
+          ..write('bufferMinutes: $bufferMinutes, ')
           ..write('colorIndex: $colorIndex, ')
           ..write('position: $position, ')
           ..write('rowid: $rowid')
@@ -1709,6 +1767,18 @@ class $TimelineTemplateBlocksTable extends TimelineTemplateBlocks
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _bufferMinutesMeta = const VerificationMeta(
+    'bufferMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> bufferMinutes = GeneratedColumn<int>(
+    'buffer_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _colorIndexMeta = const VerificationMeta(
     'colorIndex',
   );
@@ -1738,6 +1808,7 @@ class $TimelineTemplateBlocksTable extends TimelineTemplateBlocks
     type,
     title,
     duration,
+    bufferMinutes,
     colorIndex,
     position,
   ];
@@ -1790,6 +1861,15 @@ class $TimelineTemplateBlocksTable extends TimelineTemplateBlocks
     } else if (isInserting) {
       context.missing(_durationMeta);
     }
+    if (data.containsKey('buffer_minutes')) {
+      context.handle(
+        _bufferMinutesMeta,
+        bufferMinutes.isAcceptableOrUnknown(
+          data['buffer_minutes']!,
+          _bufferMinutesMeta,
+        ),
+      );
+    }
     if (data.containsKey('color_index')) {
       context.handle(
         _colorIndexMeta,
@@ -1835,6 +1915,10 @@ class $TimelineTemplateBlocksTable extends TimelineTemplateBlocks
         DriftSqlType.int,
         data['${effectivePrefix}duration'],
       )!,
+      bufferMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}buffer_minutes'],
+      )!,
       colorIndex: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}color_index'],
@@ -1859,6 +1943,7 @@ class TimelineTemplateBlock extends DataClass
   final String type;
   final String title;
   final int duration;
+  final int bufferMinutes;
   final int colorIndex;
   final int position;
   const TimelineTemplateBlock({
@@ -1867,6 +1952,7 @@ class TimelineTemplateBlock extends DataClass
     required this.type,
     required this.title,
     required this.duration,
+    required this.bufferMinutes,
     required this.colorIndex,
     required this.position,
   });
@@ -1878,6 +1964,7 @@ class TimelineTemplateBlock extends DataClass
     map['type'] = Variable<String>(type);
     map['title'] = Variable<String>(title);
     map['duration'] = Variable<int>(duration);
+    map['buffer_minutes'] = Variable<int>(bufferMinutes);
     map['color_index'] = Variable<int>(colorIndex);
     map['position'] = Variable<int>(position);
     return map;
@@ -1890,6 +1977,7 @@ class TimelineTemplateBlock extends DataClass
       type: Value(type),
       title: Value(title),
       duration: Value(duration),
+      bufferMinutes: Value(bufferMinutes),
       colorIndex: Value(colorIndex),
       position: Value(position),
     );
@@ -1906,6 +1994,7 @@ class TimelineTemplateBlock extends DataClass
       type: serializer.fromJson<String>(json['type']),
       title: serializer.fromJson<String>(json['title']),
       duration: serializer.fromJson<int>(json['duration']),
+      bufferMinutes: serializer.fromJson<int>(json['bufferMinutes']),
       colorIndex: serializer.fromJson<int>(json['colorIndex']),
       position: serializer.fromJson<int>(json['position']),
     );
@@ -1919,6 +2008,7 @@ class TimelineTemplateBlock extends DataClass
       'type': serializer.toJson<String>(type),
       'title': serializer.toJson<String>(title),
       'duration': serializer.toJson<int>(duration),
+      'bufferMinutes': serializer.toJson<int>(bufferMinutes),
       'colorIndex': serializer.toJson<int>(colorIndex),
       'position': serializer.toJson<int>(position),
     };
@@ -1930,6 +2020,7 @@ class TimelineTemplateBlock extends DataClass
     String? type,
     String? title,
     int? duration,
+    int? bufferMinutes,
     int? colorIndex,
     int? position,
   }) => TimelineTemplateBlock(
@@ -1938,6 +2029,7 @@ class TimelineTemplateBlock extends DataClass
     type: type ?? this.type,
     title: title ?? this.title,
     duration: duration ?? this.duration,
+    bufferMinutes: bufferMinutes ?? this.bufferMinutes,
     colorIndex: colorIndex ?? this.colorIndex,
     position: position ?? this.position,
   );
@@ -1952,6 +2044,9 @@ class TimelineTemplateBlock extends DataClass
       type: data.type.present ? data.type.value : this.type,
       title: data.title.present ? data.title.value : this.title,
       duration: data.duration.present ? data.duration.value : this.duration,
+      bufferMinutes: data.bufferMinutes.present
+          ? data.bufferMinutes.value
+          : this.bufferMinutes,
       colorIndex: data.colorIndex.present
           ? data.colorIndex.value
           : this.colorIndex,
@@ -1967,6 +2062,7 @@ class TimelineTemplateBlock extends DataClass
           ..write('type: $type, ')
           ..write('title: $title, ')
           ..write('duration: $duration, ')
+          ..write('bufferMinutes: $bufferMinutes, ')
           ..write('colorIndex: $colorIndex, ')
           ..write('position: $position')
           ..write(')'))
@@ -1974,8 +2070,16 @@ class TimelineTemplateBlock extends DataClass
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, templateId, type, title, duration, colorIndex, position);
+  int get hashCode => Object.hash(
+    id,
+    templateId,
+    type,
+    title,
+    duration,
+    bufferMinutes,
+    colorIndex,
+    position,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1985,6 +2089,7 @@ class TimelineTemplateBlock extends DataClass
           other.type == this.type &&
           other.title == this.title &&
           other.duration == this.duration &&
+          other.bufferMinutes == this.bufferMinutes &&
           other.colorIndex == this.colorIndex &&
           other.position == this.position);
 }
@@ -1996,6 +2101,7 @@ class TimelineTemplateBlocksCompanion
   final Value<String> type;
   final Value<String> title;
   final Value<int> duration;
+  final Value<int> bufferMinutes;
   final Value<int> colorIndex;
   final Value<int> position;
   final Value<int> rowid;
@@ -2005,6 +2111,7 @@ class TimelineTemplateBlocksCompanion
     this.type = const Value.absent(),
     this.title = const Value.absent(),
     this.duration = const Value.absent(),
+    this.bufferMinutes = const Value.absent(),
     this.colorIndex = const Value.absent(),
     this.position = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2015,6 +2122,7 @@ class TimelineTemplateBlocksCompanion
     required String type,
     required String title,
     required int duration,
+    this.bufferMinutes = const Value.absent(),
     required int colorIndex,
     required int position,
     this.rowid = const Value.absent(),
@@ -2031,6 +2139,7 @@ class TimelineTemplateBlocksCompanion
     Expression<String>? type,
     Expression<String>? title,
     Expression<int>? duration,
+    Expression<int>? bufferMinutes,
     Expression<int>? colorIndex,
     Expression<int>? position,
     Expression<int>? rowid,
@@ -2041,6 +2150,7 @@ class TimelineTemplateBlocksCompanion
       if (type != null) 'type': type,
       if (title != null) 'title': title,
       if (duration != null) 'duration': duration,
+      if (bufferMinutes != null) 'buffer_minutes': bufferMinutes,
       if (colorIndex != null) 'color_index': colorIndex,
       if (position != null) 'position': position,
       if (rowid != null) 'rowid': rowid,
@@ -2053,6 +2163,7 @@ class TimelineTemplateBlocksCompanion
     Value<String>? type,
     Value<String>? title,
     Value<int>? duration,
+    Value<int>? bufferMinutes,
     Value<int>? colorIndex,
     Value<int>? position,
     Value<int>? rowid,
@@ -2063,6 +2174,7 @@ class TimelineTemplateBlocksCompanion
       type: type ?? this.type,
       title: title ?? this.title,
       duration: duration ?? this.duration,
+      bufferMinutes: bufferMinutes ?? this.bufferMinutes,
       colorIndex: colorIndex ?? this.colorIndex,
       position: position ?? this.position,
       rowid: rowid ?? this.rowid,
@@ -2087,6 +2199,9 @@ class TimelineTemplateBlocksCompanion
     if (duration.present) {
       map['duration'] = Variable<int>(duration.value);
     }
+    if (bufferMinutes.present) {
+      map['buffer_minutes'] = Variable<int>(bufferMinutes.value);
+    }
     if (colorIndex.present) {
       map['color_index'] = Variable<int>(colorIndex.value);
     }
@@ -2107,6 +2222,7 @@ class TimelineTemplateBlocksCompanion
           ..write('type: $type, ')
           ..write('title: $title, ')
           ..write('duration: $duration, ')
+          ..write('bufferMinutes: $bufferMinutes, ')
           ..write('colorIndex: $colorIndex, ')
           ..write('position: $position, ')
           ..write('rowid: $rowid')
@@ -2847,6 +2963,7 @@ typedef $$PlanBlocksTableCreateCompanionBuilder =
       required String type,
       required String title,
       required int duration,
+      Value<int> bufferMinutes,
       required int colorIndex,
       required int position,
       Value<int> rowid,
@@ -2858,6 +2975,7 @@ typedef $$PlanBlocksTableUpdateCompanionBuilder =
       Value<String> type,
       Value<String> title,
       Value<int> duration,
+      Value<int> bufferMinutes,
       Value<int> colorIndex,
       Value<int> position,
       Value<int> rowid,
@@ -2912,6 +3030,11 @@ class $$PlanBlocksTableFilterComposer
 
   ColumnFilters<int> get duration => $composableBuilder(
     column: $table.duration,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bufferMinutes => $composableBuilder(
+    column: $table.bufferMinutes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2978,6 +3101,11 @@ class $$PlanBlocksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get bufferMinutes => $composableBuilder(
+    column: $table.bufferMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get colorIndex => $composableBuilder(
     column: $table.colorIndex,
     builder: (column) => ColumnOrderings(column),
@@ -3032,6 +3160,11 @@ class $$PlanBlocksTableAnnotationComposer
 
   GeneratedColumn<int> get duration =>
       $composableBuilder(column: $table.duration, builder: (column) => column);
+
+  GeneratedColumn<int> get bufferMinutes => $composableBuilder(
+    column: $table.bufferMinutes,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get colorIndex => $composableBuilder(
     column: $table.colorIndex,
@@ -3098,6 +3231,7 @@ class $$PlanBlocksTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<int> duration = const Value.absent(),
+                Value<int> bufferMinutes = const Value.absent(),
                 Value<int> colorIndex = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3107,6 +3241,7 @@ class $$PlanBlocksTableTableManager
                 type: type,
                 title: title,
                 duration: duration,
+                bufferMinutes: bufferMinutes,
                 colorIndex: colorIndex,
                 position: position,
                 rowid: rowid,
@@ -3118,6 +3253,7 @@ class $$PlanBlocksTableTableManager
                 required String type,
                 required String title,
                 required int duration,
+                Value<int> bufferMinutes = const Value.absent(),
                 required int colorIndex,
                 required int position,
                 Value<int> rowid = const Value.absent(),
@@ -3127,6 +3263,7 @@ class $$PlanBlocksTableTableManager
                 type: type,
                 title: title,
                 duration: duration,
+                bufferMinutes: bufferMinutes,
                 colorIndex: colorIndex,
                 position: position,
                 rowid: rowid,
@@ -3879,6 +4016,7 @@ typedef $$TimelineTemplateBlocksTableCreateCompanionBuilder =
       required String type,
       required String title,
       required int duration,
+      Value<int> bufferMinutes,
       required int colorIndex,
       required int position,
       Value<int> rowid,
@@ -3890,6 +4028,7 @@ typedef $$TimelineTemplateBlocksTableUpdateCompanionBuilder =
       Value<String> type,
       Value<String> title,
       Value<int> duration,
+      Value<int> bufferMinutes,
       Value<int> colorIndex,
       Value<int> position,
       Value<int> rowid,
@@ -3960,6 +4099,11 @@ class $$TimelineTemplateBlocksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get bufferMinutes => $composableBuilder(
+    column: $table.bufferMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get colorIndex => $composableBuilder(
     column: $table.colorIndex,
     builder: (column) => ColumnFilters(column),
@@ -4023,6 +4167,11 @@ class $$TimelineTemplateBlocksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get bufferMinutes => $composableBuilder(
+    column: $table.bufferMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get colorIndex => $composableBuilder(
     column: $table.colorIndex,
     builder: (column) => ColumnOrderings(column),
@@ -4077,6 +4226,11 @@ class $$TimelineTemplateBlocksTableAnnotationComposer
 
   GeneratedColumn<int> get duration =>
       $composableBuilder(column: $table.duration, builder: (column) => column);
+
+  GeneratedColumn<int> get bufferMinutes => $composableBuilder(
+    column: $table.bufferMinutes,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get colorIndex => $composableBuilder(
     column: $table.colorIndex,
@@ -4155,6 +4309,7 @@ class $$TimelineTemplateBlocksTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<int> duration = const Value.absent(),
+                Value<int> bufferMinutes = const Value.absent(),
                 Value<int> colorIndex = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4164,6 +4319,7 @@ class $$TimelineTemplateBlocksTableTableManager
                 type: type,
                 title: title,
                 duration: duration,
+                bufferMinutes: bufferMinutes,
                 colorIndex: colorIndex,
                 position: position,
                 rowid: rowid,
@@ -4175,6 +4331,7 @@ class $$TimelineTemplateBlocksTableTableManager
                 required String type,
                 required String title,
                 required int duration,
+                Value<int> bufferMinutes = const Value.absent(),
                 required int colorIndex,
                 required int position,
                 Value<int> rowid = const Value.absent(),
@@ -4184,6 +4341,7 @@ class $$TimelineTemplateBlocksTableTableManager
                 type: type,
                 title: title,
                 duration: duration,
+                bufferMinutes: bufferMinutes,
                 colorIndex: colorIndex,
                 position: position,
                 rowid: rowid,

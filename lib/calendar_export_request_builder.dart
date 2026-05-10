@@ -1,17 +1,18 @@
 import 'calendar_export.dart';
+import 'models.dart';
 import 'state.dart';
 
 /// Builds a [CalendarExportRequest] from the current [TimelineState] and a
 /// user-selected base date.  The base date's time component is ignored; the
-/// timeline's target time and block durations determine the actual start and
-/// anchor datetimes.  This function is pure (aside from [clock]) and fully
-/// testable.
+/// timeline's target time and block effective durations determine the actual
+/// start and anchor datetimes. This function is pure (aside from [clock]) and
+/// fully testable.
 CalendarExportRequest buildCalendarExportRequest({
   required TimelineState state,
   required DateTime baseDate,
   required DateTime Function() clock,
 }) {
-  final totalMin = state.blocks.fold(0, (s, b) => s + b.duration);
+  final totalMin = totalTimelineDuration(state.blocks);
   var startMin = state.targetTime - totalMin;
   var date = DateTime(baseDate.year, baseDate.month, baseDate.day);
   while (startMin < 0) {
@@ -28,10 +29,7 @@ CalendarExportRequest buildCalendarExportRequest({
       startMin % 60,
     ),
     blocks: state.blocks.map(CalendarExportBlock.fromBlock).toList(),
-    anchor: CalendarExportAnchor(
-      id: 'target',
-      title: state.targetTimeTitle,
-    ),
+    anchor: CalendarExportAnchor(id: 'target', title: state.targetTimeTitle),
     generatedAt: clock(),
   );
 }
@@ -56,7 +54,8 @@ class CalendarExportPreview {
     final events = projectCalendarExportEvents(request);
     final startDateTime = events.first.startDateTime;
     final anchorDateTime = events.last.startDateTime;
-    final spansMultipleDays = startDateTime.day != anchorDateTime.day ||
+    final spansMultipleDays =
+        startDateTime.day != anchorDateTime.day ||
         startDateTime.month != anchorDateTime.month ||
         startDateTime.year != anchorDateTime.year;
     return CalendarExportPreview(

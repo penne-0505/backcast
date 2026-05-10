@@ -3,7 +3,7 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-09"
+updated_at: "2026-05-10"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -32,6 +32,8 @@ related_prs: []
 - **Examples**:
   - 本番用: `AppDatabase.defaults()`
   - テスト用: `AppDatabase(NativeDatabase.memory())`
+- **Notes**:
+  - 現行 Drift schema version は 4。version 4 で `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` を追加した
 
 ### `plans` table
 
@@ -57,6 +59,7 @@ related_prs: []
   - `type (String)`: `action` または `actionPoint`
   - `title (String)`: ブロック名
   - `duration (int)`: 分単位の所要時間
+  - `bufferMinutes (int)`: 分単位の余裕時間。`action` のみ有効で、既定値は 0
   - `colorIndex (int)`: ブロック色インデックス
   - `position (int)`: `TimelineState.blocks` 上の順序
 - **Returns**: なし
@@ -103,6 +106,7 @@ related_prs: []
   - `type (String)`: `action` または `actionPoint`
   - `title (String)`: ブロック名
   - `duration (int)`: 分単位の所要時間
+  - `bufferMinutes (int)`: 分単位の余裕時間。`action` のみ有効で、既定値は 0
   - `colorIndex (int)`: ブロック色インデックス
   - `position (int)`: `TimelineState.blocks` 上の順序
 - **Returns**: なし
@@ -200,7 +204,7 @@ related_prs: []
 - **Summary**: 指定プランの表示名だけを更新する
 - **Parameters**:
   - `planId (String)`: 更新対象プラン ID
-  - `newTitle (String)`: 新しいプラン名。前後空白は削除され、空文字・空白のみは `Untitled plan` に正規化される
+  - `newTitle (String)`: 新しいプラン名。前後空白は削除され、空文字・空白のみは `無題のタイムライン` に正規化される
 - **Returns**: なし
 - **Errors**: 対象プランが存在しない場合は `StateError`
 - **Examples**:
@@ -289,6 +293,8 @@ related_prs: []
 - **Errors**: ブロック種別が未知の場合は `FormatException`
 - **Examples**:
   - `final template = await repository.loadTemplate(templateId);`
+- **Notes**:
+  - `bufferMinutes` はテンプレートのブロック属性として保存・復元される
 
 ### `TimelineTemplateRepository.restoreTemplateState`
 
@@ -299,6 +305,8 @@ related_prs: []
 - **Errors**: 対象テンプレートが存在しない場合は `StateError`
 - **Examples**:
   - `final state = await repository.restoreTemplateState(templateId);`
+- **Notes**:
+  - fresh block IDs を採番しても `duration`、`bufferMinutes`、`colorIndex` はテンプレート内容を保持する
 
 ### `TimelineTemplateRepository.renameTemplate`
 
@@ -347,13 +355,17 @@ related_prs: []
 - **Examples**:
   - `final json = encodeTimelineState(state);`
   - `final state = decodeTimelineState(json);`
+- **Notes**:
+  - schema version 2 では `Block.bufferMinutes` を含める
+  - schema version 1 の snapshot は `bufferMinutes = 0` として読み込む
 
 ## Notes
 
-- 保存 schema version は `timelineStatePersistenceSchemaVersion = 1`
+- 保存 schema version は `timelineStatePersistenceSchemaVersion = 2`
 - `TimelineState` の一時 UI 状態は snapshot へ含めない
 - `plan_blocks.position` は `TimelineState.blocks` の順序を保持するための列
 - `timeline_template_blocks.position` も同様に `TimelineState.blocks` の順序を保持する
+- `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` は読み込み時に `normalizeActionBufferMinutes` で正規化する
 - `restoreTemplateState` は適用先 timeline との block ID 衝突を避けるため、必ず fresh block IDs を採番する
 - `TimelineTemplateApplyService.applyTemplate` は snapshot → apply → save の順序を保証し、適用前の状態を復元可能にする
 - `TimelineNotifier.applyTemplateState` は `loadState` と異なり、`selectedBlockId` / `preciseDraggingId` / `activeInlineEditorId` を自動的にクリアする

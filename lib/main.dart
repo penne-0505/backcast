@@ -40,17 +40,19 @@ class MedoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Keep RevenueCat identity in sync with Supabase auth state.
     ref.listen<String?>(currentUserIdProvider, (prev, next) async {
-      if (!RevenueCatConfig.supportsCurrentPlatform) {
+      if (next == null) {
+        if (RevenueCatConfig.supportsCurrentPlatform && prev != null) {
+          await Purchases.logOut();
+        }
         ref.invalidate(currentProEntitlementProvider);
         return;
       }
-      if (next != null && next != prev) {
+
+      if (RevenueCatConfig.supportsCurrentPlatform && next != prev) {
         await Purchases.logIn(next);
-        ref.invalidate(currentProEntitlementProvider);
-      } else if (next == null && prev != null) {
-        await Purchases.logOut();
-        ref.invalidate(currentProEntitlementProvider);
       }
+      await _syncReviewerEntitlement();
+      ref.invalidate(currentProEntitlementProvider);
     });
 
     // Start listening to RevenueCat updates as soon as the app boots.
@@ -74,5 +76,15 @@ class MedoApp extends ConsumerWidget {
       ),
       home: const TimelineScreen(),
     );
+  }
+}
+
+Future<void> _syncReviewerEntitlement() async {
+  try {
+    await Supabase.instance.client.functions.invoke(
+      'sync-reviewer-entitlement',
+    );
+  } catch (_) {
+    // Reviewer access is best-effort. Normal paid / Free entitlement reads stay authoritative.
   }
 }

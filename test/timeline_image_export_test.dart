@@ -58,6 +58,23 @@ void main() {
       expect(vm.events[3].title, '会議開始');
     });
 
+    test('action buffer is included in metadata and event time range', () {
+      final state = TimelineState(
+        targetTime: 13 * 60,
+        targetTimeTitle: '会議開始',
+        blocks: [_action('b1', '移動', 20, 0, bufferMinutes: 10)],
+      );
+      final vm = buildTimelineImageExportViewModel(
+        state,
+        mode: TimelineImageExportMode.noDate,
+      );
+
+      expect(vm.metadataText, 'TOTAL 30m');
+      expect(vm.events[0].timeText, '12:30-13:00');
+      expect(vm.events[0].durationMinutes, 20);
+      expect(vm.events[0].bufferMinutes, 10);
+    });
+
     test('日にちあり・同日・空タイトルは「目標時刻」', () {
       const state = TimelineState(
         targetTime: 10 * 60,
@@ -78,9 +95,7 @@ void main() {
       final state = TimelineState(
         targetTime: 10 * 60,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '', 30, 0),
-        ],
+        blocks: [_action('b1', '', 30, 0)],
       );
       final vm = buildTimelineImageExportViewModel(
         state,
@@ -114,27 +129,21 @@ void main() {
       final state = TimelineState(
         targetTime: 30,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '移動', 60, 0),
-          _action('b2', '待機', 60, 1),
-        ],
+        blocks: [_action('b1', '移動', 60, 0), _action('b2', '待機', 60, 1)],
       );
       final vm = buildTimelineImageExportViewModel(
         state,
         mode: TimelineImageExportMode.withDate,
         baseDate: _date(2026, 5, 3),
       );
-      expect(vm.metadataText,
-          '2026-05-02 Sat -> 2026-05-03 Sun  /  TOTAL 2h');
+      expect(vm.metadataText, '2026-05-02 Sat -> 2026-05-03 Sun  /  TOTAL 2h');
     });
 
     test('改行タイトルは半角スペースに置換', () {
       final state = TimelineState(
         targetTime: 10 * 60,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '移動\n駅前', 30, 0),
-        ],
+        blocks: [_action('b1', '移動\n駅前', 30, 0)],
       );
       final vm = buildTimelineImageExportViewModel(
         state,
@@ -160,20 +169,27 @@ void main() {
   });
 }
 
-Block _action(String id, String title, int duration, int colorIndex) => Block(
-      id: id,
-      type: BlockType.action,
-      title: title,
-      duration: duration,
-      colorIndex: colorIndex,
-    );
+Block _action(
+  String id,
+  String title,
+  int duration,
+  int colorIndex, {
+  int bufferMinutes = 0,
+}) => Block(
+  id: id,
+  type: BlockType.action,
+  title: title,
+  duration: duration,
+  bufferMinutes: bufferMinutes,
+  colorIndex: colorIndex,
+);
 
 Block _point(String id, String title, int colorIndex) => Block(
-      id: id,
-      type: BlockType.actionPoint,
-      title: title,
-      duration: 0,
-      colorIndex: colorIndex,
-    );
+  id: id,
+  type: BlockType.actionPoint,
+  title: title,
+  duration: 0,
+  colorIndex: colorIndex,
+);
 
 DateTime _date(int y, int m, int d) => DateTime(y, m, d);

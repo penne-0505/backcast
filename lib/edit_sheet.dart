@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import 'billing/gate_helper.dart';
+import 'billing/paywall_screen.dart';
 import 'models.dart';
 import 'platform_time_picker.dart';
 import 'state.dart';
@@ -21,8 +23,10 @@ class EditSheet extends ConsumerStatefulWidget {
 class _EditSheetState extends ConsumerState<EditSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _durationCtrl;
+  late final TextEditingController _bufferCtrl;
   late final TextEditingController _targetTimeCtrl;
   late final FocusNode _durationFocusNode;
+  late final FocusNode _bufferFocusNode;
   String? _lastSyncedBlockId;
 
   @override
@@ -30,18 +34,24 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     super.initState();
     _titleCtrl = TextEditingController();
     _durationCtrl = TextEditingController();
+    _bufferCtrl = TextEditingController();
     _targetTimeCtrl = TextEditingController();
     _durationFocusNode = FocusNode();
+    _bufferFocusNode = FocusNode();
     _durationFocusNode.addListener(_onDurationFocusLost);
+    _bufferFocusNode.addListener(_onBufferFocusLost);
   }
 
   @override
   void dispose() {
     _durationFocusNode.removeListener(_onDurationFocusLost);
+    _bufferFocusNode.removeListener(_onBufferFocusLost);
     _titleCtrl.dispose();
     _durationCtrl.dispose();
+    _bufferCtrl.dispose();
     _targetTimeCtrl.dispose();
     _durationFocusNode.dispose();
+    _bufferFocusNode.dispose();
     super.dispose();
   }
 
@@ -51,11 +61,26 @@ class _EditSheetState extends ConsumerState<EditSheet> {
       final selected = state.selectedBlockId == kTargetTimeId
           ? null
           : state.blocks
-              .where((b) => b.id == state.selectedBlockId)
-              .firstOrNull;
+                .where((b) => b.id == state.selectedBlockId)
+                .firstOrNull;
       if (selected != null && selected.type == BlockType.action) {
         final ds = selected.duration.toString();
         if (_durationCtrl.text != ds) _durationCtrl.text = ds;
+      }
+    }
+  }
+
+  void _onBufferFocusLost() {
+    if (!_bufferFocusNode.hasFocus) {
+      final state = ref.read(timelineProvider);
+      final selected = state.selectedBlockId == kTargetTimeId
+          ? null
+          : state.blocks
+                .where((b) => b.id == state.selectedBlockId)
+                .firstOrNull;
+      if (selected != null && selected.type == BlockType.action) {
+        final bs = selected.normalizedBufferMinutes.toString();
+        if (_bufferCtrl.text != bs) _bufferCtrl.text = bs;
       }
     }
   }
@@ -68,6 +93,10 @@ class _EditSheetState extends ConsumerState<EditSheet> {
       final ds = selected.duration.toString();
       if (_durationCtrl.text != ds) _durationCtrl.text = ds;
     }
+    if (selected.type == BlockType.action && !_bufferFocusNode.hasFocus) {
+      final bs = selected.normalizedBufferMinutes.toString();
+      if (_bufferCtrl.text != bs) _bufferCtrl.text = bs;
+    }
   }
 
   void _syncTargetControllers(String targetTitle, int targetTime) {
@@ -78,6 +107,39 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     if (_targetTimeCtrl.text != formatted) {
       _targetTimeCtrl.text = formatted;
     }
+  }
+
+  bool _needsBlockControllerSync(Block selected) {
+    if (_titleCtrl.text != selected.title) return true;
+    if (selected.type == BlockType.action && !_durationFocusNode.hasFocus) {
+      if (_durationCtrl.text != selected.duration.toString()) return true;
+    }
+    if (selected.type == BlockType.action && !_bufferFocusNode.hasFocus) {
+      if (_bufferCtrl.text != selected.normalizedBufferMinutes.toString()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _needsTargetControllerSync(String targetTitle, int targetTime) {
+    return _titleCtrl.text != targetTitle ||
+        _targetTimeCtrl.text != formatTime(targetTime);
+  }
+
+  void _queueControllerSync({
+    required bool isTarget,
+    required TimelineState state,
+    required Block? selected,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (isTarget) {
+        _syncTargetControllers(state.targetTimeTitle, state.targetTime);
+      } else if (selected != null) {
+        _syncBlockControllers(selected);
+      }
+    });
   }
 
   Future<void> _pickTargetTime(int currentTargetTime) async {
@@ -92,10 +154,20 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     ref.read(timelineProvider.notifier).setTargetTime(pickedMinutes);
   }
 
+  void _showActionBufferPaywall() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            const PaywallScreen(feature: PaywallFeature.actionBuffer),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(timelineProvider);
     final notifier = ref.read(timelineProvider.notifier);
+    final isPro = ref.watch(effectiveIsProProvider);
     final isTarget = state.selectedBlockId == kTargetTimeId;
     final selected = isTarget
         ? null
@@ -103,14 +175,24 @@ class _EditSheetState extends ConsumerState<EditSheet> {
 
     if (state.selectedBlockId != _lastSyncedBlockId) {
       _lastSyncedBlockId = state.selectedBlockId;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (isTarget) {
-          _syncTargetControllers(state.targetTimeTitle, state.targetTime);
-        } else if (selected != null) {
-          _syncBlockControllers(selected);
-        }
-      });
+      _queueControllerSync(
+        isTarget: isTarget,
+        state: state,
+        selected: selected,
+      );
+    } else if (isTarget &&
+        _needsTargetControllerSync(state.targetTimeTitle, state.targetTime)) {
+      _queueControllerSync(
+        isTarget: isTarget,
+        state: state,
+        selected: selected,
+      );
+    } else if (selected != null && _needsBlockControllerSync(selected)) {
+      _queueControllerSync(
+        isTarget: isTarget,
+        state: state,
+        selected: selected,
+      );
     }
 
     final bottomPadding = MediaQuery.of(context).padding.bottom;
@@ -292,6 +374,37 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       }
                     },
                   ),
+                  const SizedBox(height: 16),
+                  const _SectionLabel('余裕時間'),
+                  const SizedBox(height: 6),
+                  if (isPro)
+                    _DurationStepper(
+                      controller: _bufferCtrl,
+                      focusNode: _bufferFocusNode,
+                      canDecrement: selected.normalizedBufferMinutes > 0,
+                      canIncrement:
+                          selected.normalizedBufferMinutes <
+                          kMaxActionBufferMinutes,
+                      onDecrement: () => notifier.setActionBufferMinutes(
+                        selected.id,
+                        selected.normalizedBufferMinutes - kBufferStepMinutes,
+                      ),
+                      onIncrement: () => notifier.setActionBufferMinutes(
+                        selected.id,
+                        selected.normalizedBufferMinutes + kBufferStepMinutes,
+                      ),
+                      onChanged: (v) {
+                        final n = int.tryParse(v);
+                        if (n != null) {
+                          notifier.setActionBufferMinutes(selected.id, n);
+                        }
+                      },
+                    )
+                  else
+                    _LockedBufferControl(
+                      minutes: selected.normalizedBufferMinutes,
+                      onTap: _showActionBufferPaywall,
+                    ),
                 ],
 
                 // ── ブロックモード専用: カラー ────────────────────────────
@@ -328,10 +441,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: AppTextStyles.label,
-    );
+    return Text(text, style: AppTextStyles.label);
   }
 }
 
@@ -432,31 +542,25 @@ class _DurationStepperState extends State<_DurationStepper> {
   void _startRepeatDecrement() {
     _onTapDecrement();
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(
-      const Duration(milliseconds: 120),
-      (_) {
-        if (!widget.canDecrement) {
-          _stopRepeat();
-          return;
-        }
-        widget.onDecrement();
-      },
-    );
+    _repeatTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+      if (!widget.canDecrement) {
+        _stopRepeat();
+        return;
+      }
+      widget.onDecrement();
+    });
   }
 
   void _startRepeatIncrement() {
     _onTapIncrement();
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(
-      const Duration(milliseconds: 120),
-      (_) {
-        if (!widget.canIncrement) {
-          _stopRepeat();
-          return;
-        }
-        widget.onIncrement();
-      },
-    );
+    _repeatTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+      if (!widget.canIncrement) {
+        _stopRepeat();
+        return;
+      }
+      widget.onIncrement();
+    });
   }
 
   void _stopRepeat() {
@@ -529,7 +633,7 @@ class _DurationStepperState extends State<_DurationStepper> {
                 children: [
                   SizedBox(
                     width: 64,
-                    child:                     TextField(
+                    child: TextField(
                       controller: widget.controller,
                       focusNode: widget.focusNode,
                       textAlign: TextAlign.center,
@@ -592,6 +696,58 @@ class _DurationStepperState extends State<_DurationStepper> {
   }
 }
 
+class _LockedBufferControl extends StatelessWidget {
+  const _LockedBufferControl({required this.minutes, required this.onTap});
+
+  final int minutes;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      scale: 0.98,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.softGray,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: AppColors.accentDivider.withValues(alpha: 0.8),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$minutes分',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            Icon(PhosphorIcons.lockKey(), size: 18, color: AppColors.mutedInk),
+            const SizedBox(width: 8),
+            const Text(
+              'Pro',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.mutedInk,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Color Picker
 // ---------------------------------------------------------------------------
@@ -623,16 +779,10 @@ class _ColorPicker extends StatelessWidget {
                         color: AppColors.blockColors[i].withValues(alpha: 0.85),
                         width: 2,
                       ),
-                boxShadow: selectedIndex == i
-                    ? AppShadows.cardSelected
-                    : null,
+                boxShadow: selectedIndex == i ? AppShadows.cardSelected : null,
               ),
               child: selectedIndex == i
-                  ? Icon(
-                    PhosphorIcons.check(),
-                    color: Colors.white,
-                    size: 16,
-                  )
+                  ? Icon(PhosphorIcons.check(), color: Colors.white, size: 16)
                   : null,
             ),
           ),
@@ -654,7 +804,9 @@ class _DeleteConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: AppColors.canvas,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
         child: Column(

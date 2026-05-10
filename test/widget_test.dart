@@ -67,6 +67,26 @@ void main() {
       expect(result[0].startTime, 13 * 60 - 30);
     });
 
+    test('action buffer extends the effective duration', () {
+      final blocks = [
+        const Block(
+          id: '1',
+          type: BlockType.action,
+          title: 'A',
+          duration: 30,
+          bufferMinutes: 10,
+          colorIndex: 0,
+        ),
+      ];
+      final result = computeBlocks(blocks, 13 * 60);
+      expect(result.length, 1);
+      expect(result[0].block.duration, 30);
+      expect(result[0].block.normalizedBufferMinutes, 10);
+      expect(result[0].block.effectiveDuration, 40);
+      expect(result[0].endTime, 13 * 60);
+      expect(result[0].startTime, 13 * 60 - 40);
+    });
+
     test('multiple blocks chain correctly', () {
       final blocks = [
         const Block(
@@ -100,12 +120,91 @@ void main() {
           type: BlockType.actionPoint,
           title: 'P',
           duration: 0,
+          bufferMinutes: 15,
           colorIndex: 0,
         ),
       ];
       final result = computeBlocks(blocks, 10 * 60);
+      expect(result[0].block.normalizedBufferMinutes, 0);
       expect(result[0].startTime, 10 * 60);
       expect(result[0].endTime, 10 * 60);
+    });
+  });
+
+  group('TimelineNotifier action buffer', () {
+    test('increments, clamps, and ignores action points', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(timelineProvider.notifier);
+      notifier.loadState(
+        const TimelineState(
+          blocks: [
+            Block(
+              id: 'a1',
+              type: BlockType.action,
+              title: '移動',
+              duration: 20,
+              colorIndex: 0,
+            ),
+            Block(
+              id: 'p1',
+              type: BlockType.actionPoint,
+              title: '受付',
+              duration: 0,
+              colorIndex: 1,
+            ),
+          ],
+        ),
+      );
+
+      notifier.incrementActionBuffer('a1');
+      expect(container.read(timelineProvider).blocks[0].bufferMinutes, 5);
+
+      notifier.setActionBufferMinutes('a1', 99);
+      expect(
+        container.read(timelineProvider).blocks[0].bufferMinutes,
+        kMaxActionBufferMinutes,
+      );
+
+      notifier.incrementActionBuffer('a1');
+      expect(
+        container.read(timelineProvider).blocks[0].bufferMinutes,
+        kMaxActionBufferMinutes,
+      );
+
+      notifier.setActionBufferMinutes('p1', 30);
+      expect(
+        container.read(timelineProvider).blocks[1].normalizedBufferMinutes,
+        0,
+      );
+    });
+
+    test('start-time editing keeps buffer separate from action duration', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(timelineProvider.notifier);
+      notifier.loadState(
+        const TimelineState(
+          targetTime: 13 * 60,
+          blocks: [
+            Block(
+              id: 'a1',
+              type: BlockType.action,
+              title: '移動',
+              duration: 20,
+              bufferMinutes: 10,
+              colorIndex: 0,
+            ),
+          ],
+        ),
+      );
+
+      notifier.applyStartTimeEdit('a1', 12 * 60 + 20);
+
+      final block = container.read(timelineProvider).blocks.single;
+      expect(block.duration, 30);
+      expect(block.bufferMinutes, 10);
+      expect(block.effectiveDuration, 40);
     });
   });
 
@@ -182,6 +281,118 @@ void main() {
       expect(find.text('行動を編集'), findsOneWidget);
     },
   );
+
+  testWidgets('double tapping an action body adds Pro buffer time', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester, effectiveIsPro: true);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    final blockRect = tester.getRect(find.byType(BlockItem));
+    final bodyPosition = Offset(blockRect.left + 120, blockRect.bottom - 14);
+
+    await tester.tapAt(bodyPosition);
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tapAt(bodyPosition);
+    await tester.pumpAndSettle();
+
+    final block = containerFor(tester).read(timelineProvider).blocks.single;
+    expect(block.bufferMinutes, 5);
+    expect(find.text('余裕 +5分'), findsOneWidget);
+    expect(find.text('行動を編集'), findsNothing);
+  });
+
+  testWidgets(
+    'double tapping an action body shows a locked snack for Free users',
+    (tester) async {
+      await pumpMedoApp(tester, effectiveIsPro: false);
+
+      await tester.tap(find.text('前の行動を追加'));
+      await tester.pump();
+
+      final blockRect = tester.getRect(find.byType(BlockItem));
+      final bodyPosition = Offset(blockRect.left + 120, blockRect.bottom - 14);
+
+      await tester.tapAt(bodyPosition);
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.tapAt(bodyPosition);
+      await tester.pumpAndSettle();
+
+      expect(
+        containerFor(tester).read(timelineProvider).blocks.single.bufferMinutes,
+        0,
+      );
+      expect(find.text('余裕時間の編集はPro機能です'), findsNothing);
+      expect(find.text('余裕時間の追加はProで使えます'), findsOneWidget);
+      final snackTop = tester.getTopLeft(find.byType(SnackBar)).dy;
+      expect(snackTop, greaterThan(58));
+      expect(snackTop, lessThan(140));
+      expect(find.text('行動を編集'), findsNothing);
+    },
+  );
+
+  testWidgets('detail sheet buffer stepper edits buffer for Pro users', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester, effectiveIsPro: true);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    await tester.tapAt(tester.getCenter(find.byType(BlockItem)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動を編集'), findsOneWidget);
+    expect(find.text('余裕時間'), findsOneWidget);
+
+    await tester.tap(find.byIcon(PhosphorIcons.plus()).last);
+    await tester.pumpAndSettle();
+
+    final block = containerFor(tester).read(timelineProvider).blocks.single;
+    expect(block.bufferMinutes, 5);
+    expect(find.text('5'), findsOneWidget);
+  });
+
+  testWidgets('detail sheet preserves existing buffer for Free users', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester, effectiveIsPro: false);
+    containerFor(tester)
+        .read(timelineProvider.notifier)
+        .loadState(
+          const TimelineState(
+            blocks: [
+              Block(
+                id: 'buffered',
+                type: BlockType.action,
+                title: '移動',
+                duration: 20,
+                bufferMinutes: 10,
+                colorIndex: 0,
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    containerFor(
+      tester,
+    ).read(timelineProvider.notifier).selectBlock('buffered');
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動を編集'), findsOneWidget);
+    expect(find.text('10分'), findsOneWidget);
+    expect(find.text('Pro'), findsOneWidget);
+
+    await tester.tap(find.text('10分'));
+    await tester.pumpAndSettle();
+
+    final block = containerFor(tester).read(timelineProvider).blocks.single;
+    expect(block.bufferMinutes, 10);
+    expect(find.text('余裕時間の編集はPro機能です'), findsOneWidget);
+  });
 
   testWidgets(
     'drag handle enters precise mode after hold and allows 1-minute adjustment',
@@ -376,6 +587,34 @@ void main() {
     expect(renamed!.title, '朝の支度');
   });
 
+  testWidgets('timeline island renames blank input to untitled timeline', (
+    tester,
+  ) async {
+    final repo = PlanRepository(db);
+    final first = await repo.createPlan(
+      state: const TimelineState(targetTimeTitle: '出発'),
+      title: '朝の予定',
+    );
+    await repo.saveCurrentPlanId(first.id);
+
+    await pumpMedoApp(tester, effectiveIsPro: true);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(PhosphorIcons.stack()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('timeline-rename-${first.id}')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '   ');
+    await tester.tap(
+      find.byKey(ValueKey('timeline-rename-submit-${first.id}')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('無題のタイムライン'), findsOneWidget);
+    final renamed = await repo.loadPlan(first.id);
+    expect(renamed!.title, '無題のタイムライン');
+  });
+
   testWidgets('timeline island deletes a non-current timeline', (tester) async {
     final repo = PlanRepository(db);
     final first = await repo.createPlan(
@@ -496,4 +735,53 @@ void main() {
       expect(savedFirst!.state.blocks.map((block) => block.title), ['新しい行動']);
     },
   );
+
+  testWidgets('startup fallback persists a replacement current plan id', (
+    tester,
+  ) async {
+    final repo = PlanRepository(db);
+    final first = await repo.createPlan(
+      state: const TimelineState(targetTimeTitle: '出発'),
+      title: '朝の予定',
+    );
+    final second = await repo.createPlan(
+      state: const TimelineState(targetTimeTitle: '帰宅'),
+      title: '夜の予定',
+    );
+    await repo.saveCurrentPlanId(first.id);
+    await repo.deletePlan(first.id);
+
+    await pumpMedoApp(tester, effectiveIsPro: true);
+    await tester.pumpAndSettle();
+
+    expect(containerFor(tester).read(currentPlanIdProvider), second.id);
+    expect(await repo.loadCurrentPlanId(), second.id);
+  });
+
+  testWidgets('timeline island fits a narrow viewport', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repo = PlanRepository(db);
+    final first = await repo.createPlan(
+      state: const TimelineState(targetTimeTitle: '出発'),
+      title: '朝の予定',
+    );
+    await repo.createPlan(
+      state: const TimelineState(targetTimeTitle: '帰宅'),
+      title: '夜の予定',
+    );
+    await repo.saveCurrentPlanId(first.id);
+
+    await pumpMedoApp(tester, effectiveIsPro: false);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(PhosphorIcons.stack()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimelineListIslandModal), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

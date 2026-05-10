@@ -10,8 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('TimelineImageShareCard', () {
-    testWidgets('renders target title, metadata, events and anchor',
-        (tester) async {
+    testWidgets('renders target title, metadata, events and anchor', (
+      tester,
+    ) async {
       final vm = TimelineImageExportViewModel(
         targetTitle: '会議開始',
         metadataText: 'TOTAL 35m',
@@ -40,9 +41,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: TimelineImageShareCard(viewModel: vm),
-          ),
+          home: Scaffold(body: TimelineImageShareCard(viewModel: vm)),
         ),
       );
 
@@ -77,13 +76,45 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: TimelineImageShareCard(viewModel: vm),
-          ),
+          home: Scaffold(body: TimelineImageShareCard(viewModel: vm)),
         ),
       );
 
       expect(find.text('20分'), findsOneWidget);
+    });
+
+    testWidgets('action event shows buffer segment when buffer is set', (
+      tester,
+    ) async {
+      final vm = TimelineImageExportViewModel(
+        targetTitle: 'テスト',
+        metadataText: 'TOTAL 30m',
+        events: [
+          const TimelineImageExportEvent(
+            timeText: '12:30-13:00',
+            title: '移動',
+            type: TimelineImageExportEventType.action,
+            colorIndex: 0,
+            durationMinutes: 20,
+            bufferMinutes: 10,
+          ),
+          const TimelineImageExportEvent(
+            timeText: '13:00',
+            title: 'テスト',
+            type: TimelineImageExportEventType.targetAnchor,
+            colorIndex: -1,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: TimelineImageShareCard(viewModel: vm)),
+        ),
+      );
+
+      expect(find.text('20分'), findsOneWidget);
+      expect(find.text('余裕 +10分'), findsOneWidget);
     });
 
     testWidgets('action event hides duration pill when 0', (tester) async {
@@ -109,9 +140,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: TimelineImageShareCard(viewModel: vm),
-          ),
+          home: Scaffold(body: TimelineImageShareCard(viewModel: vm)),
         ),
       );
 
@@ -158,8 +187,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final boundary = captureKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          captureKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       expect(boundary, isNotNull);
 
       await tester.runAsync(() async {
@@ -172,8 +202,21 @@ void main() {
 
         // PNG magic number
         expect(bytes.length, greaterThanOrEqualTo(8));
-        expect(bytes.sublist(0, 8),
-            equals(Uint8List.fromList([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])));
+        expect(
+          bytes.sublist(0, 8),
+          equals(
+            Uint8List.fromList([
+              0x89,
+              0x50,
+              0x4E,
+              0x47,
+              0x0D,
+              0x0A,
+              0x1A,
+              0x0A,
+            ]),
+          ),
+        );
       });
     });
   });

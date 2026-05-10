@@ -39,7 +39,7 @@ String generateTimelineText(TimelineTextExportRequest request) {
       : state.targetTimeTitle.trim().replaceAll('\n', ' ');
 
   final computed = computeBlocks(state.blocks, state.targetTime);
-  final totalDuration = state.blocks.fold(0, (s, b) => s + b.duration);
+  final totalDuration = totalTimelineDuration(state.blocks);
 
   final lines = <String>[];
 
@@ -108,7 +108,7 @@ void _buildPlainLines(
         _formatEventLine(
           '${formatTime(cb.startTime)}-${formatTime(cb.endTime)}',
           '┃',
-          title,
+          _formatActionTitle(cb.block, title),
         ),
       );
     } else {
@@ -141,7 +141,7 @@ void _buildDateAwareLines(
           line: _formatEventLine(
             '${formatTime(cb.startTime)}-${formatTime(cb.endTime)}',
             '┃',
-            title,
+            _formatActionTitle(cb.block, title),
           ),
         ),
       );
@@ -188,6 +188,12 @@ String _sanitizeTitle(String raw) {
   final trimmed = raw.trim();
   if (trimmed.isEmpty) return '無題';
   return trimmed.replaceAll('\n', ' ');
+}
+
+String _formatActionTitle(Block block, String title) {
+  final buffer = block.normalizedBufferMinutes;
+  if (buffer == 0) return title;
+  return '$title ${block.duration}分 + 余裕$buffer分';
 }
 
 /// 時間列は 12 文字幅として扱い、記号の開始位置を揃える。

@@ -3,7 +3,7 @@ title: Medo Calendar Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-02"
+updated_at: "2026-05-10"
 references:
   - README.md
   - _docs/reference/medo/timeline_domain_reference.md
@@ -58,10 +58,12 @@ related_prs: []
 - **Summary**: 既存タイムラインの `Block` から export 用 block を作る helper constructor
 - **Parameters**:
   - `block (Block)`: `lib/models.dart` のタイムラインブロック
-- **Returns**: `duration` を `Duration(minutes: block.duration)` に変換した `CalendarExportBlock`
+- **Returns**: `duration` を `Duration(minutes: block.effectiveDuration)` に変換した `CalendarExportBlock`
 - **Errors**: なし
 - **Examples**:
   - `state.blocks.map(CalendarExportBlock.fromBlock).toList()`
+- **Notes**:
+  - `action.bufferMinutes` は calendar event の長さに含める。実作業 20 分 + 余裕 10 分の block は 30 分イベントになる
 
 ### `class CalendarExportAnchor`
 
@@ -107,7 +109,7 @@ final ics = generateCalendarIcs(
 - **Returns**: `CalendarExportRequest`
 - **Errors**: なし
 - **Notes**:
-  - `baseDate` の日付から `targetTime` と全ブロックの `duration` 合計を逆算し、開始日時を決定する
+  - `baseDate` の日付から `targetTime` と全ブロックの有効所要時間合計を逆算し、開始日時を決定する
   - 開始時刻が負になる場合（日付をまたぐ場合）、前日にロールバックする
   - `DateTime.now()` には依存せず、`clock` コールバックを使う
 
@@ -181,6 +183,7 @@ final ics = generateCalendarIcs(
 
 - `blocks` は過去から未来へ、つまり開始 `DateTime` から順に実行する順序で渡す
 - 各 block は前の block の終了時刻を次の開始時刻として連鎖する
+- `action.bufferMinutes` はイベントを別件に分けず、該当 `action` の duration に含める
 - `duration == Duration.zero` の block と anchor は `DTSTART` と `DTEND` が同一の 0 分 `VEVENT` になる
 - `DateTime` はすべて `toUtc()` で UTC に変換し、`YYYYMMDDTHHMMSSZ` 形式で出力する
 - `SUMMARY` と `X-WR-CALNAME` では改行、カンマ、セミコロン、バックスラッシュを iCalendar text として escape する

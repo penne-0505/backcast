@@ -129,6 +129,11 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     _FeatureRow(icon: PhosphorIcons.image(), text: '共有用画像の生成'),
+                    const SizedBox(height: AppSpacing.sm),
+                    _FeatureRow(
+                      icon: PhosphorIcons.timer(),
+                      text: '行動ごとの余裕時間を設定',
+                    ),
                   ],
                 ),
               ),
@@ -224,6 +229,8 @@ class PaywallScreen extends ConsumerWidget {
         return 'タイムラインの保存上限に達しました';
       case PaywallFeature.imageExport:
         return '画像での共有はPro機能です';
+      case PaywallFeature.actionBuffer:
+        return '余裕時間の編集はPro機能です';
     }
   }
 
@@ -235,6 +242,8 @@ class PaywallScreen extends ConsumerWidget {
         return 'Freeプランではタイムラインを2つまで保存できます。Proにアップグレードすると、無制限に保存・切り替えが可能になります。';
       case PaywallFeature.imageExport:
         return 'タイムラインを美しい画像として生成し、SNSやメッセージで共有できます。Proにアップグレードして、シェアの質を高めましょう。';
+      case PaywallFeature.actionBuffer:
+        return '行動ごとに余裕時間を足すと、実際の所要時間とは別に遅れを吸収できます。設定済みの余裕時間はFreeでも予定計算に残ります。';
     }
   }
 }

@@ -8,7 +8,6 @@ import 'package:medo/persistence/plan_repository.dart';
 import 'package:medo/persistence/timeline_template_repository.dart';
 import 'package:medo/state.dart';
 import 'package:medo/template_sheet.dart';
-import 'package:medo/timeline_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,10 +23,7 @@ class _TestCurrentPlanIdNotifier extends CurrentPlanIdNotifier {
   String? build() => _value;
 }
 
-Future<void> pumpMedoApp(
-  WidgetTester tester, {
-  bool isPro = true,
-}) async {
+Future<void> pumpMedoApp(WidgetTester tester, {bool isPro = true}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -54,7 +50,7 @@ void main() {
   });
 
   group('TemplateSheet integration', () {
-    Future<void> _setLargeScreen(WidgetTester tester) async {
+    Future<void> setLargeScreen(WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -64,7 +60,7 @@ void main() {
     }
 
     testWidgets('shows empty state when no templates exist', (tester) async {
-      await _setLargeScreen(tester);
+      await setLargeScreen(tester);
       await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
@@ -79,8 +75,10 @@ void main() {
       expect(find.text('保存済みテンプレートはありません'), findsOneWidget);
     });
 
-    testWidgets('Free user navigates to paywall from template button', (tester) async {
-      await _setLargeScreen(tester);
+    testWidgets('Free user navigates to paywall from template button', (
+      tester,
+    ) async {
+      await setLargeScreen(tester);
       await pumpMedoApp(tester, isPro: false);
       await tester.pumpAndSettle();
 
@@ -96,7 +94,7 @@ void main() {
     });
 
     testWidgets('saves current timeline as template', (tester) async {
-      await _setLargeScreen(tester);
+      await setLargeScreen(tester);
       await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
@@ -120,7 +118,7 @@ void main() {
     });
 
     testWidgets('lists template metadata correctly', (tester) async {
-      await _setLargeScreen(tester);
+      await setLargeScreen(tester);
       final repo = TimelineTemplateRepository(db);
       await repo.createTemplate(
         state: const TimelineState(
@@ -156,10 +154,7 @@ void main() {
   });
 
   group('TemplateSheet unit', () {
-    Future<void> _pumpSheet(
-      WidgetTester tester, {
-      bool isPro = true,
-    }) async {
+    Future<void> pumpSheet(WidgetTester tester, {bool isPro = true}) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -196,7 +191,7 @@ void main() {
         title: 'Empty Template',
       );
 
-      await _pumpSheet(tester);
+      await pumpSheet(tester);
 
       final applyIcon = find.byWidgetPredicate(
         (w) => w is Icon && w.icon == PhosphorIcons.arrowUUpLeft(),
@@ -225,7 +220,7 @@ void main() {
         title: 'Old Name',
       );
 
-      await _pumpSheet(tester);
+      await pumpSheet(tester);
 
       expect(find.text('Old Name'), findsOneWidget);
 
@@ -256,7 +251,7 @@ void main() {
         title: 'To Delete',
       );
 
-      await _pumpSheet(tester);
+      await pumpSheet(tester);
 
       expect(find.text('To Delete'), findsOneWidget);
 
@@ -359,83 +354,95 @@ void main() {
       expect(state.preciseDraggingId, isNull);
     });
 
-    testWidgets('Free user is blocked from saving template and navigates to paywall', (tester) async {
-      await _pumpSheet(tester, isPro: false);
+    testWidgets(
+      'Free user is blocked from saving template and navigates to paywall',
+      (tester) async {
+        await pumpSheet(tester, isPro: false);
 
-      await tester.tap(find.text('現在のタイムラインを保存'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('現在のタイムラインを保存'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(PaywallScreen), findsOneWidget);
-      expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
-    });
+        expect(find.byType(PaywallScreen), findsOneWidget);
+        expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
+      },
+    );
 
-    testWidgets('Free user is blocked from applying template and navigates to paywall', (tester) async {
-      final repo = TimelineTemplateRepository(db);
-      await repo.createTemplate(
-        state: const TimelineState(
-          targetTime: 900,
-          targetTimeTitle: '会議',
-          blocks: [],
-        ),
-        title: 'Blocked Apply',
-      );
+    testWidgets(
+      'Free user is blocked from applying template and navigates to paywall',
+      (tester) async {
+        final repo = TimelineTemplateRepository(db);
+        await repo.createTemplate(
+          state: const TimelineState(
+            targetTime: 900,
+            targetTimeTitle: '会議',
+            blocks: [],
+          ),
+          title: 'Blocked Apply',
+        );
 
-      await _pumpSheet(tester, isPro: false);
+        await pumpSheet(tester, isPro: false);
 
-      final applyIcon = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == PhosphorIcons.arrowUUpLeft(),
-      );
-      await tester.tap(applyIcon);
-      await tester.pumpAndSettle();
+        final applyIcon = find.byWidgetPredicate(
+          (w) => w is Icon && w.icon == PhosphorIcons.arrowUUpLeft(),
+        );
+        await tester.tap(applyIcon);
+        await tester.pumpAndSettle();
 
-      expect(find.byType(PaywallScreen), findsOneWidget);
-      expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
-    });
+        expect(find.byType(PaywallScreen), findsOneWidget);
+        expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
+      },
+    );
 
-    testWidgets('Free user is blocked from renaming template and navigates to paywall', (tester) async {
-      final repo = TimelineTemplateRepository(db);
-      await repo.createTemplate(
-        state: const TimelineState(
-          targetTime: 900,
-          targetTimeTitle: '会議',
-          blocks: [],
-        ),
-        title: 'Blocked Rename',
-      );
+    testWidgets(
+      'Free user is blocked from renaming template and navigates to paywall',
+      (tester) async {
+        final repo = TimelineTemplateRepository(db);
+        await repo.createTemplate(
+          state: const TimelineState(
+            targetTime: 900,
+            targetTimeTitle: '会議',
+            blocks: [],
+          ),
+          title: 'Blocked Rename',
+        );
 
-      await _pumpSheet(tester, isPro: false);
+        await pumpSheet(tester, isPro: false);
 
-      await tester.tap(find.text('Blocked Rename'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Blocked Rename'));
+        await tester.pumpAndSettle();
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pumpAndSettle();
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
 
-      expect(find.byType(PaywallScreen), findsOneWidget);
-      expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
-    });
+        expect(find.byType(PaywallScreen), findsOneWidget);
+        expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
+      },
+    );
 
-    testWidgets('Free user is blocked from deleting template and navigates to paywall', (tester) async {
-      final repo = TimelineTemplateRepository(db);
-      await repo.createTemplate(
-        state: const TimelineState(
-          targetTime: 900,
-          targetTimeTitle: '会議',
-          blocks: [],
-        ),
-        title: 'Blocked Delete',
-      );
+    testWidgets(
+      'Free user is blocked from deleting template and navigates to paywall',
+      (tester) async {
+        final repo = TimelineTemplateRepository(db);
+        await repo.createTemplate(
+          state: const TimelineState(
+            targetTime: 900,
+            targetTimeTitle: '会議',
+            blocks: [],
+          ),
+          title: 'Blocked Delete',
+        );
 
-      await _pumpSheet(tester, isPro: false);
+        await pumpSheet(tester, isPro: false);
 
-      final deleteIcon = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == PhosphorIcons.trash(),
-      );
-      await tester.tap(deleteIcon);
-      await tester.pumpAndSettle();
+        final deleteIcon = find.byWidgetPredicate(
+          (w) => w is Icon && w.icon == PhosphorIcons.trash(),
+        );
+        await tester.tap(deleteIcon);
+        await tester.pumpAndSettle();
 
-      expect(find.byType(PaywallScreen), findsOneWidget);
-      expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
-    });
+        expect(find.byType(PaywallScreen), findsOneWidget);
+        expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
+      },
+    );
   });
 }

@@ -10,9 +10,9 @@
 ## 現在の機能
 
 - 目標時刻と目標名の編集
-- `action` ブロックの追加、名称変更、所要時間変更、並び替え
+- `action` ブロックの追加、名称変更、所要時間変更、余裕時間設定、並び替え
 - `actionPoint` ブロックの追加、名称変更、並び替え
-- 逆算結果に基づく各ブロック開始時刻と総所要時間の表示
+- 逆算結果に基づく各ブロック開始時刻と、余裕時間を含む総所要時間の表示
 - timeline list island modal からのタイムライン作成と切り替え
 - Android / iOS でのカレンダー登録
 - 記号レイアウト形式のテキスト共有とクリップボードコピー
@@ -22,9 +22,9 @@
 
 - タイムライン下端に「目標時刻」アンカーを置きます
 - その上側へ向かって、より過去の行動を積み上げます
-- `action` は時間を消費する行動です
+- `action` は時間を消費する行動で、実作業の所要時間とは別に Pro 向けの余裕時間を持てます
 - `actionPoint` は経由点やチェックポイントで、所要時間は 0 分です
-- すべての開始時刻は `targetTime` と後続ブロックの `duration` から再計算されます
+- すべての開始時刻は `targetTime` と後続ブロックの有効所要時間（`duration + bufferMinutes`）から再計算されます
 
 ## カラーパレット
 
@@ -62,7 +62,7 @@ Flutter SDK を PATH に通していない前提では、以下の絶対パス�
 - 永続化 Repository は `lib/persistence/` にあります
 - Pro 判定の現在状態は `lib/billing/pro_entitlement_repository.dart` と `lib/billing/pro_entitlement_providers.dart` で Supabase の `user_pro_entitlements` から read-only 取得します
 - 主要 UI は `lib/timeline_screen.dart`、`lib/block_item.dart`、`lib/edit_sheet.dart` に分かれています
-- テストは `test/widget_test.dart` と `test/persistence/` にあり、計算ロジック、スモークテスト、Repository の保存・履歴操作を含みます
+- テストは `test/widget_test.dart`、`test/persistence/`、各 export test にあり、計算ロジック、UI 操作、Repository、テンプレート、共有・カレンダー書き出しを含みます
 
 ### Supabase / RevenueCat 課金状態同期
 
@@ -72,13 +72,17 @@ Paywall は RevenueCat の `current` offering から Pro package を取得し、
 
 Web / Linux / Windows など RevenueCat SDK を使わない実行環境では、アプリ起動時に `Purchases.configure(...)`、`logIn`、`logOut`、offering 取得、restore を呼ばず、billing state は Free 相当に倒します。Paywall は Pro package なしとして表示され、ストア購入フローは Android / iOS / macOS の対応環境だけで有効になります。
 
+レビュー担当者や検証用アカウントには、Supabase `reviewer_entitlement_allowlist` にメールアドレスと期限を登録できます。Google OAuth 後に `sync-reviewer-entitlement` Edge Function が現在ユーザーのメールアドレスを照合し、期限内で有効な場合だけ `user_pro_entitlements` に `status = temporary` の Pro 状態を作成します。メールは小文字・trim 済みで登録し、審査完了後は `disabled_at` を設定するか期限切れにしてください。
+
 closed testing で課金導線を確認する場合は、Play Store の opt-in 経由でインストールし、Supabase login 後に Paywall から sandbox purchase を開始します。その後、RevenueCat dashboard の customer / entitlement、Supabase `user_pro_entitlements.is_pro`、アプリ内の Pro gate 解放を順に確認します。購入済み状態の再同期には Paywall または設定画面の「購入を復元」を使用します。
 
 Supabase 側のローカル成果物は以下です。
 
 - SQL migration: `supabase/migrations/20260509081731_revenuecat_supabase_entitlement_sync.sql`
+- reviewer allowlist migration: `supabase/migrations/20260510113000_reviewer_temporary_entitlement.sql`
 - RevenueCat webhook: `supabase/functions/revenuecat-webhook/index.ts`
 - account deletion function: `supabase/functions/delete-account/index.ts`
+- reviewer entitlement sync function: `supabase/functions/sync-reviewer-entitlement/index.ts`
 
 Edge Function secrets は、Supabase hosted defaults の `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEYS`、`SUPABASE_SECRET_KEYS` を優先します。互換用に `SUPABASE_ANON_KEY` と `SUPABASE_SERVICE_ROLE_KEY` も読みます。追加で以下が必要です。
 
@@ -92,6 +96,7 @@ Supabase CLI が PATH にない環境では `npx supabase ...` で実行でき�
 npx supabase db push
 npx supabase functions deploy revenuecat-webhook
 npx supabase functions deploy delete-account
+npx supabase functions deploy sync-reviewer-entitlement
 ```
 
 ## ドキュメント
@@ -114,6 +119,7 @@ npx supabase functions deploy delete-account
 
 - Drift / SQLite の永続化 Repository はアプリ画面へ接続済みです。現在のタイムラインは自動保存され、再起動後は最後に開いていたタイムラインが復元されます
 - カレンダー書き出しは `.ics` 文字列生成に加えて、Android / iOS ではネイティブ API でカレンダーへ直接登録します。登録前に開始日時、アンカー日時、件数、日跨ぎ状態をプレビューで確認できます
+- `action.bufferMinutes` は Pro で編集できます。Free では既存データの余裕時間は保持・表示・逆算に反映しますが、新規編集は Paywall に誘導します
 - Android / iOS のカレンダー登録では、権限拒否・書き込み可能カレンダーなし・ペイロード不正・保存失敗を domain error として区別します。iOS 17+ では write-only access を優先し、それ以前の OS では full access にフォールバックします
 - カレンダー登録時の書き込み先カレンダー選択 UI は未実装です。現状は未指定時に OS の既定カレンダーへ自動的に書き込みます
 - ローカル通知は予約サービスのみ実装済みで、権限要求や予約操作を行う UI は未実装です
@@ -125,7 +131,7 @@ npx supabase functions deploy delete-account
 
 ## 検証済みコマンド
 
-2026-04-20 時点で、少なくとも以下は通過済みです。
+2026-05-10 時点で、少なくとも以下は通過済みです。
 
 ```bash
 /home/penne/sdk/flutter/flutter/bin/flutter analyze

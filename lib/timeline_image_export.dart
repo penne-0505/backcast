@@ -13,6 +13,7 @@ class TimelineImageExportEvent {
     required this.type,
     required this.colorIndex,
     this.durationMinutes,
+    this.bufferMinutes = 0,
   });
 
   final String timeText;
@@ -20,6 +21,7 @@ class TimelineImageExportEvent {
   final TimelineImageExportEventType type;
   final int colorIndex;
   final int? durationMinutes;
+  final int bufferMinutes;
 }
 
 enum TimelineImageExportEventType { action, actionPoint, targetAnchor }
@@ -58,7 +60,7 @@ TimelineImageExportViewModel buildTimelineImageExportViewModel(
       : state.targetTimeTitle.trim().replaceAll('\n', ' ');
 
   final computed = computeBlocks(state.blocks, state.targetTime);
-  final totalDuration = state.blocks.fold(0, (s, b) => s + b.duration);
+  final totalDuration = totalTimelineDuration(state.blocks);
   final durationStr = _formatDuration(totalDuration);
 
   String metadataText;
@@ -97,6 +99,7 @@ TimelineImageExportViewModel buildTimelineImageExportViewModel(
           type: TimelineImageExportEventType.action,
           colorIndex: cb.block.colorIndex,
           durationMinutes: cb.block.duration,
+          bufferMinutes: cb.block.normalizedBufferMinutes,
         ),
       );
     } else {

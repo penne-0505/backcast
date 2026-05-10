@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state.dart';
 import 'persistence_providers.dart';
-import 'plan_repository.dart';
-import 'timeline_template_repository.dart';
 
 /// Orchestrates safely applying a saved timeline template to the current plan.
 ///

@@ -122,6 +122,32 @@ void main() {
       expect(request.startDateTime, DateTime(2026, 5, 10, 11, 30));
     });
 
+    test('includes action buffer in request start and block duration', () {
+      const state = TimelineState(
+        targetTime: 13 * 60,
+        targetTimeTitle: '会議開始',
+        blocks: [
+          Block(
+            id: 'b1',
+            type: BlockType.action,
+            title: '移動',
+            duration: 20,
+            bufferMinutes: 10,
+            colorIndex: 0,
+          ),
+        ],
+      );
+
+      final request = buildCalendarExportRequest(
+        state: state,
+        baseDate: DateTime(2026, 5, 10),
+        clock: () => fixedClock,
+      );
+
+      expect(request.startDateTime, DateTime(2026, 5, 10, 12, 30));
+      expect(request.blocks.single.duration, const Duration(minutes: 30));
+    });
+
     test('builds anchor-only request when blocks are empty', () {
       const state = TimelineState(
         targetTime: 15 * 60,
@@ -186,11 +212,7 @@ void main() {
       final request = CalendarExportRequest(
         startDateTime: DateTime.utc(2026, 5, 10, 10, 0),
         blocks: const [
-          CalendarExportBlock(
-            id: 'b1',
-            title: 'ポイント',
-            duration: Duration.zero,
-          ),
+          CalendarExportBlock(id: 'b1', title: 'ポイント', duration: Duration.zero),
         ],
         anchor: const CalendarExportAnchor(id: 'a', title: '到着'),
       );

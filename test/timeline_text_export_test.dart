@@ -54,6 +54,28 @@ void main() {
       );
     });
 
+    test('action buffer is included in total and action time range', () {
+      final state = TimelineState(
+        targetTime: 13 * 60,
+        targetTimeTitle: '会議開始',
+        blocks: [_action('b1', '移動', 20, bufferMinutes: 10)],
+      );
+      final result = generateTimelineText(
+        TimelineTextExportRequest(
+          state: state,
+          mode: TimelineTextExportMode.noDate,
+        ),
+      );
+      expect(
+        result,
+        'Medo // 会議開始\n'
+        'TOTAL 30m\n'
+        '\n'
+        '12:30-13:00 ┃ 移動 20分 + 余裕10分\n'
+        '13:00       ◆ 会議開始',
+      );
+    });
+
     test('日にちあり・同日・空タイトルは「目標時刻」', () {
       const state = TimelineState(
         targetTime: 10 * 60,
@@ -80,9 +102,7 @@ void main() {
       final state = TimelineState(
         targetTime: 10 * 60,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '', 30),
-        ],
+        blocks: [_action('b1', '', 30)],
       );
       final result = generateTimelineText(
         TimelineTextExportRequest(
@@ -105,9 +125,7 @@ void main() {
       final state = TimelineState(
         targetTime: 10 * 60,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '移動\n駅前', 30),
-        ],
+        blocks: [_action('b1', '移動\n駅前', 30)],
       );
       final result = generateTimelineText(
         TimelineTextExportRequest(
@@ -159,10 +177,7 @@ void main() {
       final state = TimelineState(
         targetTime: 30,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '移動', 60),
-          _action('b2', '待機', 60),
-        ],
+        blocks: [_action('b1', '移動', 60), _action('b2', '待機', 60)],
       );
       final result = generateTimelineText(
         TimelineTextExportRequest(
@@ -225,17 +240,13 @@ void main() {
       final state = TimelineState(
         targetTime: 30,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '移動', 60),
-        ],
+        blocks: [_action('b1', '移動', 60)],
       );
       // 同日パターン: target=10:00, blocks=[30分]
       final sameDayState = TimelineState(
         targetTime: 10 * 60,
         targetTimeTitle: '到着',
-        blocks: [
-          _action('b1', '移動', 30),
-        ],
+        blocks: [_action('b1', '移動', 30)],
       );
       final sameDayResult = generateTimelineText(
         TimelineTextExportRequest(
@@ -275,20 +286,22 @@ void main() {
   });
 }
 
-Block _action(String id, String title, int duration) => Block(
+Block _action(String id, String title, int duration, {int bufferMinutes = 0}) =>
+    Block(
       id: id,
       type: BlockType.action,
       title: title,
       duration: duration,
+      bufferMinutes: bufferMinutes,
       colorIndex: 0,
     );
 
 Block _point(String id, String title) => Block(
-      id: id,
-      type: BlockType.actionPoint,
-      title: title,
-      duration: 0,
-      colorIndex: 0,
-    );
+  id: id,
+  type: BlockType.actionPoint,
+  title: title,
+  duration: 0,
+  colorIndex: 0,
+);
 
 DateTime _date(int y, int m, int d) => DateTime(y, m, d);

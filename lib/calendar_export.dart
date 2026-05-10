@@ -43,7 +43,7 @@ class CalendarExportBlock {
     return CalendarExportBlock(
       id: block.id,
       title: block.title,
-      duration: Duration(minutes: block.duration),
+      duration: Duration(minutes: block.effectiveDuration),
     );
   }
 

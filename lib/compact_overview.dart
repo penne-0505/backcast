@@ -45,6 +45,12 @@ class _CompactOverviewViewState extends ConsumerState<CompactOverviewView> {
     return '$minutes分';
   }
 
+  String _formatActionDuration(Block block) {
+    final buffer = block.normalizedBufferMinutes;
+    if (buffer == 0) return _formatDuration(block.duration);
+    return '${_formatDuration(block.duration)} + ${_formatDuration(buffer)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(timelineProvider);
@@ -56,7 +62,8 @@ class _CompactOverviewViewState extends ConsumerState<CompactOverviewView> {
         ? state.targetTime
         : computed.first.startTime;
     final timelineEnd = state.targetTime;
-    final isNowInRange = nowMinutes >= timelineStart && nowMinutes <= timelineEnd;
+    final isNowInRange =
+        nowMinutes >= timelineStart && nowMinutes <= timelineEnd;
 
     return Column(
       children: [
@@ -69,8 +76,9 @@ class _CompactOverviewViewState extends ConsumerState<CompactOverviewView> {
                 final cb = computed[index];
                 final block = cb.block;
                 final isSelected = _selectedId == block.id;
-                final color = AppColors
-                    .blockColors[block.colorIndex % AppColors.blockColors.length];
+                final color =
+                    AppColors.blockColors[block.colorIndex %
+                        AppColors.blockColors.length];
                 return _CompactOverviewRow(
                   symbol: block.type == BlockType.action ? '┃' : '●',
                   timeRange: block.type == BlockType.action
@@ -78,17 +86,20 @@ class _CompactOverviewViewState extends ConsumerState<CompactOverviewView> {
                       : formatTime(cb.startTime),
                   title: block.title,
                   trailing: block.type == BlockType.action
-                      ? _formatDuration(block.duration)
+                      ? _formatActionDuration(block)
                       : 'point',
                   color: color,
                   isSelected: isSelected,
                   onTap: () => _select(isSelected ? null : block.id),
                   onDoubleTap: () => _returnToEdit(block.id),
-                  onMoveUp: index > 0 ? () => _moveBlock(index, index - 1) : null,
+                  onMoveUp: index > 0
+                      ? () => _moveBlock(index, index - 1)
+                      : null,
                   onMoveDown: index < state.blocks.length - 1
                       ? () => _moveBlock(index, index + 1)
                       : null,
-                  isNowIndicator: isNowInRange &&
+                  isNowIndicator:
+                      isNowInRange &&
                       nowMinutes >= cb.startTime &&
                       nowMinutes <= cb.endTime,
                 );
@@ -121,7 +132,9 @@ class _CompactOverviewViewState extends ConsumerState<CompactOverviewView> {
             decoration: BoxDecoration(
               color: AppColors.canvas,
               border: Border(
-                top: BorderSide(color: AppColors.softGray.withValues(alpha: 0.5)),
+                top: BorderSide(
+                  color: AppColors.softGray.withValues(alpha: 0.5),
+                ),
               ),
             ),
             child: SafeArea(
@@ -141,11 +154,7 @@ class _CompactOverviewViewState extends ConsumerState<CompactOverviewView> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.edit,
-                              size: 18,
-                              color: AppColors.canvas,
-                            ),
+                            Icon(Icons.edit, size: 18, color: AppColors.canvas),
                             SizedBox(width: 8),
                             Text(
                               '編集ビューへ',
@@ -278,10 +287,7 @@ class _CompactOverviewRow extends StatelessWidget {
                 const SizedBox(width: 6),
                 // Move up
                 if (onMoveUp != null)
-                  _IconButton(
-                    icon: PhosphorIcons.caretUp(),
-                    onTap: onMoveUp!,
-                  )
+                  _IconButton(icon: PhosphorIcons.caretUp(), onTap: onMoveUp!)
                 else
                   const SizedBox(width: 32),
                 // Move down
@@ -315,13 +321,7 @@ class _IconButton extends StatelessWidget {
       child: SizedBox(
         width: 32,
         height: 32,
-        child: Center(
-          child: Icon(
-            icon,
-            size: 18,
-            color: AppColors.mutedInk,
-          ),
-        ),
+        child: Center(child: Icon(icon, size: 18, color: AppColors.mutedInk)),
       ),
     );
   }

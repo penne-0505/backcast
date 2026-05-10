@@ -37,6 +37,7 @@ void main() {
           type: BlockType.action,
           title: '移動',
           duration: 30,
+          bufferMinutes: 10,
           colorIndex: 1,
         ),
         Block(
@@ -76,6 +77,7 @@ void main() {
     ]);
     expect(loaded.state.blocks.map((b) => b.title), ['移動', '受付']);
     expect(loaded.state.blocks.map((b) => b.duration), [30, 0]);
+    expect(loaded.state.blocks.map((b) => b.normalizedBufferMinutes), [10, 0]);
     expect(loaded.state.blocks.map((b) => b.colorIndex), [1, 2]);
   });
 
@@ -95,6 +97,8 @@ void main() {
     expect(restored.blocks[1].title, '受付');
     expect(restored.blocks[0].type, BlockType.action);
     expect(restored.blocks[1].type, BlockType.actionPoint);
+    expect(restored.blocks[0].bufferMinutes, 10);
+    expect(restored.blocks[1].normalizedBufferMinutes, 0);
   });
 
   test('renames a template', () async {
@@ -124,30 +128,39 @@ void main() {
     expect(loaded, isNull);
   });
 
-  test('normalizes empty or whitespace-only title to Untitled template', () async {
-    final withEmpty = await repository.createTemplate(
-      state: sampleState(),
-      title: '',
-    );
-    expect(withEmpty.title, 'Untitled template');
+  test(
+    'normalizes empty or whitespace-only title to Untitled template',
+    () async {
+      final withEmpty = await repository.createTemplate(
+        state: sampleState(),
+        title: '',
+      );
+      expect(withEmpty.title, 'Untitled template');
 
-    final withWhitespace = await repository.createTemplate(
-      state: sampleState(),
-      title: '   ',
-    );
-    expect(withWhitespace.title, 'Untitled template');
-  });
+      final withWhitespace = await repository.createTemplate(
+        state: sampleState(),
+        title: '   ',
+      );
+      expect(withWhitespace.title, 'Untitled template');
+    },
+  );
 
-  test('uses targetTimeTitle as default title when title is not provided', () async {
-    final created = await repository.createTemplate(state: sampleState());
-    expect(created.title, '会議開始');
-  });
+  test(
+    'uses targetTimeTitle as default title when title is not provided',
+    () async {
+      final created = await repository.createTemplate(state: sampleState());
+      expect(created.title, '会議開始');
+    },
+  );
 
-  test('falls back to Untitled template when targetTimeTitle is empty', () async {
-    final state = sampleState().copyWith(targetTimeTitle: '');
-    final created = await repository.createTemplate(state: state);
-    expect(created.title, 'Untitled template');
-  });
+  test(
+    'falls back to Untitled template when targetTimeTitle is empty',
+    () async {
+      final state = sampleState().copyWith(targetTimeTitle: '');
+      final created = await repository.createTemplate(state: state);
+      expect(created.title, 'Untitled template');
+    },
+  );
 
   test('handles empty blocks template', () async {
     final state = sampleState().copyWith(blocks: const []);

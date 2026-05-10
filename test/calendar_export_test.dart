@@ -247,6 +247,21 @@ void main() {
       },
     );
 
+    test('helper constructor includes action buffer in calendar duration', () {
+      const block = Block(
+        id: 'block-1',
+        type: BlockType.action,
+        title: '移動',
+        duration: 20,
+        bufferMinutes: 10,
+        colorIndex: 0,
+      );
+
+      final exportBlock = CalendarExportBlock.fromBlock(block);
+
+      expect(exportBlock.duration, const Duration(minutes: 30));
+    });
+
     test('rejects negative durations', () {
       expect(
         () => generateCalendarIcs(

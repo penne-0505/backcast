@@ -94,7 +94,7 @@ action block 本体をダブルタップすると、buffer を 5 分増やす。
 
 - Pro かつ `bufferMinutes < 60` の場合: `bufferMinutes += 5`
 - Pro かつ `bufferMinutes = 60` の場合: 変更せず、必要なら上限到達を軽く示す
-- Free の場合: buffer は変更せず、Pro 説明 / paywall へ遷移する
+- Free の場合: buffer は変更せず、block 本体ダブルタップでは短い SnackBar で未解放の操作であることだけを示す。Paywall への遷移は詳細編集シートのロック表示など、明示的な UI からだけ行う
 - actionPoint の場合: 何もしない
 - inline title edit、duration drag、reorder、swipe delete、rail double tap insert の最中は実行しない
 
@@ -207,7 +207,7 @@ Free への縮退で計算から buffer を外すと、開始時刻が急に変�
 - UI / gesture
   - Pro で action body を double tap すると buffer が 5 分増える。
   - actionPoint double tap では buffer が増えない。
-  - Free で action body を double tap すると buffer は変わらず Paywall へ遷移する。
+  - Free で action body を double tap すると buffer は変わらず、Paywall ではなく短い SnackBar が表示される。
   - duration handle、reorder handle、timeline rail の操作と double tap buffer が競合しない。
   - double tap で詳細編集シートが誤って開かない。
   - 詳細編集シートで buffer を 0 分へ戻せる。

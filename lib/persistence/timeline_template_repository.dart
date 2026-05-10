@@ -54,7 +54,9 @@ class TimelineTemplateRepository {
     String? title,
   }) async {
     final templateId = _uuid.v4();
-    final templateTitle = _normalizeTitle(title ?? _defaultTemplateTitle(state));
+    final templateTitle = _normalizeTitle(
+      title ?? _defaultTemplateTitle(state),
+    );
     final now = _clock();
 
     return _db.transaction(() async {
@@ -143,12 +145,9 @@ class TimelineTemplateRepository {
     return TimelineState(
       targetTime: template.state.targetTime,
       targetTimeTitle: template.state.targetTimeTitle,
-      blocks:
-          template.state.blocks
-              .map(
-                (block) => block.copyWith(id: _uuid.v4()),
-              )
-              .toList(growable: false),
+      blocks: template.state.blocks
+          .map((block) => block.copyWith(id: _uuid.v4()))
+          .toList(growable: false),
     );
   }
 
@@ -161,20 +160,20 @@ class TimelineTemplateRepository {
     }
 
     final normalized = _normalizeTitle(newTitle);
-    await (_db.update(_db.timelineTemplates)
-          ..where((row) => row.id.equals(templateId)))
-        .write(
-          TimelineTemplatesCompanion(
-            title: Value(normalized),
-            updatedAt: Value(_clock()),
-          ),
-        );
+    await (_db.update(
+      _db.timelineTemplates,
+    )..where((row) => row.id.equals(templateId))).write(
+      TimelineTemplatesCompanion(
+        title: Value(normalized),
+        updatedAt: Value(_clock()),
+      ),
+    );
   }
 
   Future<void> deleteTemplate(String templateId) async {
-    await (_db.delete(_db.timelineTemplates)
-          ..where((row) => row.id.equals(templateId)))
-        .go();
+    await (_db.delete(
+      _db.timelineTemplates,
+    )..where((row) => row.id.equals(templateId))).go();
   }
 
   DateTime _clock() => (_now ?? DateTime.now)().toUtc();
@@ -214,6 +213,7 @@ class TimelineTemplateRepository {
             type: block.type.name,
             title: block.title,
             duration: block.duration,
+            bufferMinutes: Value(block.normalizedBufferMinutes),
             colorIndex: block.colorIndex,
             position: i,
           ),
@@ -236,6 +236,7 @@ class TimelineTemplateRepository {
       type: type,
       title: row.title,
       duration: row.duration,
+      bufferMinutes: normalizeActionBufferMinutes(type, row.bufferMinutes),
       colorIndex: row.colorIndex,
     );
   }

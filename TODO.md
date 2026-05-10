@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 39` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 40` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -195,86 +195,6 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 
 ## Backlog
 
-- **Title**: [Chore] Add debug Pro entitlement override
-- **ID**: Core-Chore-26
-- **Priority**: P1
-- **Size**: S
-- **Area**: Core
-- **Dependencies**: [Core-Feat-19]
-- **Goal**: debug / profile 環境で疑似 Pro / Free 状態を切り替え、Pro/Free gate の動作確認を RevenueCat の実 entitlement に依存せず行える。
-- **Steps**:
-  1. [ ] `ProOverride.actual / forceFree / forcePro` 相当の debug-only 状態を追加する
-  2. [ ] gate 参照用の effective Pro 判定 provider を追加し、debug / profile では override を反映する
-  3. [ ] release build では override UI と override 状態が無効になることを保証する
-  4. [ ] 設定画面または開発者向け導線から override を切り替えられるようにする
-  5. [ ] override 中であることが分かる小さな表示を追加する
-  6. [ ] Free / Pro / actual 切替で、タイムライン数・テンプレート・画像エクスポートの gate が同じ判定を見ることを確認する
-- **Description**: Core-Feat-19 の Pro/Free gate を検証しやすくするため、RevenueCat の実 entitlement とは別に debug / profile 限定の疑似 Pro 状態を導入する。本番 release では使用不可とし、gate 実装は最終的に effective Pro 判定を参照する。
-- **Plan**: None
-
----
-
-- **Title**: [Feat] Add timeline list island modal
-- **ID**: UI-Feat-31
-- **Priority**: P1
-- **Size**: M
-- **Area**: UI
-- **Dependencies**: []
-- **Goal**: floating button から画面下部に浮く island modal を開き、複数タイムラインの作成・命名・一覧・切り替え・削除・Free/Pro 上限制御を安全に扱える状態にする。
-- **Steps**:
-  1. [ ] Plan の "Data Model" と "Save / Load Ordering" に従い、current plan 復元と切替前保存の境界を実装する
-  2. [ ] Plan の "Floating List Button" に従い、下端に接地しない timeline list island modal を追加する
-  3. [ ] Plan の "Entitlement Model" に従い、Free は2件まで、Pro は無制限として新規作成可否を制御する
-  4. [ ] modal 上部の作成フォーム、row inline rename、削除確認を追加する
-  5. [ ] current timeline 削除時に、残存 timeline または新規空 timeline へ current を切り替える
-  6. [ ] Plan の "Test Plan" に従い、repository / widget / narrow viewport の検証を実施する
-  7. [ ] 実装結果を `_docs/reference/medo/persistence_repository_reference.md` と `_docs/guide/medo/timeline_editor.md` に反映する
-- **Description**: 既存の `plans` を日常的なタイムライン一覧として扱い、header の既存ロード導線とは別に、floating button 起点の island modal でタイムラインを作成・命名・切り替え・削除できるようにする。
-- **Plan**: `_docs/plan/UI/timeline-slot-toggle.md`
-
----
-
-- **Title**: [Feat] Add RevenueCat webhook Edge Function
-- **ID**: Core-Feat-33
-- **Priority**: P0
-- **Size**: M
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: RevenueCat webhook を Supabase Edge Function で受信し、解決済み event の監査ログ保存と `user_pro_entitlements` の正規状態同期が冪等に動作する。
-- **Steps**:
-  1. [x] Plan の "Edge Function Script Design" に従い、`supabase/functions/revenuecat-webhook/index.ts` を追加する
-  2. [x] RevenueCat authorization header を検証し、service role key / RevenueCat secret API key を Edge Function secret から読む
-  3. [x] webhook event から Supabase `user_id` を解決し、解決できない event は DB に保存せず redacted log に逃がす
-  4. [x] RevenueCat `GET /subscribers/{app_user_id}` を呼び、subscriber 情報から Pro entitlement の現在状態を導出する
-  5. [x] `revenuecat_event_id` unique を使って `pro_entitlement_events` へ冪等 insert する
-  6. [x] subscriber 正規状態を `user_pro_entitlements` へ upsert / update し、古い webhook で metadata を巻き戻さない
-  7. [x] `revenuecat-webhook` function を deploy し、RevenueCat dashboard の webhook URL / authorization header を接続する
-  8. [x] duplicate、unresolved user、RevenueCat API failure、out-of-order event の function tests または local replay を追加する
-- **Description**: Flutter client に service role key を持たせず、RevenueCat webhook と subscriber API から Supabase の Pro entitlement state を server-side で更新する。
-- **Plan**: `_docs/plan/Core/revenuecat-supabase-entitlement-sync.md`
-
----
-
-- **Title**: [Enhance] Align account deletion with entitlement retention policy
-- **ID**: Core-Enhance-35
-- **Priority**: P0
-- **Size**: M
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: アカウント削除時に Supabase 上のメールアドレス、Pro状態、RevenueCat event log が削除され、privacy policy / Google Play Data Safety の説明と実装が一致している。
-- **Steps**:
-  1. [x] Plan の "Account Deletion Design" に従い、authenticated account deletion Edge Function を追加する
-  2. [x] function は user JWT を検証し、service role で `auth.admin.deleteUser(user.id)` を実行する
-  3. [x] `delete-account` function を deploy する
-  4. [x] `user_pro_entitlements` と `pro_entitlement_events` が cascade delete されることを検証する
-  5. [x] 設定画面に account deletion 導線を追加し、store subscription のキャンセルとは別操作であることを明示する
-  6. [x] `_docs/standards/privacy-policy.md` の placeholder と削除説明を実装に合わせて更新する
-  7. [x] Google Play Data Safety / account deletion URL に必要な記入内容を guide または README に反映する
-- **Description**: 初期ローンチでは Supabase 側に transaction 系 ID をアカウント削除後も保持しない方針とし、法務・privacy policy・Google Play account deletion 要件に合わせて削除導線を整備する。
-- **Plan**: `_docs/plan/Core/revenuecat-supabase-entitlement-sync.md`
-
----
-
 - **Title**: [Feat] Add RevenueCat purchase flow to Paywall
 - **ID**: Core-Feat-36
 - **Priority**: P0
@@ -303,13 +223,13 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Dependencies**: []
 - **Goal**: 各 action block が実所要時間とは別に buffer time を持ち、Pro ユーザーは block 本体のダブルタップと詳細編集シートから buffer を設定でき、逆算・表示・テンプレート・共有・カレンダー登録に一貫して反映される。
 - **Steps**:
-  1. [ ] Plan の "Data Model" に従い、`Block` / codec / Drift schema / migration に `bufferMinutes` を追加する
-  2. [ ] Plan の "Interaction Model" に従い、action body double tap で buffer を5分増やす導線を実装する
-  3. [ ] Plan の "Visual Model" に従い、buffer 部分を action 本体より少し横幅の狭い別枠として表示する
-  4. [ ] Plan の "Pro / Free Behavior" に従い、Free では既存 buffer を保持・計算反映しつつ新規追加・編集をロックする
-  5. [ ] Plan の "Export / Sharing" に従い、テンプレート、カレンダー登録、テキスト共有、画像共有へ buffer を反映する
-  6. [ ] Plan の "Test Plan" に従い、model / persistence / gesture / export / downgrade の検証を追加する
-  7. [ ] README、timeline editor guide、domain / persistence / export references を実装結果に合わせて更新する
+  1. [x] Plan の "Data Model" に従い、`Block` / codec / Drift schema / migration に `bufferMinutes` を追加する
+  2. [x] Plan の "Interaction Model" に従い、action body double tap で buffer を5分増やす導線を実装する
+  3. [x] Plan の "Visual Model" に従い、buffer 部分を action 本体より少し横幅の狭い別枠として表示する
+  4. [x] Plan の "Pro / Free Behavior" に従い、Free では既存 buffer を保持・計算反映しつつ新規追加・編集をロックする
+  5. [x] Plan の "Export / Sharing" に従い、テンプレート、カレンダー登録、テキスト共有、画像共有へ buffer を反映する
+  6. [x] Plan の "Test Plan" に従い、model / persistence / gesture / export / downgrade の検証を追加する
+  7. [x] README、timeline editor guide、domain / persistence / export references を実装結果に合わせて更新する
 - **Description**: Medo の Pro 価値として、行動ごとに余裕時間を設定できる機能を追加する。buffer は通常の余裕 block ではなく action に紐づく余裕として管理し、`duration + bufferMinutes` を逆算に使う。
 - **Plan**: `_docs/plan/Core/action-buffer-time.md`
 
