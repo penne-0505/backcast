@@ -10,10 +10,17 @@ import 'persistence/timeline_template_repository.dart';
 import 'state.dart';
 import 'theme.dart';
 
+enum TemplateSheetPresentation { sheet, popover }
+
 class TemplateSheet extends ConsumerStatefulWidget {
-  const TemplateSheet({super.key, required this.onDismiss});
+  const TemplateSheet({
+    super.key,
+    required this.onDismiss,
+    this.presentation = TemplateSheetPresentation.sheet,
+  });
 
   final VoidCallback onDismiss;
+  final TemplateSheetPresentation presentation;
 
   @override
   ConsumerState<TemplateSheet> createState() => _TemplateSheetState();
@@ -56,19 +63,34 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
     }
   }
 
-  Future<void> _saveCurrent() async {
-    // Pro gate at action boundary
-    final isPro = ref.read(effectiveIsProProvider);
-    if (!isPro) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const PaywallScreen(feature: PaywallFeature.templates),
-          ),
-        );
-      }
-      return;
+  bool _guardTemplateAction() {
+    final proAccess = ref.read(effectiveProAccessProvider);
+    if (proAccess.isLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('課金状態を確認しています。少し待ってから再試行してください。')),
+      );
+      return false;
     }
+    if (proAccess.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('課金状態を確認できませんでした。通信状態を確認してください。')),
+      );
+      return false;
+    }
+    if (proAccess.isFree) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              const PaywallScreen(feature: PaywallFeature.templates),
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _saveCurrent() async {
+    if (!_guardTemplateAction()) return;
 
     setState(() => _saving = true);
     try {
@@ -84,18 +106,7 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
   }
 
   Future<void> _apply(String templateId) async {
-    // Pro gate at action boundary
-    final isPro = ref.read(effectiveIsProProvider);
-    if (!isPro) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const PaywallScreen(feature: PaywallFeature.templates),
-          ),
-        );
-      }
-      return;
-    }
+    if (!_guardTemplateAction()) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -123,16 +134,7 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
   }
 
   Future<void> _commitRename(String templateId) async {
-    // Pro gate at action boundary
-    final isPro = ref.read(effectiveIsProProvider);
-    if (!isPro) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const PaywallScreen(feature: PaywallFeature.templates),
-          ),
-        );
-      }
+    if (!_guardTemplateAction()) {
       setState(() => _renamingId = null);
       return;
     }
@@ -154,18 +156,7 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
   }
 
   Future<void> _delete(String templateId, String title) async {
-    // Pro gate at action boundary
-    final isPro = ref.read(effectiveIsProProvider);
-    if (!isPro) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const PaywallScreen(feature: PaywallFeature.templates),
-          ),
-        );
-      }
-      return;
-    }
+    if (!_guardTemplateAction()) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -190,124 +181,155 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.xl),
-          topRight: Radius.circular(AppRadius.xl),
-        ),
-        boxShadow: AppShadows.sheet,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Drag handle
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.softGray,
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
-                ),
-              ),
+    final isPopover = widget.presentation == TemplateSheetPresentation.popover;
+    final contentBottomPadding = isPopover ? 18.0 : 20.0 + bottomPadding;
+    final listMaxHeight = isPopover ? 300.0 : 360.0;
+    final boxShadow = isPopover
+        ? [
+            BoxShadow(
+              color: AppColors.ink.withValues(alpha: 0.14),
+              blurRadius: 28,
+              spreadRadius: -4,
+              offset: const Offset(0, 14),
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomPadding),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    const Text(
-                      'テンプレート',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppColors.darkSurface,
-                      ),
-                    ),
-                    const Spacer(),
-                    Pressable(
-                      onTap: widget.onDismiss,
-                      scale: 0.88,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.softGray,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                        child: Icon(
-                          PhosphorIcons.x(),
-                          size: 16,
-                          color: AppColors.accentOlive,
-                        ),
-                      ),
-                    ),
-                  ],
+            BoxShadow(
+              color: AppColors.ink.withValues(alpha: 0.08),
+              blurRadius: 10,
+              spreadRadius: -2,
+              offset: const Offset(0, 4),
+            ),
+          ]
+        : AppShadows.sheet;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        key: isPopover ? const ValueKey('template-popover-surface') : null,
+        decoration: BoxDecoration(
+          color: AppColors.canvas,
+          borderRadius: isPopover
+              ? BorderRadius.circular(AppRadius.xl)
+              : const BorderRadius.only(
+                  topLeft: Radius.circular(AppRadius.xl),
+                  topRight: Radius.circular(AppRadius.xl),
                 ),
-                const SizedBox(height: 16),
-                // Save current timeline
-                Pressable(
-                  onTap: _saving ? null : _saveCurrent,
-                  scale: 0.97,
+          border: isPopover
+              ? Border.all(
+                  color: AppColors.softGray.withValues(alpha: 0.55),
+                  width: 0.6,
+                )
+              : null,
+          boxShadow: boxShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!isPopover)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
                   child: Container(
-                    height: 48,
+                    width: 36,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.darkSurface,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Center(
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.canvas,
-                              ),
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  PhosphorIcons.floppyDisk(),
-                                  size: 18,
-                                  color: AppColors.canvas,
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  '現在のタイムラインを保存',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.canvas,
-                                  ),
-                                ),
-                              ],
-                            ),
+                      color: AppColors.softGray,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Template list
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 360),
-                  child: _buildList(),
-                ),
-              ],
+              ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, contentBottomPadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      const Text(
+                        'テンプレート',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: AppColors.darkSurface,
+                        ),
+                      ),
+                      const Spacer(),
+                      Pressable(
+                        onTap: widget.onDismiss,
+                        scale: 0.88,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.softGray,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                          child: Icon(
+                            PhosphorIcons.x(),
+                            size: 16,
+                            color: AppColors.accentOlive,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Save current timeline
+                  Pressable(
+                    onTap: _saving ? null : _saveCurrent,
+                    scale: 0.97,
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.darkSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Center(
+                        child: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.canvas,
+                                ),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    PhosphorIcons.floppyDisk(),
+                                    size: 18,
+                                    color: AppColors.canvas,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    '現在のタイムラインを保存',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.canvas,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Template list
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: listMaxHeight),
+                    child: _buildList(),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -349,9 +371,7 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final t in _templates) _buildTemplateRow(t),
-        ],
+        children: [for (final t in _templates) _buildTemplateRow(t)],
       ),
     );
   }
@@ -498,7 +518,11 @@ class _ApplyConfirmDialog extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               '既存のタイムライン（目標時刻と全ての行動）がテンプレートの内容に置き換わります。適用前に自動的に snapshot が作成されます。',
-              style: TextStyle(fontSize: 13, color: AppColors.mutedInk, height: 1.6),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.mutedInk,
+                height: 1.6,
+              ),
             ),
             const SizedBox(height: 24),
             Row(

@@ -396,7 +396,7 @@ class PlanRepository {
             type: block.type.name,
             title: block.title,
             duration: block.duration,
-            bufferMinutes: Value(block.normalizedBufferMinutes),
+            bufferMinutes: Value(block.bufferMinutes),
             colorIndex: block.colorIndex,
             position: i,
           ),

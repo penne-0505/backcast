@@ -5,6 +5,7 @@ import 'package:medo/models.dart';
 import 'package:medo/persistence/app_database.dart';
 import 'package:medo/persistence/persistence_providers.dart';
 import 'package:medo/persistence/plan_repository.dart';
+import 'package:medo/plan_panel.dart';
 import 'package:medo/state.dart';
 import 'package:medo/timeline_screen.dart';
 import 'package:drift/native.dart';
@@ -21,7 +22,11 @@ Future<void> pumpMedoApp(WidgetTester tester, {bool? effectiveIsPro}) async {
       overrides: [
         databaseProvider.overrideWithValue(db),
         if (effectiveIsPro != null)
-          effectiveIsProProvider.overrideWithValue(effectiveIsPro),
+          effectiveProAccessProvider.overrideWithValue(
+            effectiveIsPro
+                ? const ProAccessState.pro()
+                : const ProAccessState.free(),
+          ),
       ],
       child: const MedoApp(),
     ),
@@ -161,22 +166,70 @@ void main() {
       expect(container.read(timelineProvider).blocks[0].bufferMinutes, 5);
 
       notifier.setActionBufferMinutes('a1', 99);
-      expect(
-        container.read(timelineProvider).blocks[0].bufferMinutes,
-        kMaxActionBufferMinutes,
-      );
+      expect(container.read(timelineProvider).blocks[0].bufferMinutes, 15);
 
       notifier.incrementActionBuffer('a1');
-      expect(
-        container.read(timelineProvider).blocks[0].bufferMinutes,
-        kMaxActionBufferMinutes,
-      );
+      expect(container.read(timelineProvider).blocks[0].bufferMinutes, 15);
 
       notifier.setActionBufferMinutes('p1', 30);
       expect(
         container.read(timelineProvider).blocks[1].normalizedBufferMinutes,
         0,
       );
+    });
+
+    test('duration clamp keeps desired buffer for later recovery', () {
+      const block = Block(
+        id: 'a1',
+        type: BlockType.action,
+        title: '移動',
+        duration: 20,
+        bufferMinutes: 60,
+        colorIndex: 0,
+      );
+
+      expect(block.normalizedBufferMinutes, 15);
+      expect(block.effectiveDuration, 35);
+
+      final shortened = block.copyWith(duration: 10);
+      expect(shortened.bufferMinutes, 60);
+      expect(shortened.normalizedBufferMinutes, 5);
+      expect(shortened.effectiveDuration, 15);
+
+      final restored = shortened.copyWith(duration: 20);
+      expect(restored.bufferMinutes, 60);
+      expect(restored.normalizedBufferMinutes, 15);
+      expect(restored.effectiveDuration, 35);
+    });
+
+    test('manual buffer edit clears pending buffer recovery', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(timelineProvider.notifier);
+      notifier.loadState(
+        const TimelineState(
+          blocks: [
+            Block(
+              id: 'a1',
+              type: BlockType.action,
+              title: '移動',
+              duration: 10,
+              bufferMinutes: 15,
+              colorIndex: 0,
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        container.read(timelineProvider).blocks.single.normalizedBufferMinutes,
+        5,
+      );
+
+      notifier.setActionBufferMinutes('a1', 0);
+      final edited = container.read(timelineProvider).blocks.single;
+      expect(edited.bufferMinutes, 0);
+      expect(edited.normalizedBufferMinutes, 0);
     });
 
     test('start-time editing keeps buffer separate from action duration', () {
@@ -252,6 +305,118 @@ void main() {
     expect(find.text('カレンダーにエクスポート'), findsOneWidget);
     expect(find.text('テキストで共有'), findsOneWidget);
     expect(find.text('画像で共有'), findsOneWidget);
+  });
+
+  testWidgets('display density slider updates pixels per minute', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.byIcon(PhosphorIcons.slidersHorizontal()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('表示の広さ'), findsOneWidget);
+    expect(find.text('1.0x'), findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget);
+
+    await tester.drag(find.byType(Slider), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+
+    final ppm = containerFor(tester).read(timelineProvider).pixelsPerMinute;
+    expect(ppm, lessThan(kPixelsPerMinute));
+    expect(ppm * 2, (ppm * 2).roundToDouble());
+
+    await tester.tap(find.byIcon(PhosphorIcons.arrowCounterClockwise()));
+    await tester.pumpAndSettle();
+
+    expect(
+      containerFor(tester).read(timelineProvider).pixelsPerMinute,
+      kPixelsPerMinute,
+    );
+    expect(find.text('1.0x'), findsOneWidget);
+
+    await tester.tap(find.text('前の行動を追加しましょう'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('表示の広さ'), findsNothing);
+  });
+
+  testWidgets('header search closes when timeline focus moves elsewhere', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '朝');
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動タイトルを検索'), findsOneWidget);
+    expect(containerFor(tester).read(timelineProvider).searchQuery, '朝');
+
+    await tester.tap(find.text('前の行動を追加しましょう'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動タイトルを検索'), findsNothing);
+    expect(containerFor(tester).read(timelineProvider).searchQuery, isEmpty);
+    expect(find.text('新しい行動'), findsNothing);
+  });
+
+  testWidgets('export panel consumes the next header action while closing', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.byIcon(PhosphorIcons.calendarBlank()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('エクスポート'), findsOneWidget);
+
+    await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('エクスポート'), findsNothing);
+    expect(find.text('行動タイトルを検索'), findsNothing);
+  });
+
+  testWidgets('export panel keeps spacing below image share button', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.byIcon(PhosphorIcons.calendarBlank()));
+    await tester.pumpAndSettle();
+
+    final panelRect = tester.getRect(find.byType(ExportPanel));
+    final imageShareRect = tester.getRect(find.text('画像で共有'));
+
+    expect(panelRect.bottom - imageShareRect.bottom, greaterThanOrEqualTo(24));
+  });
+
+  testWidgets('condensed density renders a short action block', (tester) async {
+    await pumpMedoApp(tester);
+
+    containerFor(tester)
+        .read(timelineProvider.notifier)
+        .loadState(
+          const TimelineState(
+            pixelsPerMinute: 3.0,
+            blocks: [
+              Block(
+                id: 'short-action',
+                type: BlockType.action,
+                title: '短い行動',
+                duration: 5,
+                colorIndex: 0,
+              ),
+            ],
+          ),
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.text('短い行動'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

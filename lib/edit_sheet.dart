@@ -155,6 +155,20 @@ class _EditSheetState extends ConsumerState<EditSheet> {
   }
 
   void _showActionBufferPaywall() {
+    final proAccess = ref.read(effectiveProAccessProvider);
+    if (proAccess.isLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('課金状態を確認しています。少し待ってから再試行してください。')),
+      );
+      return;
+    }
+    if (proAccess.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('課金状態を確認できませんでした。通信状態を確認してください。')),
+      );
+      return;
+    }
+    if (!proAccess.isFree) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
@@ -167,11 +181,16 @@ class _EditSheetState extends ConsumerState<EditSheet> {
   Widget build(BuildContext context) {
     final state = ref.watch(timelineProvider);
     final notifier = ref.read(timelineProvider.notifier);
-    final isPro = ref.watch(effectiveIsProProvider);
+    final proAccess = ref.watch(effectiveProAccessProvider);
+    final isPro = proAccess.isPro;
     final isTarget = state.selectedBlockId == kTargetTimeId;
     final selected = isTarget
         ? null
         : state.blocks.where((b) => b.id == state.selectedBlockId).firstOrNull;
+    final maxSelectedBufferMinutes =
+        selected != null && selected.type == BlockType.action
+        ? maxActionBufferMinutesForDuration(selected.duration)
+        : 0;
 
     if (state.selectedBlockId != _lastSyncedBlockId) {
       _lastSyncedBlockId = state.selectedBlockId;
@@ -385,13 +404,12 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       canDecrement: selected.normalizedBufferMinutes > 0,
                       canIncrement:
                           selected.normalizedBufferMinutes <
-                          kMaxActionBufferMinutes,
+                          maxSelectedBufferMinutes,
                       fillColor: AppColors
-                          .blockColors[
-                            selected.colorIndex % AppColors.blockColors.length
-                          ]
+                          .blockColors[selected.colorIndex %
+                              AppColors.blockColors.length]
                           .withValues(alpha: 0.08),
-                      leadingIcon: PhosphorIcons.timer(),
+                      borderRadius: AppRadius.pill,
                       onDecrement: () => notifier.setActionBufferMinutes(
                         selected.id,
                         selected.normalizedBufferMinutes - kBufferStepMinutes,
@@ -403,14 +421,13 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                       onChanged: (v) {
                         final n = int.tryParse(v);
                         if (n != null) {
-                          final clamped = n.clamp(
-                            0,
-                            kMaxActionBufferMinutes,
-                          );
-                          final normalized = normalizeActionBufferMinutes(
-                            BlockType.action,
-                            clamped,
-                          );
+                          final clamped = n.clamp(0, maxSelectedBufferMinutes);
+                          final normalized =
+                              normalizeActionBufferMinutesForDuration(
+                                BlockType.action,
+                                selected.duration,
+                                clamped,
+                              );
                           if (normalized != n) {
                             _bufferCtrl.text = normalized.toString();
                           }
@@ -423,7 +440,7 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '0〜60分の範囲で5分単位で設定できます',
+                      '0〜$maxSelectedBufferMinutes分の範囲で5分単位で設定できます',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -535,7 +552,7 @@ class _DurationStepper extends StatefulWidget {
     this.canDecrement = true,
     this.canIncrement = true,
     this.fillColor,
-    this.leadingIcon,
+    this.borderRadius = AppRadius.sm,
     this.unitLabel = '分',
   });
 
@@ -547,7 +564,7 @@ class _DurationStepper extends StatefulWidget {
   final bool canDecrement;
   final bool canIncrement;
   final Color? fillColor;
-  final IconData? leadingIcon;
+  final double borderRadius;
   final String unitLabel;
 
   @override
@@ -630,24 +647,10 @@ class _DurationStepperState extends State<_DurationStepper> {
       height: 56,
       decoration: BoxDecoration(
         color: widget.fillColor ?? AppColors.softGray,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
       ),
       child: Row(
         children: [
-          if (widget.leadingIcon != null) ...[
-            SizedBox(
-              width: 44,
-              height: 56,
-              child: Center(
-                child: Icon(
-                  widget.leadingIcon,
-                  size: 18,
-                  color: AppColors.mutedInk,
-                ),
-              ),
-            ),
-            Container(width: 1, height: 24, color: AppColors.accentDivider),
-          ],
           ShakeWidget(
             shake: _shakeLeft,
             child: Pressable(

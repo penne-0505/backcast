@@ -35,7 +35,7 @@ class Block {
   final int colorIndex;
 
   int get normalizedBufferMinutes =>
-      normalizeActionBufferMinutes(type, bufferMinutes);
+      normalizeActionBufferMinutesForDuration(type, duration, bufferMinutes);
 
   int get effectiveDuration =>
       type == BlockType.action ? duration + normalizedBufferMinutes : 0;
@@ -49,11 +49,12 @@ class Block {
     int? colorIndex,
   }) {
     final nextType = type ?? this.type;
+    final nextDuration = duration ?? this.duration;
     return Block(
       id: id ?? this.id,
       type: nextType,
       title: title ?? this.title,
-      duration: duration ?? this.duration,
+      duration: nextDuration,
       bufferMinutes: normalizeActionBufferMinutes(
         nextType,
         bufferMinutes ?? this.bufferMinutes,
@@ -119,6 +120,20 @@ int normalizeActionBufferMinutes(BlockType type, int minutes) {
     0,
     kMaxActionBufferMinutes,
   )).toInt();
+}
+
+int maxActionBufferMinutesForDuration(int duration) {
+  return (duration - kBufferStepMinutes).clamp(0, kMaxActionBufferMinutes);
+}
+
+int normalizeActionBufferMinutesForDuration(
+  BlockType type,
+  int duration,
+  int minutes,
+) {
+  final normalized = normalizeActionBufferMinutes(type, minutes);
+  if (type != BlockType.action) return 0;
+  return normalized.clamp(0, maxActionBufferMinutesForDuration(duration));
 }
 
 int totalTimelineDuration(List<Block> blocks) {

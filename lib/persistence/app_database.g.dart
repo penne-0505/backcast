@@ -2493,6 +2493,482 @@ class AppPreferencesCompanion extends UpdateCompanion<AppPreference> {
   }
 }
 
+class $CachedProEntitlementsTable extends CachedProEntitlements
+    with TableInfo<$CachedProEntitlementsTable, CachedProEntitlement> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedProEntitlementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isProMeta = const VerificationMeta('isPro');
+  @override
+  late final GeneratedColumn<bool> isPro = GeneratedColumn<bool>(
+    'is_pro',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_pro" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSyncedAtMeta = const VerificationMeta(
+    'lastSyncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+    'last_synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cachedAtMeta = const VerificationMeta(
+    'cachedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+    'cached_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    userId,
+    isPro,
+    status,
+    productId,
+    expiresAt,
+    lastSyncedAt,
+    cachedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_pro_entitlements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedProEntitlement> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('is_pro')) {
+      context.handle(
+        _isProMeta,
+        isPro.isAcceptableOrUnknown(data['is_pro']!, _isProMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_isProMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+        _lastSyncedAtMeta,
+        lastSyncedAt.isAcceptableOrUnknown(
+          data['last_synced_at']!,
+          _lastSyncedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(
+        _cachedAtMeta,
+        cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cachedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {userId};
+  @override
+  CachedProEntitlement map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedProEntitlement(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      isPro: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_pro'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      ),
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_synced_at'],
+      ),
+      cachedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cached_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedProEntitlementsTable createAlias(String alias) {
+    return $CachedProEntitlementsTable(attachedDatabase, alias);
+  }
+}
+
+class CachedProEntitlement extends DataClass
+    implements Insertable<CachedProEntitlement> {
+  final String userId;
+  final bool isPro;
+  final String status;
+  final String? productId;
+  final DateTime? expiresAt;
+  final DateTime? lastSyncedAt;
+  final DateTime cachedAt;
+  const CachedProEntitlement({
+    required this.userId,
+    required this.isPro,
+    required this.status,
+    this.productId,
+    this.expiresAt,
+    this.lastSyncedAt,
+    required this.cachedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['user_id'] = Variable<String>(userId);
+    map['is_pro'] = Variable<bool>(isPro);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    if (!nullToAbsent || expiresAt != null) {
+      map['expires_at'] = Variable<DateTime>(expiresAt);
+    }
+    if (!nullToAbsent || lastSyncedAt != null) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    }
+    map['cached_at'] = Variable<DateTime>(cachedAt);
+    return map;
+  }
+
+  CachedProEntitlementsCompanion toCompanion(bool nullToAbsent) {
+    return CachedProEntitlementsCompanion(
+      userId: Value(userId),
+      isPro: Value(isPro),
+      status: Value(status),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      expiresAt: expiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiresAt),
+      lastSyncedAt: lastSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncedAt),
+      cachedAt: Value(cachedAt),
+    );
+  }
+
+  factory CachedProEntitlement.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedProEntitlement(
+      userId: serializer.fromJson<String>(json['userId']),
+      isPro: serializer.fromJson<bool>(json['isPro']),
+      status: serializer.fromJson<String>(json['status']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      expiresAt: serializer.fromJson<DateTime?>(json['expiresAt']),
+      lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
+      cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'userId': serializer.toJson<String>(userId),
+      'isPro': serializer.toJson<bool>(isPro),
+      'status': serializer.toJson<String>(status),
+      'productId': serializer.toJson<String?>(productId),
+      'expiresAt': serializer.toJson<DateTime?>(expiresAt),
+      'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
+      'cachedAt': serializer.toJson<DateTime>(cachedAt),
+    };
+  }
+
+  CachedProEntitlement copyWith({
+    String? userId,
+    bool? isPro,
+    String? status,
+    Value<String?> productId = const Value.absent(),
+    Value<DateTime?> expiresAt = const Value.absent(),
+    Value<DateTime?> lastSyncedAt = const Value.absent(),
+    DateTime? cachedAt,
+  }) => CachedProEntitlement(
+    userId: userId ?? this.userId,
+    isPro: isPro ?? this.isPro,
+    status: status ?? this.status,
+    productId: productId.present ? productId.value : this.productId,
+    expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
+    lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
+    cachedAt: cachedAt ?? this.cachedAt,
+  );
+  CachedProEntitlement copyWithCompanion(CachedProEntitlementsCompanion data) {
+    return CachedProEntitlement(
+      userId: data.userId.present ? data.userId.value : this.userId,
+      isPro: data.isPro.present ? data.isPro.value : this.isPro,
+      status: data.status.present ? data.status.value : this.status,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedProEntitlement(')
+          ..write('userId: $userId, ')
+          ..write('isPro: $isPro, ')
+          ..write('status: $status, ')
+          ..write('productId: $productId, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('cachedAt: $cachedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    userId,
+    isPro,
+    status,
+    productId,
+    expiresAt,
+    lastSyncedAt,
+    cachedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedProEntitlement &&
+          other.userId == this.userId &&
+          other.isPro == this.isPro &&
+          other.status == this.status &&
+          other.productId == this.productId &&
+          other.expiresAt == this.expiresAt &&
+          other.lastSyncedAt == this.lastSyncedAt &&
+          other.cachedAt == this.cachedAt);
+}
+
+class CachedProEntitlementsCompanion
+    extends UpdateCompanion<CachedProEntitlement> {
+  final Value<String> userId;
+  final Value<bool> isPro;
+  final Value<String> status;
+  final Value<String?> productId;
+  final Value<DateTime?> expiresAt;
+  final Value<DateTime?> lastSyncedAt;
+  final Value<DateTime> cachedAt;
+  final Value<int> rowid;
+  const CachedProEntitlementsCompanion({
+    this.userId = const Value.absent(),
+    this.isPro = const Value.absent(),
+    this.status = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedProEntitlementsCompanion.insert({
+    required String userId,
+    required bool isPro,
+    required String status,
+    this.productId = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    required DateTime cachedAt,
+    this.rowid = const Value.absent(),
+  }) : userId = Value(userId),
+       isPro = Value(isPro),
+       status = Value(status),
+       cachedAt = Value(cachedAt);
+  static Insertable<CachedProEntitlement> custom({
+    Expression<String>? userId,
+    Expression<bool>? isPro,
+    Expression<String>? status,
+    Expression<String>? productId,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<DateTime>? cachedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
+      if (isPro != null) 'is_pro': isPro,
+      if (status != null) 'status': status,
+      if (productId != null) 'product_id': productId,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedProEntitlementsCompanion copyWith({
+    Value<String>? userId,
+    Value<bool>? isPro,
+    Value<String>? status,
+    Value<String?>? productId,
+    Value<DateTime?>? expiresAt,
+    Value<DateTime?>? lastSyncedAt,
+    Value<DateTime>? cachedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedProEntitlementsCompanion(
+      userId: userId ?? this.userId,
+      isPro: isPro ?? this.isPro,
+      status: status ?? this.status,
+      productId: productId ?? this.productId,
+      expiresAt: expiresAt ?? this.expiresAt,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      cachedAt: cachedAt ?? this.cachedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (isPro.present) {
+      map['is_pro'] = Variable<bool>(isPro.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedProEntitlementsCompanion(')
+          ..write('userId: $userId, ')
+          ..write('isPro: $isPro, ')
+          ..write('status: $status, ')
+          ..write('productId: $productId, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2504,6 +2980,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TimelineTemplateBlocksTable timelineTemplateBlocks =
       $TimelineTemplateBlocksTable(this);
   late final $AppPreferencesTable appPreferences = $AppPreferencesTable(this);
+  late final $CachedProEntitlementsTable cachedProEntitlements =
+      $CachedProEntitlementsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2515,6 +2993,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     timelineTemplates,
     timelineTemplateBlocks,
     appPreferences,
+    cachedProEntitlements,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -4579,6 +5058,265 @@ typedef $$AppPreferencesTableProcessedTableManager =
       AppPreference,
       PrefetchHooks Function()
     >;
+typedef $$CachedProEntitlementsTableCreateCompanionBuilder =
+    CachedProEntitlementsCompanion Function({
+      required String userId,
+      required bool isPro,
+      required String status,
+      Value<String?> productId,
+      Value<DateTime?> expiresAt,
+      Value<DateTime?> lastSyncedAt,
+      required DateTime cachedAt,
+      Value<int> rowid,
+    });
+typedef $$CachedProEntitlementsTableUpdateCompanionBuilder =
+    CachedProEntitlementsCompanion Function({
+      Value<String> userId,
+      Value<bool> isPro,
+      Value<String> status,
+      Value<String?> productId,
+      Value<DateTime?> expiresAt,
+      Value<DateTime?> lastSyncedAt,
+      Value<DateTime> cachedAt,
+      Value<int> rowid,
+    });
+
+class $$CachedProEntitlementsTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedProEntitlementsTable> {
+  $$CachedProEntitlementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPro => $composableBuilder(
+    column: $table.isPro,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedProEntitlementsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedProEntitlementsTable> {
+  $$CachedProEntitlementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPro => $composableBuilder(
+    column: $table.isPro,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedProEntitlementsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedProEntitlementsTable> {
+  $$CachedProEntitlementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPro =>
+      $composableBuilder(column: $table.isPro, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+}
+
+class $$CachedProEntitlementsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CachedProEntitlementsTable,
+          CachedProEntitlement,
+          $$CachedProEntitlementsTableFilterComposer,
+          $$CachedProEntitlementsTableOrderingComposer,
+          $$CachedProEntitlementsTableAnnotationComposer,
+          $$CachedProEntitlementsTableCreateCompanionBuilder,
+          $$CachedProEntitlementsTableUpdateCompanionBuilder,
+          (
+            CachedProEntitlement,
+            BaseReferences<
+              _$AppDatabase,
+              $CachedProEntitlementsTable,
+              CachedProEntitlement
+            >,
+          ),
+          CachedProEntitlement,
+          PrefetchHooks Function()
+        > {
+  $$CachedProEntitlementsTableTableManager(
+    _$AppDatabase db,
+    $CachedProEntitlementsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedProEntitlementsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CachedProEntitlementsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CachedProEntitlementsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> userId = const Value.absent(),
+                Value<bool> isPro = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
+                Value<DateTime> cachedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedProEntitlementsCompanion(
+                userId: userId,
+                isPro: isPro,
+                status: status,
+                productId: productId,
+                expiresAt: expiresAt,
+                lastSyncedAt: lastSyncedAt,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String userId,
+                required bool isPro,
+                required String status,
+                Value<String?> productId = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
+                required DateTime cachedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedProEntitlementsCompanion.insert(
+                userId: userId,
+                isPro: isPro,
+                status: status,
+                productId: productId,
+                expiresAt: expiresAt,
+                lastSyncedAt: lastSyncedAt,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedProEntitlementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CachedProEntitlementsTable,
+      CachedProEntitlement,
+      $$CachedProEntitlementsTableFilterComposer,
+      $$CachedProEntitlementsTableOrderingComposer,
+      $$CachedProEntitlementsTableAnnotationComposer,
+      $$CachedProEntitlementsTableCreateCompanionBuilder,
+      $$CachedProEntitlementsTableUpdateCompanionBuilder,
+      (
+        CachedProEntitlement,
+        BaseReferences<
+          _$AppDatabase,
+          $CachedProEntitlementsTable,
+          CachedProEntitlement
+        >,
+      ),
+      CachedProEntitlement,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4598,4 +5336,6 @@ class $AppDatabaseManager {
       );
   $$AppPreferencesTableTableManager get appPreferences =>
       $$AppPreferencesTableTableManager(_db, _db.appPreferences);
+  $$CachedProEntitlementsTableTableManager get cachedProEntitlements =>
+      $$CachedProEntitlementsTableTableManager(_db, _db.cachedProEntitlements);
 }

@@ -147,34 +147,22 @@ class TimelineImageShareCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (event.bufferMinutes > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(AppRadius.xs),
-                        border: Border.all(
-                          color: color.withValues(alpha: 0.30),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        '余裕 +${event.bufferMinutes}分',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: color.withValues(alpha: 0.8),
-                          height: 1.2,
-                        ),
-                      ),
+                if (event.bufferMinutes > 0) ...[
+                  const SizedBox(height: 6),
+                  _DottedDivider(
+                    color: AppColors.timelineLine.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '余裕 +${event.bufferMinutes}分',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedInk.withValues(alpha: 0.7),
+                      height: 1.2,
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -271,6 +259,35 @@ class TimelineImageShareCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 擬似点線 — 本体とバッファセグメントの境目を「くっついている感じ」で示す
+class _DottedDivider extends StatelessWidget {
+  const _DottedDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const dotWidth = 3.0;
+        const gapWidth = 3.0;
+        final count =
+            (constraints.maxWidth / (dotWidth + gapWidth))
+                .floor()
+                .clamp(1, 200);
+        return Row(
+          children: [
+            for (var i = 0; i < count; i++) ...[
+              Container(width: dotWidth, height: 1, color: color),
+              if (i < count - 1) const SizedBox(width: gapWidth),
+            ],
+          ],
+        );
+      },
     );
   }
 }

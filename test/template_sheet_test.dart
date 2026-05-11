@@ -28,7 +28,9 @@ Future<void> pumpMedoApp(WidgetTester tester, {bool isPro = true}) async {
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(db),
-        effectiveIsProProvider.overrideWithValue(isPro),
+        effectiveProAccessProvider.overrideWithValue(
+          isPro ? const ProAccessState.pro() : const ProAccessState.free(),
+        ),
       ],
       child: const MedoApp(),
     ),
@@ -50,6 +52,10 @@ void main() {
   });
 
   group('TemplateSheet integration', () {
+    Finder templateToolbarButton() {
+      return find.byKey(const ValueKey('template-toolbar-button'));
+    }
+
     Future<void> setLargeScreen(WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
@@ -64,33 +70,38 @@ void main() {
       await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
-      final templateButton = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == PhosphorIcons.cards(),
+      expect(templateToolbarButton(), findsOneWidget);
+      expect(tester.getCenter(templateToolbarButton()).dy, greaterThan(2000));
+      final toolbarButtonCenterBeforeOpen = tester.getCenter(
+        templateToolbarButton(),
       );
-      expect(templateButton, findsOneWidget);
-      await tester.tap(templateButton);
+
+      await tester.tap(templateToolbarButton());
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const ValueKey('template-popover-surface')),
+        findsOneWidget,
+      );
+      expect(templateToolbarButton(), findsOneWidget);
+      expect(
+        tester.getCenter(templateToolbarButton()),
+        toolbarButtonCenterBeforeOpen,
+      );
       expect(find.text('テンプレート'), findsOneWidget);
       expect(find.text('保存済みテンプレートはありません'), findsOneWidget);
     });
 
-    testWidgets('Free user navigates to paywall from template button', (
+    testWidgets('Free user does not see template toolbar button', (
       tester,
     ) async {
       await setLargeScreen(tester);
       await pumpMedoApp(tester, isPro: false);
       await tester.pumpAndSettle();
 
-      final templateButton = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == PhosphorIcons.cards(),
-      );
-      expect(templateButton, findsOneWidget);
-      await tester.tap(templateButton);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(PaywallScreen), findsOneWidget);
-      expect(find.textContaining('テンプレートはPro機能'), findsOneWidget);
+      expect(templateToolbarButton(), findsNothing);
+      expect(find.byType(TemplateSheet), findsNothing);
+      expect(find.byType(PaywallScreen), findsNothing);
     });
 
     testWidgets('saves current timeline as template', (tester) async {
@@ -98,10 +109,7 @@ void main() {
       await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
-      final templateButton = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == PhosphorIcons.cards(),
-      );
-      await tester.tap(templateButton);
+      await tester.tap(templateToolbarButton());
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('現在のタイムラインを保存'));
@@ -140,10 +148,7 @@ void main() {
       await pumpMedoApp(tester);
       await tester.pumpAndSettle();
 
-      final templateButton = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == PhosphorIcons.cards(),
-      );
-      await tester.tap(templateButton);
+      await tester.tap(templateToolbarButton());
       await tester.pumpAndSettle();
 
       expect(find.text('朝のルーティン'), findsOneWidget);
@@ -151,6 +156,26 @@ void main() {
       expect(find.textContaining('15:00'), findsOneWidget);
       expect(find.textContaining('1ブロック'), findsOneWidget);
     });
+
+    testWidgets(
+      'toolbar action remains available while template popover is open',
+      (tester) async {
+        await setLargeScreen(tester);
+        await pumpMedoApp(tester);
+        await tester.pumpAndSettle();
+
+        await tester.tap(templateToolbarButton());
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TemplateSheet), findsOneWidget);
+
+        await tester.tap(find.text('前の行動を追加'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TemplateSheet), findsNothing);
+        expect(_containerFor(tester).read(timelineProvider).blocks.length, 1);
+      },
+    );
   });
 
   group('TemplateSheet unit', () {
@@ -159,7 +184,9 @@ void main() {
         ProviderScope(
           overrides: [
             databaseProvider.overrideWithValue(db),
-            effectiveIsProProvider.overrideWithValue(isPro),
+            effectiveProAccessProvider.overrideWithValue(
+              isPro ? const ProAccessState.pro() : const ProAccessState.free(),
+            ),
           ],
           child: MaterialApp(
             home: Scaffold(
@@ -310,7 +337,9 @@ void main() {
         ProviderScope(
           overrides: [
             databaseProvider.overrideWithValue(db),
-            effectiveIsProProvider.overrideWithValue(true),
+            effectiveProAccessProvider.overrideWithValue(
+              const ProAccessState.pro(),
+            ),
             currentPlanIdProvider.overrideWith(
               () => _TestCurrentPlanIdNotifier(plan.id),
             ),

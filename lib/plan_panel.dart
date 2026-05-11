@@ -111,9 +111,22 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
   }
 
   Future<void> _showImageShareDialog() async {
-    // Free image export gate
-    final isPro = ref.read(effectiveIsProProvider);
-    if (!isPro) {
+    final proAccess = ref.read(effectiveProAccessProvider);
+    if (proAccess.isLoading) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('課金状態を確認しています。少し待ってから再試行してください。')),
+      );
+      return;
+    }
+    if (proAccess.hasError) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('課金状態を確認できませんでした。通信状態を確認してください。')),
+      );
+      return;
+    }
+    if (proAccess.isFree) {
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -188,7 +201,7 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
     return Material(
       color: Colors.transparent,
       child: Container(
-        constraints: const BoxConstraints(maxHeight: 320),
+        constraints: const BoxConstraints(maxHeight: 344),
         decoration: BoxDecoration(
           color: AppColors.canvas,
           border: const Border(bottom: BorderSide(color: AppColors.softGray)),
@@ -237,7 +250,7 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
             Flexible(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 child: _buildExport(),
               ),
             ),

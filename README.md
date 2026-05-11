@@ -68,7 +68,7 @@ Flutter SDK を PATH に通していない前提では、以下の絶対パス�
 
 Flutter アプリは `anon` / publishable key のみを使い、`user_pro_entitlements` を select します。`pro_entitlement_events` は RevenueCat webhook 由来の service-only log で、Flutter code からは参照しません。
 
-Paywall は RevenueCat の `current` offering から Pro package を取得し、価格・期間を表示して `Purchases.purchasePackage(...)` で Google Play / App Store の購入フローを開始します。購入成功後は RevenueCat `CustomerInfo` と Supabase の `currentProEntitlementProvider` を再読込します。RevenueCat webhook から Supabase へ反映されるまで短い遅延があり得るため、購入直後は「確認中」として扱い、最終的な Pro 判定は引き続き Supabase の `user_pro_entitlements` を source of truth にします。
+Paywall は RevenueCat の `current` offering から Pro package を取得し、価格・期間を表示して `Purchases.purchasePackage(...)` で Google Play / App Store の購入フローを開始します。購入成功後は RevenueCat `CustomerInfo` と Supabase の `currentProEntitlementProvider` を再読込します。RevenueCat webhook から Supabase へ反映されるまで短い遅延があり得るため、購入直後は「確認中」として扱い、最終的な Pro 判定は引き続き Supabase の `user_pro_entitlements` を source of truth にします。Supabase から確認済みの Pro / Free snapshot は Drift の `cached_pro_entitlements` に保存し、次の問い合わせが完了するまではローカル snapshot を暫定判定として採用します。起動直後や再同期中の未判定状態は Free と同一視せず、`effectiveProAccessProvider` で `loading` / `error` / `pro` / `free` を分けて UI と action gate を制御します。
 
 設定画面のサブスクリプションセクションでは、Free ユーザーのプランカードは Paywall へ遷移します。Pro ユーザーの `Proプラン利用中` カードは Paywall には戻さず、RevenueCat `CustomerInfo.managementURL` から Google Play / App Store の購読管理画面を外部アプリで開きます。`managementURL` が取得できない場合は、購入復元または各ストアのサブスクリプション管理を確認する案内を表示します。
 

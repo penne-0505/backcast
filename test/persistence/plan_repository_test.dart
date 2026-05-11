@@ -159,7 +159,7 @@ void main() {
           id: 'buffered',
           type: BlockType.action,
           title: '移動',
-          duration: 25,
+          duration: 10,
           bufferMinutes: 15,
           colorIndex: 0,
         ),
@@ -169,11 +169,13 @@ void main() {
 
     final loaded = await repository.loadPlan(created.id);
     expect(loaded!.state.blocks.single.bufferMinutes, 15);
-    expect(loaded.state.blocks.single.effectiveDuration, 40);
+    expect(loaded.state.blocks.single.normalizedBufferMinutes, 5);
+    expect(loaded.state.blocks.single.effectiveDuration, 15);
 
     final snapshots = await repository.listSnapshots(created.id);
     final snapshot = await repository.loadSnapshot(snapshots.single.id);
     expect(snapshot!.state.blocks.single.bufferMinutes, 15);
+    expect(snapshot.state.blocks.single.normalizedBufferMinutes, 5);
   });
 
   test('restores a plan from a saved snapshot', () async {

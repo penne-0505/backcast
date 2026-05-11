@@ -3,7 +3,7 @@ title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-10"
+updated_at: "2026-05-11"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -34,7 +34,7 @@ related_prs: []
   - `kPixelsPerMinute = 6.0`: 1 分あたり 6px としてブロック高さを計算
   - `kSnapMinutes = 5`: 通常ドラッグ時のスナップ粒度
   - `kBufferStepMinutes = 5`: 行動ごとの余裕時間の編集粒度
-  - `kMaxActionBufferMinutes = 60`: `action.bufferMinutes` の上限
+  - `kMaxActionBufferMinutes = 60`: `action.bufferMinutes` の絶対上限
   - `kTargetTimeId = 'target-time'`: 目標アンカーの選択状態識別子
 
 ### `enum TimelineViewMode`
@@ -65,15 +65,16 @@ related_prs: []
   - `type (BlockType)`: 行動か行動ポイントか
   - `title (String)`: 表示名
   - `duration (int)`: 分単位の所要時間。`actionPoint` では 0 を想定
-  - `bufferMinutes (int)`: 分単位の余裕時間。`action` のみ有効で、`actionPoint` では 0 に正規化される
+  - `bufferMinutes (int)`: 分単位の余裕時間。ユーザーが意図した desired 値として保持され、`action` のみ有効
   - `colorIndex (int)`: `AppColors.blockColors` を参照するためのインデックス
 - **Returns**: `copyWith` で差分更新済みの新しい `Block`
 - **Errors**: モデル自体はバリデーション例外を投げない
 - **Examples**:
   - `Block(id: '1', type: BlockType.action, title: '移動', duration: 30, bufferMinutes: 10, colorIndex: 0)`
 - **Notes**:
-  - `normalizedBufferMinutes` は `bufferMinutes` を 0〜60 分、5 分刻みに丸めた値
+  - `normalizedBufferMinutes` は表示・計算に使う effective 値。`bufferMinutes` を 0〜60 分、5 分刻みに丸め、さらに `duration - 5` 分以下に抑える
   - `effectiveDuration` は `action` では `duration + normalizedBufferMinutes`、`actionPoint` では 0
+  - duration を短くして `bufferMinutes` が上限を超えても desired 値は保持され、duration を伸ばすと `normalizedBufferMinutes` が回復する。余裕時間を手動編集した場合は、その時点の effective 値を新しい desired 値として保存する
 
 ### `class ComputedBlock`
 
@@ -111,6 +112,31 @@ related_prs: []
   - `normalizeActionBufferMinutes(BlockType.action, 63) -> 60`
   - `normalizeActionBufferMinutes(BlockType.actionPoint, 15) -> 0`
 
+### `int maxActionBufferMinutesForDuration(int duration)`
+
+- **Summary**: 行動所要時間に対して許容される余裕時間の上限を返す
+- **Parameters**:
+  - `duration (int)`: 行動本体の所要時間
+- **Returns**: `min(kMaxActionBufferMinutes, duration - kBufferStepMinutes)` を 0 以上に丸めた値
+- **Errors**: なし
+- **Examples**:
+  - `maxActionBufferMinutesForDuration(10) -> 5`
+  - `maxActionBufferMinutesForDuration(20) -> 15`
+  - `maxActionBufferMinutesForDuration(90) -> 60`
+
+### `int normalizeActionBufferMinutesForDuration(BlockType type, int duration, int minutes)`
+
+- **Summary**: 余裕時間を block 種別と行動所要時間に対する有効値へ正規化する
+- **Parameters**:
+  - `type (BlockType)`: ブロック種別
+  - `duration (int)`: 行動本体の所要時間
+  - `minutes (int)`: 入力値
+- **Returns**: `action` では 5 分刻みかつ `maxActionBufferMinutesForDuration(duration)` 以下、`actionPoint` では常に 0
+- **Errors**: なし
+- **Examples**:
+  - `normalizeActionBufferMinutesForDuration(BlockType.action, 20, 60) -> 15`
+  - `normalizeActionBufferMinutesForDuration(BlockType.action, 10, 10) -> 5`
+
 ### `int totalTimelineDuration(List<Block> blocks)`
 
 - **Summary**: タイムライン全体の有効所要時間を合計する
@@ -143,6 +169,7 @@ related_prs: []
   - `selectedBlockId (String?)`: `null | kTargetTimeId | block.id`
   - `preciseDraggingId (String?)`: precise ドラッグ中のブロック ID
   - `activeInlineEditorId (String?)`: フォーカス中のインラインエディタ ID
+  - `pixelsPerMinute (double)`: 編集ビューの時間軸表示密度。初期値は `kPixelsPerMinute`
   - `viewMode (TimelineViewMode)`: 表示モード。初期値は `TimelineViewMode.edit`
   - `searchQuery (String)`: 現在の検索クエリ。空文字がデフォルト
   - `searchMatches (List<String>)`: 検索一致したブロック ID のリスト。タイムライン順（過去→目標）
@@ -290,7 +317,7 @@ related_prs: []
 - **Examples**:
   - Pro ユーザーが行動ブロック本体下部をダブルタップしたときに呼ばれる
 - **Notes**:
-  - 上限は `kMaxActionBufferMinutes = 60`
+  - 上限は `min(kMaxActionBufferMinutes, duration - kBufferStepMinutes)`
   - Pro / Free の判定は UI 層で行い、状態層はドメイン正規化のみ担当する
 
 ### `TimelineNotifier.setActionBufferMinutes(String id, int minutes)`
@@ -378,6 +405,19 @@ related_prs: []
   - タイトル `TextField` にフォーカスが入ると `block-title:<blockId>` や `target-title` を保持する
 - **Notes**:
   - UI 側ではこの値を見て、次タップを編集シート表示ではなくフォーカス解除に使う
+
+### `TimelineNotifier.setPixelsPerMinute(double value)`
+
+- **Summary**: 編集ビューの時間軸表示密度を更新する
+- **Parameters**:
+  - `value (double)`: 1 分あたりの表示 px。`3.0` から `kPixelsPerMinute` の範囲へ丸められる
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - 表示密度ポップオーバーの吸い付き付きスライダーから呼ばれる
+- **Notes**:
+  - `pixelsPerMinute` は一時 UI 状態であり、plan persistence には保存しない
+  - 長時間計画の俯瞰には Compact Overview を使い、この値は編集ビュー内の読みやすさ調整として扱う
 
 ### `TimelineNotifier.applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise)`
 

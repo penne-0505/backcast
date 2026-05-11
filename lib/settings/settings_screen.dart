@@ -51,8 +51,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(authProvider.notifier).deleteAccount();
   }
 
-  Future<void> _handlePlanTap(BuildContext context, bool isPro) async {
-    if (!isPro) {
+  Future<void> _handlePlanTap(
+    BuildContext context,
+    ProAccessState proAccess,
+  ) async {
+    if (proAccess.isLoading) {
+      _showSubscriptionMessage(context, '課金状態を確認しています。少し待ってから再試行してください。');
+      return;
+    }
+    if (proAccess.hasError) {
+      _showSubscriptionMessage(context, '課金状態を確認できませんでした。通信状態を確認してください。');
+      return;
+    }
+    if (proAccess.isFree) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) =>
@@ -102,7 +113,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final authAsync = ref.watch(authProvider);
-    final isPro = ref.watch(effectiveIsProProvider);
+    final proAccess = ref.watch(effectiveProAccessProvider);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -187,9 +198,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _SectionHeader(title: 'サブスクリプション'),
               const SizedBox(height: AppSpacing.md),
               _ProStatusCard(
-                isPro: isPro,
+                proAccess: proAccess,
                 isBusy: _isOpeningSubscriptionManagement,
-                onTap: () => _handlePlanTap(context, isPro),
+                onTap: () => _handlePlanTap(context, proAccess),
               ),
               const SizedBox(height: AppSpacing.md),
               _RestorePurchasesButton(
@@ -450,17 +461,19 @@ class _SignOutButton extends StatelessWidget {
 
 class _ProStatusCard extends StatelessWidget {
   const _ProStatusCard({
-    required this.isPro,
+    required this.proAccess,
     required this.isBusy,
     required this.onTap,
   });
 
-  final bool isPro;
+  final ProAccessState proAccess;
   final bool isBusy;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isPro = proAccess.isPro;
+    final isPending = proAccess.isLoading || proAccess.hasError;
     return Pressable(
       onTap: onTap,
       scale: 0.98,
@@ -500,7 +513,12 @@ class _ProStatusCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isPro ? 'Proプラン利用中' : 'Freeプラン',
+                    switch (proAccess.status) {
+                      ProAccessStatus.pro => 'Proプラン利用中',
+                      ProAccessStatus.free => 'Freeプラン',
+                      ProAccessStatus.loading => '課金状態を確認中',
+                      ProAccessStatus.error => '課金状態を確認できません',
+                    },
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -509,9 +527,13 @@ class _ProStatusCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isPro
-                        ? (isBusy ? '購読管理を開いています' : 'ストアで購読を管理')
-                        : 'タップしてPro機能を確認',
+                    switch (proAccess.status) {
+                      ProAccessStatus.pro =>
+                        isBusy ? '購読管理を開いています' : 'ストアで購読を管理',
+                      ProAccessStatus.free => 'タップしてPro機能を確認',
+                      ProAccessStatus.loading => '確認が終わるまでPro/Freeを確定しません',
+                      ProAccessStatus.error => '通信状態を確認して再試行してください',
+                    },
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.mutedInk,
@@ -521,7 +543,9 @@ class _ProStatusCard extends StatelessWidget {
               ),
             ),
             Icon(
-              isBusy ? PhosphorIcons.circleNotch() : PhosphorIcons.caretRight(),
+              isBusy || isPending
+                  ? PhosphorIcons.circleNotch()
+                  : PhosphorIcons.caretRight(),
               size: 16,
               color: AppColors.mutedInk,
             ),

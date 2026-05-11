@@ -145,7 +145,12 @@ class TimelineNotifier extends Notifier<TimelineState> {
   void setActionBufferMinutes(String id, int minutes) {
     updateBlock(id, (block) {
       if (block.type != BlockType.action) return block;
-      return block.copyWith(bufferMinutes: minutes);
+      final normalized = normalizeActionBufferMinutesForDuration(
+        block.type,
+        block.duration,
+        minutes,
+      );
+      return block.copyWith(bufferMinutes: normalized);
     });
   }
 

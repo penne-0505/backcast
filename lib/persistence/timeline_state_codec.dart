@@ -61,7 +61,7 @@ Map<String, Object?> blockToJson(Block block) {
     'type': block.type.name,
     'title': block.title,
     'duration': block.duration,
-    'bufferMinutes': block.normalizedBufferMinutes,
+    'bufferMinutes': block.bufferMinutes,
     'colorIndex': block.colorIndex,
   };
 }
@@ -75,11 +75,12 @@ Block blockFromJson(Map<String, Object?> json) {
     throw FormatException('Unsupported block type: $typeName');
   }
 
+  final duration = _readInt(json, 'duration');
   return Block(
     id: _readString(json, 'id'),
     type: type,
     title: _readString(json, 'title'),
-    duration: _readInt(json, 'duration'),
+    duration: duration,
     bufferMinutes: normalizeActionBufferMinutes(
       type,
       _readOptionalInt(json, 'bufferMinutes') ?? 0,

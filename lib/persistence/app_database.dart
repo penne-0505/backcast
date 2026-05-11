@@ -78,6 +78,19 @@ class AppPreferences extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
+class CachedProEntitlements extends Table {
+  TextColumn get userId => text()();
+  BoolColumn get isPro => boolean()();
+  TextColumn get status => text()();
+  TextColumn get productId => text().nullable()();
+  DateTimeColumn get expiresAt => dateTime().nullable()();
+  DateTimeColumn get lastSyncedAt => dateTime().nullable()();
+  DateTimeColumn get cachedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {userId};
+}
+
 @DriftDatabase(
   tables: [
     Plans,
@@ -86,6 +99,7 @@ class AppPreferences extends Table {
     TimelineTemplates,
     TimelineTemplateBlocks,
     AppPreferences,
+    CachedProEntitlements,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -94,7 +108,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.defaults() : super(driftDatabase(name: 'medo'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -115,6 +129,9 @@ class AppDatabase extends _$AppDatabase {
           timelineTemplateBlocks,
           timelineTemplateBlocks.bufferMinutes,
         );
+      }
+      if (from < 5) {
+        await m.createTable(cachedProEntitlements);
       }
     },
   );
