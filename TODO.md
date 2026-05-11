@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 40` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 41` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -185,9 +185,9 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 ## Inbox
 1. ホーム画面ウィジェット: 現在のプランの次の行動・残り時間を表示
 2. Apple Watch対応: 現在時刻インジケーターと残り時間を腕で確認
-(以下優先)
 3. iOS対応: RevenueCatのiOS API keyを実値化し、iOSのPro判定・restore導線を確認する
 4. ローカライズ方針: 海外展開を見据えた i18n / ローカライズ方針を立てる
+5. アンカーブロックの表示改善。グレーにして文字サイズとウェイト上げるか？
 
 
 
