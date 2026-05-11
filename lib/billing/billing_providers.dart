@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../auth/auth_providers.dart';
 import '../config/revenuecat_config.dart';
 import 'pro_entitlement_providers.dart';
 
@@ -119,6 +120,7 @@ final proPackageProvider = FutureProvider<ProPackageState?>((ref) async {
 
 final subscriptionManagementUrlProvider = FutureProvider<Uri?>((ref) async {
   if (!ref.watch(revenueCatBillingAvailableProvider)) return null;
+  if (ref.watch(currentUserIdProvider) == null) return null;
 
   final customerInfo = await ref
       .watch(revenueCatGatewayProvider)
@@ -134,6 +136,10 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
   @override
   Future<BillingState> build() async {
     if (!ref.watch(revenueCatBillingAvailableProvider)) {
+      return const BillingState();
+    }
+    final userId = ref.watch(currentUserIdProvider);
+    if (userId == null) {
       return const BillingState();
     }
 
@@ -168,6 +174,15 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
         previous.copyWith(
           purchaseStatus: BillingPurchaseStatus.failed,
           purchaseMessage: 'この環境ではアプリ内購入を利用できません。',
+        ),
+      );
+      return;
+    }
+    if (ref.read(currentUserIdProvider) == null) {
+      state = AsyncValue.data(
+        previous.copyWith(
+          purchaseStatus: BillingPurchaseStatus.failed,
+          purchaseMessage: 'Proの購入にはログインが必要です。設定からログインしてください。',
         ),
       );
       return;
@@ -223,6 +238,15 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
         previous.copyWith(
           purchaseStatus: BillingPurchaseStatus.failed,
           purchaseMessage: 'この環境では購入の復元を利用できません。',
+        ),
+      );
+      return;
+    }
+    if (ref.read(currentUserIdProvider) == null) {
+      state = AsyncValue.data(
+        previous.copyWith(
+          purchaseStatus: BillingPurchaseStatus.failed,
+          purchaseMessage: '購入の復元にはログインが必要です。設定からログインしてください。',
         ),
       );
       return;

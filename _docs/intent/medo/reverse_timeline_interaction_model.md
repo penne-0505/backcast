@@ -3,11 +3,12 @@ title: Reverse Timeline Interaction Model
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-11"
+updated_at: "2026-05-12"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
   - _docs/plan/UI/template-toolbar-popover.md
+  - _docs/standards/ui_layering.md
   - _docs/reference/medo/timeline_domain_reference.md
   - _docs/reference/medo/persistence_repository_reference.md
   - _docs/intent/medo/drift_persistence_repository.md
@@ -36,7 +37,7 @@ related_prs: []
 - 画面ボトムの追加 toolbar は一体型の板ではなく、各 action が独立した浮遊オブジェクトに見える形状で構成する
 - ボトム toolbar に新しい action を追加する場合は、Liquid Glass 的な透明素材表現ではなく、circle / capsule / pill 系の形状、明確な余白、個別の shadow によって「それぞれが浮いている」関係を保つ
 - テンプレートのような補助 action は、ヘッダーではなく編集ビュー下部ツールバーの独立ボタンから popover / island として開く
-- 新しい非モーダル overlay / popover を追加する場合は、現行 template popover の surface 値を基準にする
+- 新しい非モーダル overlay / popover を追加する場合は、`AppShadows.quickOverlay` と Quick Overlay surface token を基準にする
 
 ## Alternatives
 
@@ -68,8 +69,8 @@ related_prs: []
 - circle / capsule / pill は指で狙いやすい hit area を保ちつつ、画面下端に接地した system bar ではなく、編集キャンバス上に浮く操作群として認識させやすい
 - ここで参照する Apple 的な要素は、透明・屈折・反射などの material ではなく、近年の toolbar / command 群に見られる「個別の self-contained な形状」の考え方に限定する
 - ツールバー直上に popover として出すと、テンプレート管理が画面全体のモード変更ではなく、現在の編集作業へ差し込む補助操作として理解されやすい
-- overlay surface は `AppColors.canvas`、`AppRadius.xl`、`AppColors.softGray.withValues(alpha: 0.55)` の `0.6` border、下方向の二段 shadow（`AppColors.ink` alpha `0.14`, blur `28`, spread `-4`, offset `(0, 14)` と alpha `0.08`, blur `10`, spread `-2`, offset `(0, 4)`）を標準とする
-- 非モーダル overlay は背景 scrim の有無にかかわらず、外側タップを閉じるための 1 ターンとして扱う。別 action が押された場合も、まず overlay を閉じ、その action の実行は次のタップに回す
+- overlay surface は `AppColors.canvas` または `AppColors.cardBackground`、`AppRadius.xl`、`AppColors.softGray.withValues(alpha: 0.55)` 程度の border、`AppShadows.quickOverlay` を標準とする
+- 非モーダル overlay は背景 scrim / blur を置かず、透明な吸収レイヤーで外側タップを閉じるための 1 ターンとして扱う。別 action が押された場合も、まず overlay を閉じ、その action の実行は次のタップに回す
 
 ## Consequences / Impact
 
@@ -81,7 +82,7 @@ related_prs: []
 - ボトム toolbar に action を追加する場合、既存の横幅へ無理に詰め込むのではなく、独立した item としての余白、最小 hit area、primary action の視認性を先に確認する必要がある
 - toolbar item が増えて階層が曖昧になる場合は、全 item を横並びに増やすのではなく、主要 action の維持、補助 action の別面化、または別入口への分離を検討する
 - テンプレート action を表示する Pro 状態では、narrow viewport で「前の行動を追加」の text label を省略して hit area を優先する場合がある
-- overlay surface 値を増やす場合は、個別 UI で似た shadow / border を増殖させず、`TemplateSheetPresentation.popover` の値を基準に theme 化する
+- overlay surface 値を増やす場合は、個別 UI で似た shadow / border を増殖させず、`AppShadows.quickOverlay` と `_docs/standards/ui_layering.md` の Quick Overlay Surface に集約する
 - 新しい一時 UI を追加する場合は、閉じるための吸収レイヤー、または同等の gesture 消費を用意し、外側タップが背面操作へ貫通しないことを widget test で確認する
 
 ## Rollback / Follow-ups

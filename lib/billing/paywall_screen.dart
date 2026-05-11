@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../auth/auth_providers.dart';
 import '../theme.dart';
 import 'billing_providers.dart';
 import 'gate_helper.dart';
@@ -23,6 +24,8 @@ class PaywallScreen extends ConsumerWidget {
       orElse: () => null,
     );
     final isBusy = billingData?.isBusy ?? billingState.isLoading;
+    final userId = ref.watch(currentUserIdProvider);
+    final isAuthenticated = userId != null;
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -163,9 +166,15 @@ class PaywallScreen extends ConsumerWidget {
                         label: isBusy ? '処理中' : 'Proにアップグレード',
                         isEnabled: !isBusy,
                         isLoading: isBusy,
-                        onTap: () => ref
-                            .read(billingProvider.notifier)
-                            .purchaseProPackage(package.package),
+                        onTap: () {
+                          if (!isAuthenticated) {
+                            _showAuthRequiredMessage(context, 'Proの購入');
+                            return;
+                          }
+                          ref
+                              .read(billingProvider.notifier)
+                              .purchaseProPackage(package.package);
+                        },
                       ),
                     ],
                   );
@@ -179,8 +188,13 @@ class PaywallScreen extends ConsumerWidget {
               Pressable(
                 onTap: isBusy
                     ? null
-                    : () =>
-                          ref.read(billingProvider.notifier).restorePurchases(),
+                    : () {
+                        if (!isAuthenticated) {
+                          _showAuthRequiredMessage(context, '購入の復元');
+                          return;
+                        }
+                        ref.read(billingProvider.notifier).restorePurchases();
+                      },
                 scale: 0.98,
                 child: Container(
                   height: 52,
@@ -245,6 +259,12 @@ class PaywallScreen extends ConsumerWidget {
       case PaywallFeature.actionBuffer:
         return '行動ごとに余裕時間を足すと、実際の所要時間とは別に遅れを吸収できます。設定済みの余裕時間はFreeでも予定計算に残ります。';
     }
+  }
+
+  void _showAuthRequiredMessage(BuildContext context, String actionLabel) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$actionLabelにはログインが必要です。設定からログインしてください。')),
+    );
   }
 }
 

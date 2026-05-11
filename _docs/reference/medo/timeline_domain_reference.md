@@ -3,7 +3,7 @@ title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-11"
+updated_at: "2026-05-12"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -283,6 +283,18 @@ related_prs: []
 - **Errors**: なし
 - **Examples**:
   - `出発時刻`, `会議開始` など任意文字列を設定できる
+
+### Current Time Marker Rendering
+
+- **Summary**: 編集ビューで現在時刻を示す UI 表示
+- **Inputs**:
+  - `DateTime.now()` から得た現在時刻を分単位へ変換し、`TimelineScreen.normalizeTimelineMinuteNearTarget` で `targetTime` に近い日付軸へ正規化する
+  - 正規化後の minute を各 `BlockItem` に渡し、該当 block 内だけ marker を描画する
+- **Rendering**:
+  - `action`: `ComputedBlock.startTime < currentTimelineMinute <= ComputedBlock.endTime` の場合、左 timeline rail 上に `now` label / 現在時刻 label / dot / 短い marker を表示し、block に precise drag の影響範囲表示と同じ `accentOlive` outline を表示する。行動間の境界では終了側の block だけを現在対象にする
+  - `actionPoint`: `currentTimelineMinute == ComputedBlock.startTime` の場合、rail 上の point 位置に marker を表示する
+  - カード本文を横切る全幅 line は使わない。タイトル、duration pill、reorder handle、buffer segment との重なりを避けるため、現在時刻の主表示は rail 内に閉じる
+- **Errors**: 現在時刻がタイムライン範囲外の場合は marker を描画しない
 
 ### `TimelineNotifier.addBlock(int index, BlockType type)`
 

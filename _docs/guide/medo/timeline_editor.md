@@ -3,7 +3,7 @@ title: Medo Timeline Editor Guide
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-11"
+updated_at: "2026-05-12"
 
 references:
   - README.md
@@ -87,15 +87,19 @@ Flutter Web の最低限の起動確認は次のコマンドで行います。
 - `action` の余裕時間: 実作業の `duration` とは別に 5 分刻みで保持します。表示・計算上の上限は 60 分、かつ行動本体より 5 分以上短い値です。行動時間を一時的に短くして上限に収まらない場合でも元の余裕時間は保持され、行動時間を伸ばすと再び反映されます。編集シートの「余裕時間」ステッパーまたはブロック本体下部のダブルタップで余裕時間を手動編集すると、その時点の値が新しい意図として保存されます
 - 総所要時間: すべてのブロックの有効所要時間（`action` は `duration + bufferMinutes`、`actionPoint` は 0 分）の合計をヘッダーに表示します
 - 開始時刻ラベル: 目標時刻から逆算した各ブロックの開始時刻です
+- 現在時刻 marker: 編集ビューでは、現在時刻がタイムライン範囲内にある場合だけ左 timeline rail 上に `now` / `HH:mm` label / dot / 短い marker を表示します。カード本文を横断する線は使わず、現在進行中の `action` block は precise drag の影響範囲表示と同じ `accentOlive` outline で補助表示します。現在時刻が行動間の境界に一致する場合は、時間的に前の `action` block だけを現在対象として扱います
 - 目標時刻: アンカー左側の時刻ラベル、または編集シートの「目標時刻」フィールドをタップすると、プラットフォーム標準の time picker で指定できます
 - 表示密度: 詳細編集は `kPixelsPerMinute`、俯瞰は `kOverviewPixelsPerMinute` を使う二段階の一時 UI 状態です。詳細編集は細部操作、俯瞰は全体の順序・時刻・所要時間の読み取りに使います。移動ハンドルの長押しが成立して並び替えが始まった間だけは、詳細編集ビューのまま `kOverviewPixelsPerMinute` 相当へ一時的に縮小し、指を離すと元の密度へ戻ります
 - インライン編集中の次タップ: まずカーソルを外して編集を確定し、その次のタップで編集シート表示や追加操作に進みます
+- 詳細編集シート: 背景 scrim を伴う Work Surface として表示されます。上部のハンドルを下へドラッグするか、背景 scrim / ✕ ボタンで閉じられます。標準表現は scrim のみで、背景 blur は使いません
 - 一時 UI 表示中の外側タップ: ポップアップ、popover、overlay、panel、modal の外側をタップした場合、その 1 タップは閉じるためだけに使います。背面の追加、選択、画面遷移、別ヘッダー action は同時には発火せず、必要なら次のタップで実行します
 - rail double tap insert: 左 timeline rail をダブルタップすると、タップした block の上半分では過去側境界、下半分では未来側境界に `action` を挿入する。`actionPoint` でも同様に上/下で前後の境界へ挿入できる。target anchor の rail をダブルタップすると target 直前に挿入される
 - swipe delete: 編集ビューの `action` / `actionPoint` を右へスワイプすると、その block が timeline から削除され、ヘッダー下に上部 SnackBar が表示される。`元に戻す` を押すと、削除前の index へ同じ block data を復元する。連続削除時は最新の削除だけが復元対象になる。インライン編集中、詳細編集シート表示中、所要時間の precise drag 中は誤操作防止のため削除しない
-- ヘッダーのエクスポート: タイムライン保存・読み込みは扱わず、カレンダー登録、テキスト共有、画像共有だけを開く。表示中に別のヘッダー action を押した場合は、まずエクスポートパネルだけを閉じ、その action は次のタップで実行する
+- ヘッダーのエクスポート: タイムライン保存・読み込みは扱わず、カレンダー登録、テキスト共有、画像共有だけを開く。Quick Overlay として背景 scrim / blur は置かず、透明な吸収レイヤーと surface の shadow / border で読み分ける。表示中に別のヘッダー action を押した場合は、まずエクスポートパネルだけを閉じ、その action は次のタップで実行する
 - template popover: Pro の編集ビュー下部ツールバーから開く浮遊 UI。画面下端から全幅で立ち上がる sheet ではなく、ツールバー直上の island として表示される。背景 scrim は置かず、ツールバーや timeline の別 action を押すと、まず popover だけを閉じ、その action は次のタップで実行する
 - timeline list island modal: 下端に接地しない浮遊モーダルとして表示され、背景 scrim のタップまたは ✕ ボタンで閉じられる。上部の作成フォームで新規 timeline を命名でき、既存 row では rename / delete を扱う。表示中は block 追加 toolbar、詳細編集シート、テンプレート popover と同時表示しない
+
+SnackBar を短時間の一時通知として使う場合、`SnackBarAction` を付けると Flutter の標準挙動により `duration` だけでは自動で閉じないことがある。`元に戻す` のような action 付き通知を timeout させる仕様では、`persist: false` の明示に加え、画面側で同一通知かどうかを確認する timer cleanup と widget test を置き、timeout 後に action が無効化されることまで検証する。
 
 ## Best Practices
 

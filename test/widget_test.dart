@@ -7,6 +7,7 @@ import 'package:medo/persistence/persistence_providers.dart';
 import 'package:medo/persistence/plan_repository.dart';
 import 'package:medo/plan_panel.dart';
 import 'package:medo/state.dart';
+import 'package:medo/theme.dart';
 import 'package:medo/timeline_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -695,6 +696,50 @@ void main() {
     final imageShareRect = tester.getRect(find.text('画像で共有'));
 
     expect(panelRect.bottom - imageShareRect.bottom, greaterThanOrEqualTo(24));
+  });
+
+  testWidgets('export quick overlay closes outside without firing toolbar action', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.byIcon(PhosphorIcons.calendarBlank()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('エクスポート'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Container && widget.color == AppColors.scrim,
+      ),
+      findsNothing,
+    );
+
+    await tester.tapAt(tester.getCenter(find.text('前の行動を追加')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('エクスポート'), findsNothing);
+    expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
+  });
+
+  testWidgets('edit sheet consumes header action while closing', (tester) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    final blockId = containerFor(
+      tester,
+    ).read(timelineProvider).blocks.single.id;
+    containerFor(tester).read(timelineProvider.notifier).selectBlock(blockId);
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動を編集'), findsOneWidget);
+
+    await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動を編集'), findsNothing);
+    expect(find.text('行動タイトルを検索'), findsNothing);
   });
 
   testWidgets('condensed density renders a short action block', (tester) async {

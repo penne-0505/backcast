@@ -286,7 +286,7 @@ class _EditSheetState extends ConsumerState<EditSheet>
             topLeft: Radius.circular(AppRadius.xl),
             topRight: Radius.circular(AppRadius.xl),
           ),
-          boxShadow: AppShadows.sheet,
+          boxShadow: AppShadows.workSurface,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

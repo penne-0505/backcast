@@ -205,7 +205,7 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
         decoration: BoxDecoration(
           color: AppColors.canvas,
           border: const Border(bottom: BorderSide(color: AppColors.softGray)),
-          boxShadow: AppShadows.panel,
+          boxShadow: AppShadows.quickOverlay,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -115,6 +115,7 @@ void restoreDeletedBlock(Block block, int index)
 - `_handleSwipeDeleteBlock(String blockId)` は、削除前に block と index を取得し、既存の popover / sheet 状態を必要に応じて閉じてから削除する。
 - 削除通知表示前に `ScaffoldMessenger.of(context).hideCurrentSnackBar()` を呼び、通知を単一化する。
 - `SnackBarClosedReason.action` または overlay button callback で復元済みかどうかを記録し、timeout 後の遅延 callback が復元状態を壊さないようにする。
+- `SnackBarAction` を付けた標準 `SnackBar` は Flutter 側で永続表示扱いになり、`duration` だけでは timeout しない場合がある。action 付き通知を短時間で閉じる仕様では、`persist: false` を明示し、必要に応じて画面 local timer で同一 pending delete だけを閉じる。undo、次の削除、`closed` callback、`dispose` では timer を cancel し、widget test で timeout 後に通知と action が消えることを確認する。
 - view mode が compact に切り替わった場合、通知は閉じてもよい。復元 snapshot は通知 timeout まで保持してもよいが、初期実装では表示と状態の寿命を合わせる。
 - notification / restore は persistence debounce と競合しうる。削除直後に auto-save が走っても、undo が同じ plan state を再更新すればよい。特別な persistence rollback は作らない。
 - header 高さは既存 layout から定数または `MediaQuery.padding.top` を使って算出する。magic number だけで画面上端からの margin を決めない。

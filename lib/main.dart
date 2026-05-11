@@ -45,6 +45,10 @@ class MedoApp extends ConsumerWidget {
           await Purchases.logOut();
         }
         ref.invalidate(currentProEntitlementProvider);
+        ref.invalidate(billingProvider);
+        ref.invalidate(subscriptionManagementUrlProvider);
+        ref.invalidate(proPackageProvider);
+        ref.read(billingProvider);
         return;
       }
 

@@ -185,21 +185,8 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
     final contentBottomPadding = isPopover ? 18.0 : 20.0 + bottomPadding;
     final listMaxHeight = isPopover ? 300.0 : 360.0;
     final boxShadow = isPopover
-        ? [
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.14),
-              blurRadius: 28,
-              spreadRadius: -4,
-              offset: const Offset(0, 14),
-            ),
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.08),
-              blurRadius: 10,
-              spreadRadius: -2,
-              offset: const Offset(0, 4),
-            ),
-          ]
-        : AppShadows.sheet;
+        ? AppShadows.quickOverlay
+        : AppShadows.workSurface;
 
     return Material(
       color: Colors.transparent,

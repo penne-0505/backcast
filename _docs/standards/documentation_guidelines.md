@@ -10,6 +10,7 @@
 
 ## 関連ドキュメント
 - `_docs/standards/documentation_operations.md`: draft/plan を中心とした運用ルールと自動化ロードマップ
+- `_docs/standards/ui_layering.md`: Medo UI の layer model と入力イベント所有権の標準
 - `_docs/documentation_guide.md`: ドキュメント執筆者向けの実務ガイドライン
 
 ## ドキュメントの目的

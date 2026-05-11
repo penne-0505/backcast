@@ -1,7 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:medo/billing/billing_providers.dart';
+import 'package:medo/billing/gate_helper.dart';
+import 'package:medo/billing/paywall_screen.dart';
+import 'package:medo/auth/auth_providers.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 void main() {
@@ -49,6 +53,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue('user-id'),
           revenueCatGatewayProvider.overrideWithValue(gateway),
         ],
       );
@@ -72,6 +77,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue('user-id'),
           revenueCatGatewayProvider.overrideWithValue(gateway),
         ],
       );
@@ -98,6 +104,7 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             revenueCatBillingAvailableProvider.overrideWithValue(true),
+            currentUserIdProvider.overrideWithValue('user-id'),
             revenueCatGatewayProvider.overrideWithValue(gateway),
           ],
         );
@@ -112,6 +119,53 @@ void main() {
         expect(state.purchaseMessage, '購入情報を復元しました。Pro状態を再確認しています。');
       },
     );
+
+    test('purchase requires an authenticated user', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue(null),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingProvider.future);
+      final package = await container.read(proPackageProvider.future);
+      await container
+          .read(billingProvider.notifier)
+          .purchaseProPackage(package!.package);
+
+      final state = container.read(billingProvider).requireValue;
+      expect(gateway.purchaseCount, 0);
+      expect(state.purchaseStatus, BillingPurchaseStatus.failed);
+      expect(state.purchaseMessage, 'Proの購入にはログインが必要です。設定からログインしてください。');
+    });
+
+    test('restore requires an authenticated user', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue(null),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingProvider.future);
+      await container.read(billingProvider.notifier).restorePurchases();
+
+      final state = container.read(billingProvider).requireValue;
+      expect(gateway.restoreCount, 0);
+      expect(state.purchaseStatus, BillingPurchaseStatus.failed);
+      expect(state.purchaseMessage, '購入の復元にはログインが必要です。設定からログインしてください。');
+    });
 
     test(
       'unsupported platforms stay Free without calling RevenueCat',
@@ -150,6 +204,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue('user-id'),
           revenueCatGatewayProvider.overrideWithValue(gateway),
         ],
       );
@@ -175,6 +230,7 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             revenueCatBillingAvailableProvider.overrideWithValue(true),
+            currentUserIdProvider.overrideWithValue('user-id'),
             revenueCatGatewayProvider.overrideWithValue(gateway),
           ],
         );
@@ -212,6 +268,65 @@ void main() {
         expect(gateway.customerInfoCount, 0);
       },
     );
+
+    test('signed-out billing state skips RevenueCat customer info', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+        managementURL: 'https://play.google.com/store/account/subscriptions',
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue(null),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final billing = await container.read(billingProvider.future);
+      final url = await container.read(
+        subscriptionManagementUrlProvider.future,
+      );
+
+      expect(billing.isPro, isFalse);
+      expect(url, isNull);
+      expect(gateway.customerInfoCount, 0);
+    });
+
+    testWidgets('paywall shows product but blocks purchase while signed out', (
+      tester,
+    ) async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            revenueCatBillingAvailableProvider.overrideWithValue(true),
+            currentUserIdProvider.overrideWithValue(null),
+            revenueCatGatewayProvider.overrideWithValue(gateway),
+          ],
+          child: const MaterialApp(
+            home: PaywallScreen(feature: PaywallFeature.timelineCount),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Medo Pro'), findsOneWidget);
+      expect(find.text('¥480 / 月額'), findsOneWidget);
+
+      await tester.tap(find.text('Proにアップグレード'));
+      await tester.pump();
+
+      expect(gateway.purchaseCount, 0);
+      expect(find.text('Proの購入にはログインが必要です。設定からログインしてください。'), findsOneWidget);
+    });
   });
 }
 

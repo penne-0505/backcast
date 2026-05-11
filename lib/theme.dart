@@ -90,6 +90,23 @@ abstract final class AppShadows {
     ),
   ];
 
+  static List<BoxShadow> get workSurface => sheet;
+
+  static List<BoxShadow> get quickOverlay => [
+    BoxShadow(
+      color: AppColors.ink.withValues(alpha: 0.14),
+      blurRadius: 28,
+      spreadRadius: -4,
+      offset: const Offset(0, 14),
+    ),
+    BoxShadow(
+      color: AppColors.ink.withValues(alpha: 0.08),
+      blurRadius: 10,
+      spreadRadius: -2,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
   static List<BoxShadow> get panel => [
     BoxShadow(
       color: AppColors.ink.withValues(alpha: 0.08),

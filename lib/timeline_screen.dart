@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -300,9 +299,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   Timer? _saveIndicatorTimer;
 
   void _toggleExportPanel() {
-    FocusManager.instance.primaryFocus?.unfocus();
+    if (_dismissWorkSurfaceIfNeeded()) return;
     if (_closeHeaderPopovers()) return;
     if (_dismissTemplateSheetIfNeeded()) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
     setState(() {
       _timelineListVisible = false;
       _templateSheetVisible = false;
@@ -312,11 +313,23 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   void _closeExportPanel() => setState(() => _exportPanelVisible = false);
 
+  bool _dismissWorkSurfaceIfNeeded() {
+    if (_sheetVisible) {
+      _dismissSheet();
+      return true;
+    }
+    if (_timelineListVisible) {
+      _closeTimelineList();
+      return true;
+    }
+    return false;
+  }
+
   void _showTimelineList() {
     FocusManager.instance.primaryFocus?.unfocus();
     _endReorderOverview();
-    if (_closeHeaderPopovers()) return;
-    if (_dismissTemplateSheetIfNeeded()) return;
+    _closeHeaderPopovers();
+    if (_templateSheetVisible) _dismissTemplateSheet();
     if (_sheetVisible) _dismissSheet();
     if (_isSearchActive) _closeSearch();
     ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
@@ -456,8 +469,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void _showSheet() {
     FocusManager.instance.primaryFocus?.unfocus();
     _endReorderOverview();
-    if (_closeHeaderPopovers()) return;
-    if (_dismissTemplateSheetIfNeeded()) return;
+    _closeHeaderPopovers();
+    if (_templateSheetVisible) _dismissTemplateSheet();
+    if (_timelineListVisible) _closeTimelineList();
     setState(() {
       _templateSheetVisible = false;
       _sheetVisible = true;
@@ -472,6 +486,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void _showTemplateSheet() {
     _endReorderOverview();
     if (_closeHeaderPopovers()) return;
+    if (_dismissWorkSurfaceIfNeeded()) return;
     final proAccess = ref.read(effectiveProAccessProvider);
     if (proAccess.isLoading) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -491,7 +506,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    if (_sheetVisible) _dismissSheet();
     if (_isSearchActive) _closeSearch();
     ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
     setState(() {
@@ -736,15 +750,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   // ── Search ───────────────────────────────────────────────────────────────
 
   void _openSearch() {
+    if (_dismissWorkSurfaceIfNeeded()) return;
     if (_exportPanelVisible) {
       _closeHeaderPopovers();
       return;
     }
     if (_dismissTemplateSheetIfNeeded()) return;
     _dismissInlineEditorIfNeeded();
-    if (_sheetVisible) _dismissSheet();
     if (_exportPanelVisible) _closeExportPanel();
-    if (_timelineListVisible) _closeTimelineList();
     setState(() => _isSearchActive = true);
   }
 
@@ -848,6 +861,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               onExportTap: _toggleExportPanel,
               saveIndicatorVisible: _saveIndicatorVisible,
               onSettingsTap: () {
+                if (_dismissWorkSurfaceIfNeeded()) return;
                 if (_closeHeaderPopovers()) return;
                 if (_dismissTemplateSheetIfNeeded()) return;
                 Navigator.of(context).push(
@@ -1018,13 +1032,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   if (_sheetVisible)
                     Positioned.fill(
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: _dismissSheet,
-                        child: ClipRect(
-                          child: BackdropFilter(
-                            filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                            child: Container(color: AppColors.scrim),
-                          ),
-                        ),
+                        child: Container(color: AppColors.scrim),
                       ),
                     ),
 
@@ -1175,13 +1185,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       ),
                     ),
 
-                  // エクスポートパネル（バックドロップ + パネル本体）
+                  // エクスポートパネル（Quick Overlay）
                   if (_exportPanelVisible) ...[
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: _closeExportPanel,
-                        child: Container(color: AppColors.scrim),
+                        child: const SizedBox.expand(),
                       ),
                     ),
                     Positioned(
@@ -1355,19 +1365,8 @@ class _SearchPopover extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.08),
-              blurRadius: 16,
-              spreadRadius: -2,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: AppColors.softGray.withValues(alpha: 0.55)),
+          boxShadow: AppShadows.quickOverlay,
         ),
         child: Row(
           children: [
@@ -1989,7 +1988,7 @@ class _TimelineListIslandModalState
         decoration: BoxDecoration(
           color: AppColors.canvas,
           borderRadius: BorderRadius.circular(AppRadius.xl),
-          boxShadow: AppShadows.sheet,
+          boxShadow: AppShadows.workSurface,
           border: Border.all(color: AppColors.softGray),
         ),
         child: Padding(
