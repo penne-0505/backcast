@@ -31,7 +31,8 @@ related_prs: []
 - **Returns**: なし
 - **Errors**: なし
 - **Examples**:
-  - `kPixelsPerMinute = 6.0`: 1 分あたり 6px としてブロック高さを計算
+  - `kPixelsPerMinute = 5.5`: 詳細編集時の 1 分あたり px。旧 zoom slider の `0.9x` 相当を標準密度とする
+  - `kOverviewPixelsPerMinute = 3.0`: 俯瞰時、および移動ハンドルから始めた並び替え中の一時俯瞰で使う 1 分あたり px
   - `kSnapMinutes = 5`: 通常ドラッグ時のスナップ粒度
   - `kBufferStepMinutes = 5`: 行動ごとの余裕時間の編集粒度
   - `kMaxActionBufferMinutes = 60`: `action.bufferMinutes` の絶対上限
@@ -44,8 +45,8 @@ related_prs: []
 - **Returns**: `TimelineViewMode.edit` または `TimelineViewMode.compact`
 - **Errors**: なし
 - **Examples**:
-  - `edit`: 時間比例の編集ビュー。ドラッグ並び替え、所要時間調整、インライン編集が可能
-  - `compact`: 固定高さ行の俯瞰ビュー。一覧性と並び替えに特化し、直接編集は行わない
+  - `edit`: 詳細編集ビュー。ドラッグ並び替え、所要時間調整、インライン編集が可能
+  - `compact`: 同じ timeline renderer を低密度で読む俯瞰表示。直接編集は行わない
 
 ### `enum BlockType`
 
@@ -169,7 +170,7 @@ related_prs: []
   - `selectedBlockId (String?)`: `null | kTargetTimeId | block.id`
   - `preciseDraggingId (String?)`: precise ドラッグ中のブロック ID
   - `activeInlineEditorId (String?)`: フォーカス中のインラインエディタ ID
-  - `pixelsPerMinute (double)`: 編集ビューの時間軸表示密度。初期値は `kPixelsPerMinute`
+  - `pixelsPerMinute (double)`: 時間軸表示密度。詳細編集の初期値は `kPixelsPerMinute`
   - `viewMode (TimelineViewMode)`: 表示モード。初期値は `TimelineViewMode.edit`
   - `searchQuery (String)`: 現在の検索クエリ。空文字がデフォルト
   - `searchMatches (List<String>)`: 検索一致したブロック ID のリスト。タイムライン順（過去→目標）
@@ -181,8 +182,9 @@ related_prs: []
 - **Examples**:
   - 選択中の目標アンカーは `selectedBlockId == kTargetTimeId`
   - インライン編集中は `activeInlineEditorId != null` になる
-  - Compact Overview 表示中は `viewMode == TimelineViewMode.compact` になる
+  - 俯瞰表示中は `viewMode == TimelineViewMode.compact` になる
   - 検索 UI state は plan persistence に保存されない
+  - 移動ハンドルから始めた並び替え中の一時俯瞰は `TimelineScreen` の local state で扱い、`TimelineState.viewMode` や永続化対象の `pixelsPerMinute` は変更しない
 
 ### `class TimelineNotifier`
 
@@ -201,9 +203,11 @@ related_prs: []
 - **Returns**: なし
 - **Errors**: なし
 - **Examples**:
-  - ヘッダーの切り替えボタンから呼ばれる
+  - 左下の表示切り替えボタンから呼ばれる
 - **Notes**:
-  - Compact Overview から編集ビューに戻る際に `selectBlock` と同時に使われることがある
+  - `TimelineViewMode.edit` へ切り替えると `pixelsPerMinute` は `kPixelsPerMinute` になる
+  - `TimelineViewMode.compact` へ切り替えると `pixelsPerMinute` は `kOverviewPixelsPerMinute` になる
+  - 切り替え時に選択、precise drag、inline editor はクリアされる
   - `viewMode` 自体は永続化対象に含めない
 
 ### `TimelineNotifier.setSearchQuery(String query)`
@@ -368,6 +372,9 @@ related_prs: []
 - **Errors**: `fromIndex` 範囲外は無視
 - **Examples**:
   - `SliverReorderableList` の `onReorder` から呼ばれる
+- **Notes**:
+  - 編集ビューの移動ハンドルを短く hold すると、UI は local state で一時的に overview density を使う
+  - 実際の順序変更は従来通り `SliverReorderableList.onReorder` からこのメソッドへ渡される
 
 ### `TimelineNotifier.reorderBlock(String id, int insertBefore)`
 
@@ -408,16 +415,16 @@ related_prs: []
 
 ### `TimelineNotifier.setPixelsPerMinute(double value)`
 
-- **Summary**: 編集ビューの時間軸表示密度を更新する
+- **Summary**: 時間軸表示密度を更新する
 - **Parameters**:
-  - `value (double)`: 1 分あたりの表示 px。`3.0` から `kPixelsPerMinute` の範囲へ丸められる
+  - `value (double)`: 1 分あたりの表示 px。`kOverviewPixelsPerMinute` から `kPixelsPerMinute` の範囲へ丸められる
 - **Returns**: なし
 - **Errors**: なし
 - **Examples**:
-  - 表示密度ポップオーバーの吸い付き付きスライダーから呼ばれる
+  - pinch zoom など補助的な密度更新経路から呼ばれる
 - **Notes**:
   - `pixelsPerMinute` は一時 UI 状態であり、plan persistence には保存しない
-  - 長時間計画の俯瞰には Compact Overview を使い、この値は編集ビュー内の読みやすさ調整として扱う
+  - 主導線では `setViewMode` による詳細編集 / 俯瞰の二段階切り替えを使う
 
 ### `TimelineNotifier.applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise)`
 

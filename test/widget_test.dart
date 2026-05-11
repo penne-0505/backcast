@@ -307,38 +307,117 @@ void main() {
     expect(find.text('画像で共有'), findsOneWidget);
   });
 
-  testWidgets('display density slider updates pixels per minute', (
+  testWidgets('density toggle switches between edit and overview densities', (
     tester,
   ) async {
     await pumpMedoApp(tester);
 
-    await tester.tap(find.byIcon(PhosphorIcons.slidersHorizontal()));
-    await tester.pumpAndSettle();
-
-    expect(find.text('表示の広さ'), findsOneWidget);
-    expect(find.text('1.0x'), findsOneWidget);
-    expect(find.byType(Slider), findsOneWidget);
-
-    await tester.drag(find.byType(Slider), const Offset(-300, 0));
-    await tester.pumpAndSettle();
-
-    final ppm = containerFor(tester).read(timelineProvider).pixelsPerMinute;
-    expect(ppm, lessThan(kPixelsPerMinute));
-    expect(ppm * 2, (ppm * 2).roundToDouble());
-
-    await tester.tap(find.byIcon(PhosphorIcons.arrowCounterClockwise()));
-    await tester.pumpAndSettle();
-
+    expect(find.byIcon(PhosphorIcons.slidersHorizontal()), findsNothing);
     expect(
       containerFor(tester).read(timelineProvider).pixelsPerMinute,
       kPixelsPerMinute,
     );
-    expect(find.text('1.0x'), findsOneWidget);
+    expect(
+      containerFor(tester).read(timelineProvider).viewMode,
+      TimelineViewMode.edit,
+    );
+    expect(
+      tester.getBottomLeft(find.text('目標時刻')).dy,
+      lessThan(tester.getTopLeft(find.byIcon(PhosphorIcons.squaresFour())).dy),
+    );
 
-    await tester.tap(find.text('前の行動を追加しましょう'), warnIfMissed: false);
+    await tester.tap(find.byIcon(PhosphorIcons.squaresFour()));
     await tester.pumpAndSettle();
 
-    expect(find.text('表示の広さ'), findsNothing);
+    expect(
+      containerFor(tester).read(timelineProvider).viewMode,
+      TimelineViewMode.compact,
+    );
+    expect(
+      containerFor(tester).read(timelineProvider).pixelsPerMinute,
+      kOverviewPixelsPerMinute,
+    );
+
+    await tester.tap(find.byIcon(PhosphorIcons.listDashes()));
+    await tester.pumpAndSettle();
+
+    expect(
+      containerFor(tester).read(timelineProvider).viewMode,
+      TimelineViewMode.edit,
+    );
+    expect(
+      containerFor(tester).read(timelineProvider).pixelsPerMinute,
+      kPixelsPerMinute,
+    );
+  });
+
+  testWidgets('reorder handle waits for hold before overview density', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+    containerFor(tester)
+        .read(timelineProvider.notifier)
+        .loadState(
+          const TimelineState(
+            blocks: [
+              Block(
+                id: 'long-action',
+                type: BlockType.action,
+                title: '長い作業',
+                duration: 60,
+                colorIndex: 0,
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    final blockItemFinder = find.byType(BlockItem);
+    final initialPpm = tester
+        .widget<BlockItem>(blockItemFinder)
+        .pixelsPerMinute;
+    final handlePosition = tester.getCenter(
+      find.byKey(const ValueKey('reorder-handle:long-action')),
+    );
+
+    final gesture = await tester.startGesture(handlePosition);
+    await tester.pump();
+
+    expect(
+      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      initialPpm,
+    );
+
+    await tester.pump(const Duration(milliseconds: 170));
+
+    expect(
+      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      initialPpm,
+    );
+
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pump();
+
+    expect(
+      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      kOverviewPixelsPerMinute,
+    );
+    expect(
+      containerFor(tester).read(timelineProvider).pixelsPerMinute,
+      kPixelsPerMinute,
+    );
+    expect(
+      containerFor(tester).read(timelineProvider).viewMode,
+      TimelineViewMode.edit,
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      initialPpm,
+    );
   });
 
   testWidgets('header search closes when timeline focus moves elsewhere', (
@@ -440,7 +519,10 @@ void main() {
       expect(tester.testTextInput.hasAnyClients, isFalse);
       expect(find.text('行動を編集'), findsNothing);
 
-      await tester.tapAt(blockCenter);
+      final blockId = containerFor(
+        tester,
+      ).read(timelineProvider).blocks.single.id;
+      containerFor(tester).read(timelineProvider.notifier).selectBlock(blockId);
       await tester.pumpAndSettle();
 
       expect(find.text('行動を編集'), findsOneWidget);
@@ -506,7 +588,10 @@ void main() {
     await tester.tap(find.text('前の行動を追加'));
     await tester.pump();
 
-    await tester.tapAt(tester.getCenter(find.byType(BlockItem)));
+    final blockId = containerFor(
+      tester,
+    ).read(timelineProvider).blocks.single.id;
+    containerFor(tester).read(timelineProvider.notifier).selectBlock(blockId);
     await tester.pumpAndSettle();
 
     expect(find.text('行動を編集'), findsOneWidget);

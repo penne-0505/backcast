@@ -110,7 +110,11 @@ class BlockItem extends ConsumerStatefulWidget {
     required this.allBlocks,
     required this.index,
     required this.sourceIndex,
+    required this.pixelsPerMinute,
     this.sheetVisible = false,
+    this.readOnly = false,
+    this.onReorderIntentStart,
+    this.onReorderIntentEnd,
     this.onActionBufferDoubleTap,
   });
 
@@ -121,7 +125,11 @@ class BlockItem extends ConsumerStatefulWidget {
   final List<Block> allBlocks;
   final int index;
   final int sourceIndex;
+  final double pixelsPerMinute;
   final bool sheetVisible;
+  final bool readOnly;
+  final void Function(String blockId)? onReorderIntentStart;
+  final void Function(String blockId)? onReorderIntentEnd;
   final void Function(String blockId)? onActionBufferDoubleTap;
 
   @override
@@ -133,6 +141,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   late final FocusNode _titleFocusNode;
   Offset? _swipeStart;
   Offset _swipeDelta = Offset.zero;
+  bool _animateHeightChange = false;
 
   String get _inlineEditorId => 'block-title:${widget.computedBlock.block.id}';
 
@@ -147,6 +156,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   @override
   void didUpdateWidget(BlockItem old) {
     super.didUpdateWidget(old);
+    _animateHeightChange = old.pixelsPerMinute != widget.pixelsPerMinute;
     // Sync title from external changes (e.g., edit sheet)
     final newTitle = widget.computedBlock.block.title;
     if (newTitle != old.computedBlock.block.title &&
@@ -181,6 +191,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   bool _dismissInlineEditorIfNeeded() {
     if (ref.read(timelineProvider).activeInlineEditorId == null) return false;
     FocusManager.instance.primaryFocus?.unfocus();
+    ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
     return true;
   }
 
@@ -194,6 +205,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   void _handleSidebarDoubleTap(int insertIndex) {
+    if (widget.readOnly) return;
     if (widget.sheetVisible) return;
     if (_dismissInlineEditorIfNeeded()) return;
     if (widget.preciseDraggingId != null) return;
@@ -202,6 +214,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   Future<bool> _confirmSwipeDelete() async {
+    if (widget.readOnly) return false;
     if (widget.sheetVisible) return false;
     if (_dismissInlineEditorIfNeeded()) return false;
     if (widget.preciseDraggingId != null) return false;
@@ -216,6 +229,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   void _handleActionBodyDoubleTap(Block block) {
+    if (widget.readOnly) return;
     if (widget.sheetVisible) return;
     if (_dismissInlineEditorIfNeeded()) return;
     if (widget.preciseDraggingId != null) return;
@@ -224,6 +238,8 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   Widget _wrapSwipeDelete({required Block block, required Widget child}) {
+    if (widget.readOnly) return child;
+
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
@@ -282,7 +298,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   Widget _buildDuration(Block block, TimelineNotifier notifier) {
-    final ppm = ref.watch(timelineProvider.select((s) => s.pixelsPerMinute));
+    final ppm = widget.pixelsPerMinute;
     final isOverview = ppm < kOverviewThresholdPpm;
     final bufferMinutes = block.normalizedBufferMinutes;
     final effectiveDuration = block.effectiveDuration;
@@ -316,7 +332,12 @@ class _BlockItemState extends ConsumerState<BlockItem> {
     final startTime = widget.computedBlock.startTime;
     final actionEndTime = startTime + block.duration;
 
-    return SizedBox(
+    return AnimatedContainer(
+      key: ValueKey('block-item-body:${block.id}'),
+      duration: _animateHeightChange
+          ? const Duration(milliseconds: 160)
+          : Duration.zero,
+      curve: Curves.easeOutCubic,
       height: height,
       child: Stack(
         clipBehavior: Clip.none,
@@ -345,7 +366,9 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                       child: _wrapSwipeDelete(
                         block: block,
                         child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
+                            if (widget.readOnly) return;
                             if (_dismissInlineEditorIfNeeded()) return;
                             notifier.selectBlock(block.id);
                           },
@@ -436,16 +459,23 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                                       controller: _titleCtrl,
                                                       focusNode:
                                                           _titleFocusNode,
+                                                      readOnly: widget.readOnly,
+                                                      canRequestFocus:
+                                                          !widget.readOnly,
                                                       maxLines: 1,
                                                       textInputAction:
                                                           TextInputAction.done,
-                                                      onChanged: (v) =>
-                                                          notifier.updateBlock(
-                                                            block.id,
-                                                            (b) => b.copyWith(
-                                                              title: v,
-                                                            ),
-                                                          ),
+                                                      onChanged: widget.readOnly
+                                                          ? null
+                                                          : (v) => notifier
+                                                                .updateBlock(
+                                                                  block.id,
+                                                                  (b) => b
+                                                                      .copyWith(
+                                                                        title:
+                                                                            v,
+                                                                      ),
+                                                                ),
                                                       onTap: () {},
                                                       onTapOutside: (_) =>
                                                           FocusManager
@@ -503,6 +533,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
                                           onTap: () {
+                                            if (widget.readOnly) return;
                                             if (_dismissInlineEditorIfNeeded()) {
                                               return;
                                             }
@@ -560,29 +591,35 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                       ),
                     ),
                     // Reorder handle
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: pillAndHandleBottomInset,
-                      width: 52,
-                      child: _QuickReorderListener(
-                        index: widget.index,
-                        child: Semantics(
-                          label: '並び替え',
-                          child: SizedBox.expand(
-                            child: Center(
-                              child: _ReorderHandleIcon(
-                                color: AppColors.mutedInk.withValues(
-                                  alpha: 0.5,
+                    if (!widget.readOnly)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        bottom: pillAndHandleBottomInset,
+                        width: 52,
+                        child: _QuickReorderListener(
+                          index: widget.index,
+                          onReorderIntentStart: () =>
+                              widget.onReorderIntentStart?.call(block.id),
+                          onReorderIntentEnd: () =>
+                              widget.onReorderIntentEnd?.call(block.id),
+                          child: Semantics(
+                            key: ValueKey('reorder-handle:${block.id}'),
+                            label: '並び替え',
+                            child: SizedBox.expand(
+                              child: Center(
+                                child: _ReorderHandleIcon(
+                                  color: AppColors.mutedInk.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
                     // Drag handle
-                    if (!isOverview)
+                    if (!isOverview && !widget.readOnly)
                       Positioned(
                         top: -_DragHandle.overhang,
                         left: 0,
@@ -632,7 +669,9 @@ class _BlockItemState extends ConsumerState<BlockItem> {
               child: _wrapSwipeDelete(
                 block: block,
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
+                    if (widget.readOnly) return;
                     if (_dismissInlineEditorIfNeeded()) return;
                     notifier.selectBlock(block.id);
                   },
@@ -678,12 +717,16 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                               child: TextField(
                                 controller: _titleCtrl,
                                 focusNode: _titleFocusNode,
+                                readOnly: widget.readOnly,
+                                canRequestFocus: !widget.readOnly,
                                 maxLines: 1,
                                 textInputAction: TextInputAction.done,
-                                onChanged: (v) => notifier.updateBlock(
-                                  block.id,
-                                  (b) => b.copyWith(title: v),
-                                ),
+                                onChanged: widget.readOnly
+                                    ? null
+                                    : (v) => notifier.updateBlock(
+                                        block.id,
+                                        (b) => b.copyWith(title: v),
+                                      ),
                                 onTap: () {},
                                 onTapOutside: (_) => FocusManager
                                     .instance
@@ -703,22 +746,28 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                             ),
                           ),
                         ),
-                        _QuickReorderListener(
-                          index: widget.index,
-                          child: Semantics(
-                            label: '並び替え',
-                            child: SizedBox(
-                              width: 52,
-                              child: Center(
-                                child: _ReorderHandleIcon(
-                                  color: AppColors.mutedInk.withValues(
-                                    alpha: 0.5,
+                        if (!widget.readOnly)
+                          _QuickReorderListener(
+                            index: widget.index,
+                            onReorderIntentStart: () =>
+                                widget.onReorderIntentStart?.call(block.id),
+                            onReorderIntentEnd: () =>
+                                widget.onReorderIntentEnd?.call(block.id),
+                            child: Semantics(
+                              key: ValueKey('reorder-handle:${block.id}'),
+                              label: '並び替え',
+                              child: SizedBox(
+                                width: 52,
+                                child: Center(
+                                  child: _ReorderHandleIcon(
+                                    color: AppColors.mutedInk.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -1217,18 +1266,35 @@ class _DragHandleState extends State<_DragHandle> {
 // Quick Reorder Listener (200ms delay)
 // ---------------------------------------------------------------------------
 
-class _QuickReorderListener extends StatelessWidget {
-  const _QuickReorderListener({required this.index, required this.child});
+class _QuickReorderListener extends StatefulWidget {
+  const _QuickReorderListener({
+    required this.index,
+    required this.child,
+    this.onReorderIntentStart,
+    this.onReorderIntentEnd,
+  });
 
   final int index;
   final Widget child;
+  final VoidCallback? onReorderIntentStart;
+  final VoidCallback? onReorderIntentEnd;
+
+  @override
+  State<_QuickReorderListener> createState() => _QuickReorderListenerState();
+}
+
+class _QuickReorderListenerState extends State<_QuickReorderListener> {
+  int? _activePointer;
 
   @override
   Widget build(BuildContext context) {
     return Listener(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (PointerDownEvent event) => _startDragging(context, event),
-      child: child,
+      onPointerDown: (PointerDownEvent event) =>
+          _handlePointerDown(context, event),
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerCancel,
+      child: widget.child,
     );
   }
 
@@ -1239,14 +1305,28 @@ class _QuickReorderListener extends StatelessWidget {
     );
   }
 
-  void _startDragging(BuildContext context, PointerDownEvent event) {
+  void _handlePointerDown(BuildContext context, PointerDownEvent event) {
+    _activePointer = event.pointer;
+    widget.onReorderIntentStart?.call();
+
     final gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
     final list = SliverReorderableList.maybeOf(context);
     if (list == null) return;
     list.startItemDragReorder(
-      index: index,
+      index: widget.index,
       event: event,
       recognizer: createRecognizer()..gestureSettings = gestureSettings,
     );
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    if (_activePointer != event.pointer) return;
+    _activePointer = null;
+    widget.onReorderIntentEnd?.call();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (_activePointer != event.pointer) return;
+    _activePointer = null;
   }
 }

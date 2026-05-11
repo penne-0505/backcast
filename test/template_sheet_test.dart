@@ -158,7 +158,7 @@ void main() {
     });
 
     testWidgets(
-      'toolbar action remains available while template popover is open',
+      'toolbar action first closes template popover before running next tap',
       (tester) async {
         await setLargeScreen(tester);
         await pumpMedoApp(tester);
@@ -169,10 +169,15 @@ void main() {
 
         expect(find.byType(TemplateSheet), findsOneWidget);
 
-        await tester.tap(find.text('前の行動を追加'));
+        await tester.tap(find.text('前の行動を追加'), warnIfMissed: false);
         await tester.pumpAndSettle();
 
         expect(find.byType(TemplateSheet), findsNothing);
+        expect(_containerFor(tester).read(timelineProvider).blocks, isEmpty);
+
+        await tester.tap(find.text('前の行動を追加'));
+        await tester.pumpAndSettle();
+
         expect(_containerFor(tester).read(timelineProvider).blocks.length, 1);
       },
     );

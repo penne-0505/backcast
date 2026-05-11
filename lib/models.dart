@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-const double kPixelsPerMinute = 6.0;
+const double kPixelsPerMinute = 5.5;
+const double kOverviewPixelsPerMinute = 3.0;
 const int kSnapMinutes = 5;
 const int kBufferStepMinutes = 5;
 const int kMaxActionBufferMinutes = 60;

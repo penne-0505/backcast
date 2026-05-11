@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'block_item.dart';
-import 'compact_overview.dart';
 import 'edit_sheet.dart';
 import 'models.dart';
 import 'persistence/persistence_providers.dart';
@@ -20,6 +19,17 @@ import 'settings/settings_screen.dart';
 import 'state.dart';
 import 'template_sheet.dart';
 import 'theme.dart';
+
+const _floatingControlBottomInset = 16.0;
+const _floatingControlSize = 56.0;
+const _floatingControlStackGap = 12.0;
+const _timelineBottomExtraSpacer = 16.0;
+const _timelineBottomSpacer =
+    _floatingControlBottomInset +
+    _floatingControlSize +
+    _floatingControlStackGap +
+    _floatingControlSize +
+    _timelineBottomExtraSpacer;
 
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
@@ -34,8 +44,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   bool _templateSheetVisible = false;
   bool _timelineListVisible = false;
   bool _timelineSwitching = false;
-  bool _zoomPopoverVisible = false;
   bool _suppressAutoSave = false;
+  String? _pendingReorderOverviewBlockId;
+  String? _reorderOverviewBlockId;
+  Timer? _reorderOverviewTimer;
   final Map<int, Offset> _activePointers = {};
   double _basePixelsPerMinute = kPixelsPerMinute;
   double _initialPinchDistance = 0;
@@ -69,7 +81,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final pts = _activePointers.values.toList();
     final dist = (pts[0] - pts[1]).distance;
     final v = (_basePixelsPerMinute * dist / _initialPinchDistance).clamp(
-      3.0,
+      kOverviewPixelsPerMinute,
       kPixelsPerMinute,
     );
     _pendingPixelsPerMinute = v;
@@ -99,6 +111,43 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (ref.read(timelineProvider).activeInlineEditorId == null) return false;
     FocusManager.instance.primaryFocus?.unfocus();
     return true;
+  }
+
+  bool get _isReorderOverviewActive => _reorderOverviewBlockId != null;
+
+  void _scheduleReorderOverview(String blockId) {
+    if (ref.read(timelineProvider).viewMode != TimelineViewMode.edit) return;
+    _pendingReorderOverviewBlockId = blockId;
+    _reorderOverviewTimer?.cancel();
+    _reorderOverviewTimer = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted || _pendingReorderOverviewBlockId != blockId) return;
+      _startReorderOverview(blockId);
+    });
+  }
+
+  void _startReorderOverview(String blockId) {
+    _pendingReorderOverviewBlockId = null;
+    _reorderOverviewTimer?.cancel();
+    _reorderOverviewTimer = null;
+    _dismissInlineEditorIfNeeded();
+    if (_sheetVisible) _dismissSheet();
+    if (_templateSheetVisible) _dismissTemplateSheet();
+    if (_timelineListVisible) _closeTimelineList();
+    if (_isSearchActive || _exportPanelVisible) _closeHeaderPopovers();
+    if (!mounted || _reorderOverviewBlockId == blockId) return;
+    setState(() => _reorderOverviewBlockId = blockId);
+  }
+
+  void _endReorderOverview([String? blockId]) {
+    if (blockId == null || _pendingReorderOverviewBlockId == blockId) {
+      _pendingReorderOverviewBlockId = null;
+      _reorderOverviewTimer?.cancel();
+      _reorderOverviewTimer = null;
+    }
+    if (_reorderOverviewBlockId == null) return;
+    if (blockId != null && _reorderOverviewBlockId != blockId) return;
+    if (!mounted) return;
+    setState(() => _reorderOverviewBlockId = null);
   }
 
   Future<void> _saveCurrentPlanNow({TimelineState? state}) async {
@@ -151,6 +200,17 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       });
     });
 
+    ref.listenManual<String?>(
+      timelineProvider.select((s) => s.selectedBlockId),
+      (prev, next) {
+        if (next != null &&
+            !_sheetVisible &&
+            ref.read(timelineProvider).viewMode == TimelineViewMode.edit) {
+          _showSheet();
+        }
+      },
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         final repo = ref.read(planRepositoryProvider);
@@ -188,10 +248,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void _toggleExportPanel() {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_closeHeaderPopovers()) return;
+    if (_dismissTemplateSheetIfNeeded()) return;
     setState(() {
       _timelineListVisible = false;
       _templateSheetVisible = false;
-      _zoomPopoverVisible = false;
       _exportPanelVisible = !_exportPanelVisible;
     });
   }
@@ -200,14 +260,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   void _showTimelineList() {
     FocusManager.instance.primaryFocus?.unfocus();
+    _endReorderOverview();
     if (_closeHeaderPopovers()) return;
+    if (_dismissTemplateSheetIfNeeded()) return;
     if (_sheetVisible) _dismissSheet();
-    if (_templateSheetVisible) _dismissTemplateSheet();
     if (_isSearchActive) _closeSearch();
     ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
     setState(() {
       _exportPanelVisible = false;
-      _zoomPopoverVisible = false;
       _timelineListVisible = true;
     });
   }
@@ -341,7 +401,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   void _showSheet() {
     FocusManager.instance.primaryFocus?.unfocus();
+    _endReorderOverview();
     if (_closeHeaderPopovers()) return;
+    if (_dismissTemplateSheetIfNeeded()) return;
     setState(() {
       _templateSheetVisible = false;
       _sheetVisible = true;
@@ -354,6 +416,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   }
 
   void _showTemplateSheet() {
+    _endReorderOverview();
     if (_closeHeaderPopovers()) return;
     final proAccess = ref.read(effectiveProAccessProvider);
     if (proAccess.isLoading) {
@@ -379,7 +442,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     ref.read(timelineProvider.notifier).setActiveInlineEditor(null);
     setState(() {
       _timelineListVisible = false;
-      _zoomPopoverVisible = false;
       _exportPanelVisible = false;
       _templateSheetVisible = true;
     });
@@ -389,34 +451,21 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     setState(() => _templateSheetVisible = false);
   }
 
-  void _toggleZoomPopover() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    if (_isSearchActive || _exportPanelVisible) {
-      _closeHeaderPopovers();
-      return;
-    }
-    if (_sheetVisible) _dismissSheet();
-    if (_templateSheetVisible) _dismissTemplateSheet();
-    if (_timelineListVisible) _closeTimelineList();
-    setState(() {
-      _exportPanelVisible = false;
-      _zoomPopoverVisible = !_zoomPopoverVisible;
-    });
+  bool _dismissTemplateSheetIfNeeded() {
+    if (!_templateSheetVisible) return false;
+    _dismissTemplateSheet();
+    return true;
   }
-
-  void _closeZoomPopover() => setState(() => _zoomPopoverVisible = false);
 
   bool _closeHeaderPopovers() {
     final wasSearchActive = _isSearchActive;
-    final wasZoomPopoverVisible = _zoomPopoverVisible;
     final wasExportPanelVisible = _exportPanelVisible;
-    if (!wasSearchActive && !wasZoomPopoverVisible && !wasExportPanelVisible) {
+    if (!wasSearchActive && !wasExportPanelVisible) {
       return false;
     }
 
     setState(() {
       _isSearchActive = false;
-      _zoomPopoverVisible = false;
       _exportPanelVisible = false;
     });
 
@@ -491,11 +540,23 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   // display list = computed.reversed → display[k] = computed[n-1-k] = blocks[n-1-k]
   void _onReorder(int oldIndex, int newIndex) {
+    if (ref.read(timelineProvider).viewMode == TimelineViewMode.compact) return;
     if (newIndex > oldIndex) newIndex--;
     final n = ref.read(timelineProvider).blocks.length;
     ref
         .read(timelineProvider.notifier)
         .moveBlockByIndex(n - 1 - oldIndex, n - 1 - newIndex);
+  }
+
+  void _handleReorderStart(int index, List<ComputedBlock> computed) {
+    final n = computed.length;
+    final sourceIndex = n - 1 - index;
+    if (sourceIndex < 0 || sourceIndex >= computed.length) return;
+    _startReorderOverview(computed[sourceIndex].block.id);
+  }
+
+  void _handleReorderEnd(int index) {
+    _endReorderOverview();
   }
 
   Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
@@ -506,6 +567,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void dispose() {
     _saveDebounce?.cancel();
     _saveIndicatorTimer?.cancel();
+    _reorderOverviewTimer?.cancel();
     _clockTimer.cancel();
     _searchHighlightTimer?.cancel();
     _searchController.dispose();
@@ -517,15 +579,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   // ── Search ───────────────────────────────────────────────────────────────
 
   void _openSearch() {
-    if (_zoomPopoverVisible || _exportPanelVisible) {
+    if (_exportPanelVisible) {
       _closeHeaderPopovers();
       return;
     }
+    if (_dismissTemplateSheetIfNeeded()) return;
     _dismissInlineEditorIfNeeded();
     if (_sheetVisible) _dismissSheet();
     if (_exportPanelVisible) _closeExportPanel();
-    if (_zoomPopoverVisible) _closeZoomPopover();
-    if (_templateSheetVisible) _dismissTemplateSheet();
     if (_timelineListVisible) _closeTimelineList();
     setState(() => _isSearchActive = true);
   }
@@ -625,18 +686,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final proAccess = ref.watch(effectiveProAccessProvider);
     final isPro = proAccess.isPro;
     final notifier = ref.read(timelineProvider.notifier);
-
-    // Show sheet when a block becomes selected (edit view only)
-    ref.listen<String?>(timelineProvider.select((s) => s.selectedBlockId), (
-      prev,
-      next,
-    ) {
-      if (next != null &&
-          !_sheetVisible &&
-          state.viewMode == TimelineViewMode.edit) {
-        _showSheet();
-      }
-    });
+    final effectivePixelsPerMinute = _isReorderOverviewActive
+        ? kOverviewPixelsPerMinute
+        : state.pixelsPerMinute;
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -648,16 +700,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               exportPanelVisible: _exportPanelVisible,
               onExportTap: _toggleExportPanel,
               saveIndicatorVisible: _saveIndicatorVisible,
-              viewMode: state.viewMode,
-              onToggleViewMode: () {
-                if (_closeHeaderPopovers()) return;
-                final next = state.viewMode == TimelineViewMode.edit
-                    ? TimelineViewMode.compact
-                    : TimelineViewMode.edit;
-                notifier.setViewMode(next);
-              },
               onSettingsTap: () {
                 if (_closeHeaderPopovers()) return;
+                if (_dismissTemplateSheetIfNeeded()) return;
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const SettingsScreen(),
@@ -666,8 +711,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               },
               onSearchTap: _openSearch,
               isSearchActive: _isSearchActive,
-              onZoomTap: _toggleZoomPopover,
-              zoomPopoverVisible: _zoomPopoverVisible,
             ),
             if (_isSearchActive)
               _SearchPopover(
@@ -681,115 +724,114 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 matchCount: state.searchMatches.length,
                 activeMatchIndex: state.activeSearchMatchIndex,
               ),
-            if (_zoomPopoverVisible)
-              _ZoomDensityPopover(
-                value: state.pixelsPerMinute,
-                onChanged: notifier.setPixelsPerMinute,
-                onClose: _closeZoomPopover,
-              ),
             Expanded(
               child: Stack(
                 children: [
-                  // Edit view
-                  if (state.viewMode == TimelineViewMode.edit)
-                    Listener(
-                      behavior: HitTestBehavior.translucent,
-                      onPointerDown: _onPointerDown,
-                      onPointerMove: _onPointerMove,
-                      onPointerUp: _onPointerUp,
-                      onPointerCancel: _onPointerCancel,
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        reverse: true,
-                        slivers: [
-                          // Visual bottom spacer — toolbar (56) + margin (16) + safe area + extra
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height:
-                                  MediaQuery.of(context).padding.bottom + 88,
+                  // Timeline view
+                  Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _onPointerDown,
+                    onPointerMove: _onPointerMove,
+                    onPointerUp: _onPointerUp,
+                    onPointerCancel: _onPointerCancel,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      reverse: true,
+                      slivers: [
+                        // Visual bottom spacer for the stacked left controls.
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height:
+                                MediaQuery.of(context).padding.bottom +
+                                _timelineBottomSpacer,
+                          ),
+                        ),
+                        // Target anchor — visual bottom
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 20, right: 28),
+                            child: _TargetTimeAnchor(
+                              targetTime: state.targetTime,
+                              targetTimeTitle: state.targetTimeTitle,
+                              isSelected:
+                                  state.selectedBlockId == kTargetTimeId,
+                              readOnly:
+                                  state.viewMode == TimelineViewMode.compact,
+                              onSelect: state.viewMode == TimelineViewMode.edit
+                                  ? () => notifier.selectBlock(kTargetTimeId)
+                                  : () {},
                             ),
                           ),
-                          // Target anchor — visual bottom
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                left: 20,
-                                right: 28,
-                              ),
-                              child: _TargetTimeAnchor(
-                                targetTime: state.targetTime,
-                                targetTimeTitle: state.targetTimeTitle,
-                                isSelected:
-                                    state.selectedBlockId == kTargetTimeId,
-                                onSelect: () =>
-                                    notifier.selectBlock(kTargetTimeId),
-                              ),
+                        ),
+                        // Reorderable blocks or empty state
+                        if (computed.isEmpty)
+                          const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: _EmptyState(),
+                          )
+                        else ...[
+                          SliverPadding(
+                            padding: const EdgeInsets.only(left: 20, right: 28),
+                            sliver: SliverReorderableList(
+                              itemCount: computed.length,
+                              onReorder: _onReorder,
+                              onReorderStart: (index) =>
+                                  _handleReorderStart(index, computed),
+                              onReorderEnd: _handleReorderEnd,
+                              proxyDecorator: _proxyDecorator,
+                              itemBuilder: (context, index) {
+                                final n = computed.length;
+                                final sourceIndex = n - 1 - index;
+                                final cb = computed[sourceIndex];
+                                return SizedBox(
+                                  key: ValueKey(cb.block.id),
+                                  child: BlockItem(
+                                    computedBlock: cb,
+                                    isSelected:
+                                        state.selectedBlockId == cb.block.id,
+                                    isSearchHighlighted:
+                                        state.searchHighlightedBlockId ==
+                                        cb.block.id,
+                                    preciseDraggingId: state.preciseDraggingId,
+                                    allBlocks: state.blocks,
+                                    index: index,
+                                    sourceIndex: sourceIndex,
+                                    pixelsPerMinute: effectivePixelsPerMinute,
+                                    sheetVisible: _sheetVisible,
+                                    onReorderIntentStart:
+                                        _scheduleReorderOverview,
+                                    onReorderIntentEnd: _endReorderOverview,
+                                    onActionBufferDoubleTap:
+                                        _handleActionBufferDoubleTap,
+                                    readOnly:
+                                        state.viewMode ==
+                                        TimelineViewMode.compact,
+                                  ),
+                                );
+                              },
                             ),
                           ),
-                          // Reorderable blocks or empty state
-                          if (computed.isEmpty)
-                            const SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: _EmptyState(),
-                            )
-                          else ...[
-                            SliverPadding(
-                              padding: const EdgeInsets.only(
-                                left: 20,
-                                right: 28,
-                              ),
-                              sliver: SliverReorderableList(
-                                itemCount: computed.length,
-                                onReorder: _onReorder,
-                                proxyDecorator: _proxyDecorator,
-                                itemBuilder: (context, index) {
-                                  final n = computed.length;
-                                  final sourceIndex = n - 1 - index;
-                                  final cb = computed[sourceIndex];
-                                  return SizedBox(
-                                    key: ValueKey(cb.block.id),
-                                    child: BlockItem(
-                                      computedBlock: cb,
-                                      isSelected:
-                                          state.selectedBlockId == cb.block.id,
-                                      isSearchHighlighted:
-                                          state.searchHighlightedBlockId ==
-                                          cb.block.id,
-                                      preciseDraggingId:
-                                          state.preciseDraggingId,
-                                      allBlocks: state.blocks,
-                                      index: index,
-                                      sourceIndex: sourceIndex,
-                                      sheetVisible: _sheetVisible,
-                                      onActionBufferDoubleTap:
-                                          _handleActionBufferDoubleTap,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            // Visual top spacer
-                            const SliverToBoxAdapter(
-                              child: SizedBox(height: 120),
-                            ),
-                          ],
+                          // Visual top spacer
+                          const SliverToBoxAdapter(
+                            child: SizedBox(height: 120),
+                          ),
                         ],
-                      ),
-                    )
-                  else
-                    const CompactOverviewView(),
+                      ],
+                    ),
+                  ),
 
                   // 現在時刻インジケーター（edit view only）
                   if (state.viewMode == TimelineViewMode.edit && !_sheetVisible)
                     AnimatedBuilder(
                       animation: _scrollController,
                       builder: (context, _) {
-                        final ppm = state.pixelsPerMinute;
+                        final ppm = effectivePixelsPerMinute;
                         final targetTime = state.targetTime;
                         final nowMinutes = _now.hour * 60 + _now.minute;
                         const anchorAreaHeight = 64.0;
                         final bottomSpacer =
-                            MediaQuery.of(context).padding.bottom + 88.0;
+                            MediaQuery.of(context).padding.bottom +
+                            _timelineBottomSpacer;
                         final scrollOffset = _scrollController.hasClients
                             ? _scrollController.offset
                             : 0.0;
@@ -917,35 +959,70 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     Positioned(
                       left: 88,
                       right: 20,
-                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
+                          _floatingControlBottomInset,
                       child: _FloatingToolbar(
                         showTemplateAction: isPro || !proAccess.isKnown,
                         templateAccessPending: !proAccess.isKnown,
                         onTemplateTap: _showTemplateSheet,
                         onAdd: () {
-                          _closeHeaderPopovers();
+                          if (_closeHeaderPopovers()) return;
+                          if (_dismissTemplateSheetIfNeeded()) return;
                           if (_dismissInlineEditorIfNeeded()) return;
-                          if (_templateSheetVisible) _dismissTemplateSheet();
                           FocusManager.instance.primaryFocus?.unfocus();
                           notifier.addBlock(0, BlockType.action);
                         },
                         onAddPoint: () {
-                          _closeHeaderPopovers();
+                          if (_closeHeaderPopovers()) return;
+                          if (_dismissTemplateSheetIfNeeded()) return;
                           if (_dismissInlineEditorIfNeeded()) return;
-                          if (_templateSheetVisible) _dismissTemplateSheet();
                           FocusManager.instance.primaryFocus?.unfocus();
                           notifier.addBlock(0, BlockType.actionPoint);
                         },
                       ),
                     ),
 
-                  if (state.viewMode == TimelineViewMode.edit &&
-                      !_sheetVisible &&
-                      !_timelineListVisible)
+                  if (!_sheetVisible && !_timelineListVisible)
                     Positioned(
                       left: 20,
-                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
+                          _floatingControlBottomInset,
                       child: _TimelineListButton(onTap: _showTimelineList),
+                    ),
+
+                  if (!_sheetVisible && !_timelineListVisible)
+                    Positioned(
+                      left: 20,
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
+                          _floatingControlBottomInset +
+                          _floatingControlSize +
+                          _floatingControlStackGap,
+                      child: _DensityToggleButton(
+                        viewMode: state.viewMode,
+                        onTap: () {
+                          _endReorderOverview();
+                          if (_closeHeaderPopovers()) return;
+                          if (_dismissTemplateSheetIfNeeded()) return;
+                          if (_sheetVisible) _dismissSheet();
+                          notifier.setViewMode(
+                            state.viewMode == TimelineViewMode.edit
+                                ? TimelineViewMode.compact
+                                : TimelineViewMode.edit,
+                          );
+                        },
+                      ),
+                    ),
+
+                  if (_templateSheetVisible)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _dismissTemplateSheet,
+                        child: const SizedBox.expand(),
+                      ),
                     ),
 
                   if (_templateSheetVisible)
@@ -978,7 +1055,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       ),
                     ),
 
-                  if ((_isSearchActive || _zoomPopoverVisible) &&
+                  if (_isSearchActive &&
                       !_sheetVisible &&
                       !_templateSheetVisible &&
                       !_timelineListVisible)
@@ -1025,25 +1102,17 @@ class _PlanHeader extends StatelessWidget {
     required this.onExportTap,
     this.exportPanelVisible = false,
     this.saveIndicatorVisible = false,
-    this.viewMode = TimelineViewMode.edit,
-    required this.onToggleViewMode,
     required this.onSettingsTap,
     required this.onSearchTap,
     this.isSearchActive = false,
-    required this.onZoomTap,
-    this.zoomPopoverVisible = false,
   });
 
   final VoidCallback onExportTap;
   final bool exportPanelVisible;
   final bool saveIndicatorVisible;
-  final TimelineViewMode viewMode;
-  final VoidCallback onToggleViewMode;
   final VoidCallback onSettingsTap;
   final VoidCallback onSearchTap;
   final bool isSearchActive;
-  final VoidCallback onZoomTap;
-  final bool zoomPopoverVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -1119,34 +1188,12 @@ class _PlanHeader extends StatelessWidget {
                     : AppColors.mutedInk,
               ),
               headerAction(
-                onTap: onZoomTap,
-                icon: PhosphorIcons.slidersHorizontal(),
-                backgroundColor: zoomPopoverVisible
-                    ? AppColors.selectionFill
-                    : Colors.transparent,
-                color: zoomPopoverVisible
-                    ? AppColors.accentOlive
-                    : AppColors.mutedInk,
-              ),
-              headerAction(
                 onTap: onExportTap,
                 icon: PhosphorIcons.calendarBlank(),
                 backgroundColor: exportPanelVisible
                     ? AppColors.selectionFill
                     : Colors.transparent,
                 color: exportPanelVisible
-                    ? AppColors.accentOlive
-                    : AppColors.mutedInk,
-              ),
-              headerAction(
-                onTap: onToggleViewMode,
-                icon: viewMode == TimelineViewMode.compact
-                    ? PhosphorIcons.listDashes()
-                    : PhosphorIcons.squaresFour(),
-                backgroundColor: viewMode == TimelineViewMode.compact
-                    ? AppColors.selectionFill
-                    : Colors.transparent,
-                color: viewMode == TimelineViewMode.compact
                     ? AppColors.accentOlive
                     : AppColors.mutedInk,
               ),
@@ -1316,136 +1363,6 @@ class _SearchPopover extends StatelessWidget {
   }
 }
 
-class _ZoomDensityPopover extends StatelessWidget {
-  const _ZoomDensityPopover({
-    required this.value,
-    required this.onChanged,
-    required this.onClose,
-  });
-
-  static const double _minPpm = 3.0;
-  static const double _maxPpm = kPixelsPerMinute;
-  static const int _divisions = 6;
-
-  final double value;
-  final ValueChanged<double> onChanged;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final sliderValue = value.clamp(_minPpm, _maxPpm).toDouble();
-    final scaleLabel =
-        '${(sliderValue / kPixelsPerMinute).toStringAsFixed(1)}x';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.softGray),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.08),
-              blurRadius: 16,
-              spreadRadius: -2,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: AppColors.ink.withValues(alpha: 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Text(
-              '表示の広さ',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: AppColors.accentOlive,
-                  inactiveTrackColor: AppColors.softGray,
-                  thumbColor: AppColors.darkSurface,
-                  overlayColor: AppColors.accentOlive.withValues(alpha: 0.12),
-                  tickMarkShape: const RoundSliderTickMarkShape(
-                    tickMarkRadius: 1.5,
-                  ),
-                  activeTickMarkColor: AppColors.canvas,
-                  inactiveTickMarkColor: AppColors.mutedInk.withValues(
-                    alpha: 0.32,
-                  ),
-                  trackHeight: 3,
-                ),
-                child: Slider(
-                  value: sliderValue,
-                  min: _minPpm,
-                  max: _maxPpm,
-                  divisions: _divisions,
-                  label: scaleLabel,
-                  onChanged: onChanged,
-                  onChangeEnd: (_) => HapticFeedback.selectionClick(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 2),
-            Text(
-              scaleLabel,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.mutedInk,
-              ),
-            ),
-            const SizedBox(width: 18),
-            Pressable(
-              onTap: () {
-                onChanged(kPixelsPerMinute);
-                HapticFeedback.selectionClick();
-              },
-              scale: 0.88,
-              child: SizedBox(
-                width: 34,
-                height: 34,
-                child: Icon(
-                  PhosphorIcons.arrowCounterClockwise(),
-                  size: 18,
-                  color: sliderValue == kPixelsPerMinute
-                      ? AppColors.mutedInk.withValues(alpha: 0.32)
-                      : AppColors.mutedInk,
-                ),
-              ),
-            ),
-            Container(width: 1, height: 20, color: AppColors.softGray),
-            Pressable(
-              onTap: onClose,
-              scale: 0.88,
-              child: SizedBox(
-                width: 34,
-                height: 34,
-                child: Icon(
-                  PhosphorIcons.x(),
-                  size: 18,
-                  color: AppColors.mutedInk,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Target Time Anchor
 // ---------------------------------------------------------------------------
@@ -1455,12 +1372,14 @@ class _TargetTimeAnchor extends ConsumerStatefulWidget {
     required this.targetTime,
     required this.targetTimeTitle,
     required this.isSelected,
+    this.readOnly = false,
     required this.onSelect,
   });
 
   final int targetTime;
   final String targetTimeTitle;
   final bool isSelected;
+  final bool readOnly;
   final VoidCallback onSelect;
 
   @override
@@ -1649,7 +1568,11 @@ class _TargetTimeAnchorState extends ConsumerState<_TargetTimeAnchor> {
                           TextField(
                             controller: _titleCtrl,
                             focusNode: _titleFocusNode,
-                            onChanged: (v) => notifier.setTargetTimeTitle(v),
+                            readOnly: widget.readOnly,
+                            canRequestFocus: !widget.readOnly,
+                            onChanged: widget.readOnly
+                                ? null
+                                : (v) => notifier.setTargetTimeTitle(v),
                             onTap: () {},
                             onTapOutside: (_) =>
                                 FocusManager.instance.primaryFocus?.unfocus(),
@@ -1728,6 +1651,46 @@ class _TimelineListButton extends StatelessWidget {
           PhosphorIcons.stack(),
           size: 22,
           color: AppColors.darkSurface,
+        ),
+      ),
+    );
+  }
+}
+
+class _DensityToggleButton extends StatelessWidget {
+  const _DensityToggleButton({required this.viewMode, required this.onTap});
+
+  final TimelineViewMode viewMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOverview = viewMode == TimelineViewMode.compact;
+    return Tooltip(
+      message: isOverview ? '詳細編集' : '俯瞰',
+      child: Pressable(
+        onTap: onTap,
+        scale: 0.9,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: isOverview
+                ? AppColors.selectionFill
+                : AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            boxShadow: AppShadows.floatingToolbar,
+            border: Border.all(
+              color: isOverview ? AppColors.accentOlive : AppColors.softGray,
+            ),
+          ),
+          child: Icon(
+            isOverview
+                ? PhosphorIcons.listDashes()
+                : PhosphorIcons.squaresFour(),
+            size: 22,
+            color: isOverview ? AppColors.accentOlive : AppColors.darkSurface,
+          ),
         ),
       ),
     );
@@ -2534,7 +2497,8 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomCompensation = MediaQuery.of(context).padding.bottom + 88 + 24;
+    final bottomCompensation =
+        MediaQuery.of(context).padding.bottom + _timelineBottomSpacer + 24;
     return Padding(
       padding: EdgeInsets.fromLTRB(48, bottomCompensation.toDouble(), 48, 0),
       child: Column(

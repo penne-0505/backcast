@@ -218,11 +218,21 @@ class TimelineNotifier extends Notifier<TimelineState> {
   }
 
   void setPixelsPerMinute(double value) {
-    state = state.copyWith(pixelsPerMinute: value.clamp(3.0, kPixelsPerMinute));
+    state = state.copyWith(
+      pixelsPerMinute: value.clamp(kOverviewPixelsPerMinute, kPixelsPerMinute),
+    );
   }
 
   void setViewMode(TimelineViewMode mode) {
-    state = state.copyWith(viewMode: mode);
+    state = state.copyWith(
+      viewMode: mode,
+      pixelsPerMinute: mode == TimelineViewMode.compact
+          ? kOverviewPixelsPerMinute
+          : kPixelsPerMinute,
+      selectedBlockId: null,
+      preciseDraggingId: null,
+      activeInlineEditorId: null,
+    );
   }
 
   // ── Search ───────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 41` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 43` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -194,6 +194,25 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 ---
 
 ## Backlog
+
+- **Title**: [Feat] Add swipe-delete undo snackbar
+- **ID**: UI-Feat-39
+- **Priority**: P1
+- **Size**: M
+- **Area**: UI
+- **Dependencies**: []
+- **Goal**: 行動ブロックまたは行動ピンを右スワイプで削除した直後、ヘッダー下に削除通知と `元に戻す` action を表示し、誤削除を削除前の位置へ復元できるようにする。
+- **Steps**:
+  1. [ ] Plan の "Data / State Model" に従い、削除 block snapshot と復元 API を追加する
+  2. [ ] Plan の "Implementation Notes" に従い、`BlockItem` の swipe delete を親 callback 経由にする
+  3. [ ] Plan の "Interaction Model" に従い、ヘッダー下の削除通知と `元に戻す` action を実装する
+  4. [ ] 連続削除、timeout、view mode / sheet / popover との競合時の cleanup を実装する
+  5. [ ] Plan の "Test Plan" に従い、notifier / widget / regression の検証を追加する
+  6. [ ] timeline editor guide と timeline domain reference を実装結果に合わせて更新する
+- **Description**: 右スワイプ削除は即時反映のまま維持し、確認ダイアログではなく上部 SnackBar 相当の通知で復元導線を提供する。multi-level undo / redo stack は作らない。
+- **Plan**: `_docs/plan/UI/swipe-delete-undo-snackbar.md`
+
+---
 
 - **Title**: [Feat] Add timeline alternative comparison
 - **ID**: UI-Feat-38
