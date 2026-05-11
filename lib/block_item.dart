@@ -506,7 +506,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                 if (bufferMinutes > 0)
                                   Expanded(
                                     flex: bufferMinutes,
-                                    child: _ActionBufferSegment(
+                                    child: _BufferSegment(
                                       minutes: bufferMinutes,
                                       color: color,
                                       actionEndTime: actionEndTime,
@@ -718,8 +718,8 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 }
 
-class _ActionBufferSegment extends StatelessWidget {
-  const _ActionBufferSegment({
+class _BufferSegment extends StatelessWidget {
+  const _BufferSegment({
     required this.minutes,
     required this.color,
     required this.actionEndTime,

@@ -48,7 +48,7 @@ Medo に、同じ予定に対する複数の候補案を作り、2列で見比�
 - 各案の開始時刻、目標時刻、行動時間、buffer 合計、逆算消費時間、block 数を summary として表示する。
 - 各案に `採用` / `編集` action を置く。
 - 比較ビューで左右の time scale と target anchor を揃える。
-- 比較ビューで action buffer の別枠表示を維持する。
+- 比較ビューで action buffer のバッファセグメント表示を維持する。
 - Pro / Free の gate と downgrade 時のデータ保持方針を実装する。
 - 実装後、timeline editor guide と persistence reference を更新する。
 
@@ -158,7 +158,7 @@ comparison view は2列の read-only 表示とする。
 - target anchor は左右で同じ垂直位置に揃える。
 - time scale は左右で共有する。
 - block height は `duration + bufferMinutes` に比例する。
-- buffer 部分は `Core-Feat-37` の visual model に従い、block 内の別枠として表示する。
+- バッファセグメントは `Core-Feat-37` の visual model に従い、block 内に表示する。
 - 長い timeline では縦スクロールを許容し、左右の scroll offset を同期する。
 - 横幅が狭い場合は block 内 text を最小限にし、詳細は `編集` から単独 editor で確認する。
 

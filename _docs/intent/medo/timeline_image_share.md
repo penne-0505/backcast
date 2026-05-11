@@ -26,7 +26,7 @@ related_prs: []
 - 編集 UI、スクロール位置、端末サイズ、選択状態には依存しない
 - 日付なし / 日付あり mode を text export と揃える
 - 画像共有は Pro 機能として gate する
-- buffer は action 内の別セグメントとして表示し、有効所要時間に含める
+- buffer は action 内のバッファセグメントとして表示し、有効所要時間に含める
 
 ## Alternatives
 

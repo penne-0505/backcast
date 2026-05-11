@@ -74,7 +74,7 @@ Drift / SQLite ベースの永続化 Repository は画面に接続済みで、�
 
 操作の意味は次のとおりです。
 
-- `action`: 時間を消費する行動。`duration` が 5 分以上で保持され、Pro では `bufferMinutes` を別枠で設定できます
+- `action`: 時間を消費する行動。`duration` が 5 分以上で保持され、Pro では `bufferMinutes` をバッファセグメントとして設定できます
 - `actionPoint`: 時間を消費しない節目。`duration` は 0 分です
 - `action` の余裕時間: 実作業の `duration` とは別に 0〜60 分、5 分刻みで保持します。編集シートの「余裕時間」ステッパーまたはブロック本体下部のダブルタップで増減できます
 - 総所要時間: すべてのブロックの有効所要時間（`action` は `duration + bufferMinutes`、`actionPoint` は 0 分）の合計をヘッダーに表示します

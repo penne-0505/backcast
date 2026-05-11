@@ -83,7 +83,7 @@ void main() {
       expect(find.text('20分'), findsOneWidget);
     });
 
-    testWidgets('action event shows buffer segment when buffer is set', (
+    testWidgets('action event shows バッファセグメント when buffer is set', (
       tester,
     ) async {
       final vm = TimelineImageExportViewModel(

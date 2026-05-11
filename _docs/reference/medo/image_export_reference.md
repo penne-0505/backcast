@@ -83,7 +83,7 @@ final vm = buildTimelineImageExportViewModel(
 - 上部に `Medo // <target title>` の見出し
 - 日付または date range と total duration を見える位置に配置
 - `action` は時間幅を持つ行動として角丸カードで表示。左縁にブロック色、所要時間があればピルを表示
-- `action.bufferMinutes > 0` の場合は、行動カード内に一段狭い余裕時間セグメントを追加し、`余裕 +<minutes>分` と表示する
+- `action.bufferMinutes > 0` の場合は、行動カード内に一段狭いバッファセグメントを追加し、`余裕 +<minutes>分` と表示する
 - `actionPoint` は縦線上の小さな丸として表示
 - `targetAnchor` は `TARGET` ラベル付きの大きな olive 丸で表示
 - 操作 UI、スクロールバー、編集カーソルは含めない

@@ -36,7 +36,7 @@ Medo の `action` block に、実所要時間とは別の「バッファ時間�
 - 詳細編集シートには、冗長かつ正確な buffer 編集 UI を置く。
 - buffer の step は 5 分単位、action 1件あたりの上限は 60 分とする。
 - block 高さと逆算計算には `duration + bufferMinutes` を使う。
-- UI では buffer 部分を action 本体より少し横幅を減らした別枠として描画し、通常の行動時間と見分けられるようにする。
+- UI ではバッファセグメントを action 本体より少し横幅を減らして描画し、通常の行動時間と見分けられるようにする。
 - カレンダー登録では buffer を予定時間に含める。
 - テキスト共有・画像共有では buffer を明示する。
 - テンプレート保存・適用では buffer を保持する。
@@ -49,7 +49,7 @@ Medo の `action` block に、実所要時間とは別の「バッファ時間�
 - Drift schema に `plan_blocks.buffer_minutes` と `timeline_template_blocks.buffer_minutes` を追加する。
 - 既存データ migration では buffer を 0 分で補完する。
 - `computeBlocks()` 相当の逆算計算で、action の消費時間を `duration + bufferMinutes` にする。
-- action block の表示で、通常時間部分と buffer 部分を区別する。
+- action block の表示で、通常時間部分とバッファセグメントを区別する。
 - action block 本体のダブルタップで buffer を 5 分増やす。
 - 詳細編集シートで buffer を 5 分単位で編集できるようにする。
 - Free / Pro gate を action 境界で実装する。
@@ -116,12 +116,12 @@ action block 本体をダブルタップすると、buffer を 5 分増やす。
 
 action block は `duration + bufferMinutes` に応じた高さで描画する。
 
-buffer が 0 分の場合は現状に近い表示を維持する。buffer がある場合は、同一 block 内に buffer 用の別枠を表示する。
+buffer が 0 分の場合は現状に近い表示を維持する。buffer がある場合は、同一 block 内にバッファセグメントを表示する。
 
 - action 本体部分: 現在の block 表現を主に維持する。
-- buffer 部分: action 本体より少し横幅を減らし、薄い背景、点線、補助ラベルなどで別枠として示す。
+- バッファセグメント: action 本体より少し横幅を減らし、薄い背景、点線、補助ラベルなどで示す。
 - 表示文言例: `余裕 +10分`
-- buffer 部分は操作 handle として扱わない。
+- バッファセグメントは操作 handle として扱わない。
 
 横幅を少し減らす理由は、buffer が通常の行動そのものではなく、行動に付いた余裕であることを視覚的に区別するためである。色だけで区別すると視認性やアクセシビリティが弱くなるため、形状差も使う。
 
@@ -151,7 +151,7 @@ Free への縮退で計算から buffer を外すと、開始時刻が急に変�
 
 ### Image Share
 
-画像共有では、編集画面と同じく buffer 部分を別枠として描画する。画像内でも行動時間と余裕時間が混ざって見えないようにする。
+画像共有では、編集画面と同じくバッファセグメントとして描画する。画像内でも行動時間と余裕時間が混ざって見えないようにする。
 
 ### Templates
 
@@ -183,7 +183,7 @@ Free への縮退で計算から buffer を外すと、開始時刻が急に変�
 4. `TimelineNotifier` に action buffer を 5 分単位で増減・設定する API を追加する。
 5. action block 本体の double tap から buffer +5 分を実行する。
 6. 詳細編集シートに buffer 編集 UI を追加する。
-7. block 表示で buffer 部分を横幅の少し狭い別枠として描画する。
+7. block 表示でバッファセグメントを横幅の少し狭い部品として描画する。
 8. Free / Pro gate を double tap と詳細編集 action 境界に追加する。
 9. テンプレート repository / apply service に buffer を接続する。
 10. カレンダー登録、テキスト共有、画像共有に buffer を反映する。
@@ -216,7 +216,7 @@ Free への縮退で計算から buffer を外すと、開始時刻が急に変�
 - Export / sharing
   - カレンダー登録 request の action duration に buffer が含まれる。
   - テキスト共有に `余裕` が明示される。
-  - 画像共有で buffer 部分が別枠として表示される。
+  - 画像共有でバッファセグメントが表示される。
 
 - Pro / Free downgrade
   - Pro 中に設定した buffer は Free に戻っても保持される。
