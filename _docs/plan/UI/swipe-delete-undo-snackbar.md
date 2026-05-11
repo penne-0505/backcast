@@ -1,6 +1,6 @@
 ---
 title: "Swipe Delete Undo Snackbar"
-status: proposed
+status: active
 draft_status: n/a
 created_at: "2026-05-11"
 updated_at: "2026-05-11"
@@ -50,7 +50,7 @@ Flutter の公式 cookbook でも、削除直後の通知と optional action に
 - **Functional**: 右スワイプ削除後、ヘッダーより下、timeline content より上に削除通知が表示される。
 - **Functional**: 通知は詳細編集シート、下部 floating toolbar、timeline list island modal、template popover を塞がない。
 - **Functional**: `元に戻す` を押すと、削除された block が削除前の index に戻る。
-- **Functional**: 復元後、選択状態は復元 block に移す。詳細編集シートは自動では開かない。
+- **Functional**: 復元後、選択状態やシート開閉状態は変えず、削除された block だけを戻す。
 - **Functional**: 削除後に block 数や順序が変わっていた場合も、復元 index を現在の blocks length に clamp して戻す。
 - **Functional**: 通知表示中にさらに削除した場合、前の復元通知は閉じ、最新削除だけを復元可能にする。
 - **Functional**: 通知の timeout 後は復元 action を無効化し、以後は通常の削除済み状態として扱う。
@@ -104,7 +104,7 @@ class PendingBlockDelete {
 void restoreDeletedBlock(Block block, int index)
 ```
 
-この API は `index.clamp(0, state.blocks.length)` へ insert し、`selectedBlockId` を `block.id` にする。復元対象と同じ id が既に存在する場合は二重挿入を避けて no-op にする。
+この API は `index.clamp(0, state.blocks.length)` へ insert する。復元対象と同じ id が既に存在する場合は二重挿入を避けて no-op にする。`selectedBlockId` は変更しない。
 
 `deleteBlock` 自体を戻り値つき API に変更する案もあるが、既存呼び出し箇所が複数あり、詳細編集シート削除を今回 scope 外にするには副作用が広い。初期実装では `TimelineScreen` が snapshot を取り、notifier は restore API だけを増やす方が安全である。
 
@@ -138,7 +138,7 @@ void restoreDeletedBlock(Block block, int index)
   - `restoreDeletedBlock` が元 index に block を戻す。
   - index が現在 length を超える場合は末尾に戻す。
   - 同じ block id が既に存在する場合は二重挿入しない。
-  - 復元後 `selectedBlockId` が復元 block id になる。
+  - 復元後 `selectedBlockId` が変更されない。
 - Widget:
   - action を右スワイプ削除すると削除通知と `元に戻す` が表示される。
   - actionPoint を右スワイプ削除しても同じ通知導線が出る。

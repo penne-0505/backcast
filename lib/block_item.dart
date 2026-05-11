@@ -116,6 +116,7 @@ class BlockItem extends ConsumerStatefulWidget {
     this.onReorderIntentStart,
     this.onReorderIntentEnd,
     this.onActionBufferDoubleTap,
+    this.onSwipeDelete,
   });
 
   final ComputedBlock computedBlock;
@@ -131,6 +132,7 @@ class BlockItem extends ConsumerStatefulWidget {
   final void Function(String blockId)? onReorderIntentStart;
   final void Function(String blockId)? onReorderIntentEnd;
   final void Function(String blockId)? onActionBufferDoubleTap;
+  final void Function(String blockId)? onSwipeDelete;
 
   @override
   ConsumerState<BlockItem> createState() => _BlockItemState();
@@ -223,9 +225,17 @@ class _BlockItemState extends ConsumerState<BlockItem> {
   }
 
   void _deleteBlockBySwipe(DismissDirection direction) {
-    ref
-        .read(timelineProvider.notifier)
-        .deleteBlock(widget.computedBlock.block.id);
+    _deleteCurrentBlockBySwipe();
+  }
+
+  void _deleteCurrentBlockBySwipe() {
+    final blockId = widget.computedBlock.block.id;
+    final onSwipeDelete = widget.onSwipeDelete;
+    if (onSwipeDelete != null) {
+      onSwipeDelete(blockId);
+      return;
+    }
+    ref.read(timelineProvider.notifier).deleteBlock(blockId);
   }
 
   void _handleActionBodyDoubleTap(Block block) {
@@ -282,9 +292,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
         delta.dx.abs() > delta.dy.abs() * 1.4;
     if (!isRightSwipe) return;
     if (!await _confirmSwipeDelete()) return;
-    ref
-        .read(timelineProvider.notifier)
-        .deleteBlock(widget.computedBlock.block.id);
+    _deleteCurrentBlockBySwipe();
   }
 
   @override

@@ -345,9 +345,23 @@ related_prs: []
 - **Returns**: なし
 - **Errors**: なし
 - **Examples**:
-  - 将来 UI から削除操作を接続する前提の内部 API
+  - 編集ビューの右スワイプ削除、詳細編集シートの削除 action から呼ばれる
 - **Notes**:
-  - 現状 UI からは呼ばれていない
+  - 右スワイプ削除では UI 側が削除前の block と index を snapshot し、上部 SnackBar の `元に戻す` action から `restoreDeletedBlock` を呼ぶ
+
+### `TimelineNotifier.restoreDeletedBlock(Block block, int index)`
+
+- **Summary**: 右スワイプ削除直後の undo 用に、削除済み block を指定 index へ復元する
+- **Parameters**:
+  - `block (Block)`: 復元対象の block data
+  - `index (int)`: 復元先 index。現在の block 数に合わせて clamp される
+- **Returns**: なし
+- **Errors**: なし
+- **Examples**:
+  - 右スワイプ削除後、ヘッダー下の上部 SnackBar で `元に戻す` を押したときに呼ばれる
+- **Notes**:
+  - 同じ `Block.id` が既に存在する場合は二重挿入を避けるため no-op
+  - 復元後も `selectedBlockId` は変更しない。右スワイプ undo は block list の復元だけを行い、詳細編集シートの開閉状態には関与しない
 
 ### `TimelineNotifier.moveBlock(String id, BlockMoveDirection direction)`
 

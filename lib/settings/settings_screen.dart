@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -181,7 +180,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onTap: () =>
                       ref.read(authProvider.notifier).signInWithGoogle(),
                 ),
-                if (Platform.isIOS || Platform.isMacOS) ...[
+                if (_supportsAppleSignIn) ...[
                   const SizedBox(height: AppSpacing.md),
                   _OAuthButton(
                     label: 'Apple でログイン',
@@ -213,6 +212,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+}
+
+bool get _supportsAppleSignIn {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
 }
 
 class _DeleteAccountButton extends StatelessWidget {

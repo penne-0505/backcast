@@ -3,12 +3,13 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-10"
+updated_at: "2026-05-11"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
   - _docs/reference/medo/timeline_domain_reference.md
   - _docs/intent/medo/drift_persistence_repository.md
+  - _docs/plan/Core/flutter-web-drift-minimum.md
 related_issues: []
 related_prs: []
 ---
@@ -19,6 +20,8 @@ related_prs: []
 対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart` です。
 
 アプリ画面は起動時に最後に開いた plan を復元し、編集中の状態を自動保存します。timeline list island modal の切り替え操作は current plan preference を更新します。ヘッダーの export panel は保存・ロードを扱いません。
+
+Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.wasm` と `web/drift_worker.dart.js` を読み込んで browser storage 上に `medo` database を作成します。Web database は browser origin 単位の storage であり、Android / iOS の native database file から自動移行しません。
 
 ## API
 
@@ -33,7 +36,8 @@ related_prs: []
   - 本番用: `AppDatabase.defaults()`
   - テスト用: `AppDatabase(NativeDatabase.memory())`
 - **Notes**:
-  - 現行 Drift schema version は 4。version 4 で `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` を追加した
+  - 現行 Drift schema version は 5。version 4 で `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` を追加し、version 5 で `cached_pro_entitlements` を追加した
+  - Flutter Web では `AppDatabase.defaults()` が `DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3.wasm'), driftWorker: Uri.parse('drift_worker.dart.js'))` を渡す
 
 ### `plans` table
 
@@ -370,3 +374,5 @@ related_prs: []
 - `TimelineTemplateApplyService.applyTemplate` は snapshot → apply → save の順序を保証し、適用前の状態を復元可能にする
 - `TimelineNotifier.applyTemplateState` は `loadState` と異なり、`selectedBlockId` / `preciseDraggingId` / `activeInlineEditorId` を自動的にクリアする
 - Drift schema を変更した場合は `dart run build_runner build` で生成コードを更新する
+- Flutter Web 配布時は `sqlite3.wasm` が `application/wasm` で配信される必要がある。`flutter run` / `flutter build web` のローカル確認だけでなく、配布先の MIME type も確認する
+- Drift Web は browser の対応状況に応じて `opfsShared`、`opfsLocks`、`sharedIndexedDb`、`unsafeIndexedDb`、`inMemory` のいずれかを選ぶ。初期対応では選択結果の警告表示は行わず、console log で確認する

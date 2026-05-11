@@ -105,7 +105,16 @@ class CachedProEntitlements extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
-  AppDatabase.defaults() : super(driftDatabase(name: 'medo'));
+  AppDatabase.defaults()
+    : super(
+        driftDatabase(
+          name: 'medo',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.dart.js'),
+          ),
+        ),
+      );
 
   @override
   int get schemaVersion => 5;

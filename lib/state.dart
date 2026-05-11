@@ -161,6 +161,13 @@ class TimelineNotifier extends Notifier<TimelineState> {
     );
   }
 
+  void restoreDeletedBlock(Block block, int index) {
+    if (state.blocks.any((b) => b.id == block.id)) return;
+    final blocks = List<Block>.from(state.blocks);
+    blocks.insert(index.clamp(0, blocks.length), block);
+    state = state.copyWith(blocks: blocks);
+  }
+
   void moveBlock(String id, BlockMoveDirection direction) {
     final blocks = List<Block>.from(state.blocks);
     final index = blocks.indexWhere((b) => b.id == id);

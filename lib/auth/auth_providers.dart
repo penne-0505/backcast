@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,7 +69,7 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
 
   /// Sign in with Apple via OAuth (iOS / macOS only).
   Future<void> signInWithApple() async {
-    if (!Platform.isIOS && !Platform.isMacOS) {
+    if (!_supportsAppleSignIn) {
       throw UnsupportedError(
         'Sign in with Apple is only available on iOS and macOS.',
       );
@@ -132,3 +131,9 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).whenOrNull(data: (d) => d.isAuthenticated) ??
       false;
 });
+
+bool get _supportsAppleSignIn {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+}
