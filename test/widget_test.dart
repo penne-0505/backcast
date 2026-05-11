@@ -259,6 +259,41 @@ void main() {
       expect(block.bufferMinutes, 10);
       expect(block.effectiveDuration, 40);
     });
+
+    test('restores a deleted block at the original clamped index', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(timelineProvider.notifier);
+      const deleted = Block(
+        id: 'deleted',
+        type: BlockType.action,
+        title: '削除した行動',
+        duration: 20,
+        colorIndex: 1,
+      );
+      notifier.loadState(
+        const TimelineState(
+          blocks: [
+            Block(
+              id: 'a1',
+              type: BlockType.action,
+              title: '移動',
+              duration: 20,
+              colorIndex: 0,
+            ),
+          ],
+        ),
+      );
+
+      notifier.restoreDeletedBlock(deleted, 99);
+
+      final state = container.read(timelineProvider);
+      expect(state.blocks.map((b) => b.id), ['a1', 'deleted']);
+      expect(state.selectedBlockId, isNull);
+
+      notifier.restoreDeletedBlock(deleted, 0);
+      expect(container.read(timelineProvider).blocks, hasLength(2));
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -677,10 +712,35 @@ void main() {
     expect(find.text('新しい行動'), findsOneWidget);
 
     await tester.drag(find.byType(Dismissible), const Offset(500, 0));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('新しい行動'), findsNothing);
+    expect(find.text('「新しい行動」を削除しました'), findsOneWidget);
+    expect(find.text('元に戻す'), findsOneWidget);
     expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
+  });
+
+  testWidgets('swipe delete snackbar restores an action block', (tester) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    final original = containerFor(tester).read(timelineProvider).blocks.single;
+
+    await tester.drag(find.byType(Dismissible), const Offset(500, 0));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
+
+    tester.widget<SnackBarAction>(find.byType(SnackBarAction)).onPressed();
+    await tester.pumpAndSettle();
+
+    final state = containerFor(tester).read(timelineProvider);
+    expect(state.blocks, [original]);
+    expect(state.selectedBlockId, isNull);
+    expect(find.text('新しい行動'), findsOneWidget);
+    expect(find.text('行動を編集'), findsNothing);
   });
 
   testWidgets('short right swipe does not delete an action block', (
@@ -722,9 +782,10 @@ void main() {
     expect(find.text('受付'), findsOneWidget);
 
     await tester.drag(find.byType(Dismissible), const Offset(500, 0));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('受付'), findsNothing);
+    expect(find.text('「受付」を削除しました'), findsOneWidget);
     expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
   });
 

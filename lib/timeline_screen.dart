@@ -31,6 +31,18 @@ const _timelineBottomSpacer =
     _floatingControlSize +
     _timelineBottomExtraSpacer;
 
+class _PendingBlockDelete {
+  const _PendingBlockDelete({
+    required this.block,
+    required this.originalIndex,
+    required this.deletedAt,
+  });
+
+  final Block block;
+  final int originalIndex;
+  final DateTime deletedAt;
+}
+
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
 
@@ -56,6 +68,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   DateTime _now = DateTime.now();
   late final Timer _clockTimer;
   Timer? _saveDebounce;
+  _PendingBlockDelete? _pendingBlockDelete;
 
   // Search
   bool _isSearchActive = false;
@@ -478,8 +491,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     return true;
   }
 
-  void _showActionBufferLockedSnackBar() {
-    const estimatedSnackBarHeight = 48.0;
+  EdgeInsets _topSnackBarMargin({
+    required double estimatedSnackBarHeight,
+    double horizontal = 16.0,
+  }) {
     const planHeaderHeight = 58.0;
     const topOffset = planHeaderHeight + 12.0;
     final media = MediaQuery.of(context);
@@ -488,6 +503,16 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         media.padding.top -
         topOffset -
         estimatedSnackBarHeight;
+    return EdgeInsets.fromLTRB(
+      horizontal,
+      0,
+      horizontal,
+      bottomMargin.clamp(16.0, double.infinity),
+    );
+  }
+
+  void _showActionBufferLockedSnackBar() {
+    const estimatedSnackBarHeight = 48.0;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -506,15 +531,92 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          margin: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            bottomMargin.clamp(16.0, double.infinity),
+          margin: _topSnackBarMargin(
+            estimatedSnackBarHeight: estimatedSnackBarHeight,
           ),
           duration: const Duration(seconds: 2),
         ),
       );
+  }
+
+  String _deletedBlockMessage(Block block) {
+    final title = block.title.trim();
+    if (title.isEmpty) {
+      return block.type == BlockType.action ? '行動を削除しました' : '行動ピンを削除しました';
+    }
+    return '「$title」を削除しました';
+  }
+
+  void _handleSwipeDeleteBlock(String blockId) {
+    final blocks = ref.read(timelineProvider).blocks;
+    final index = blocks.indexWhere((block) => block.id == blockId);
+    if (index < 0) return;
+
+    final pendingDelete = _PendingBlockDelete(
+      block: blocks[index],
+      originalIndex: index,
+      deletedAt: DateTime.now(),
+    );
+    setState(() => _pendingBlockDelete = pendingDelete);
+    ref.read(timelineProvider.notifier).deleteBlock(blockId);
+    _showSwipeDeleteSnackBar(pendingDelete);
+  }
+
+  void _restorePendingDeletedBlock(_PendingBlockDelete pendingDelete) {
+    if (_pendingBlockDelete != pendingDelete) return;
+    ScaffoldMessenger.of(
+      context,
+    ).hideCurrentSnackBar(reason: SnackBarClosedReason.action);
+    ref
+        .read(timelineProvider.notifier)
+        .restoreDeletedBlock(pendingDelete.block, pendingDelete.originalIndex);
+    if (mounted) setState(() => _pendingBlockDelete = null);
+  }
+
+  void _showSwipeDeleteSnackBar(_PendingBlockDelete pendingDelete) {
+    const estimatedSnackBarHeight = 52.0;
+    var restored = false;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger
+        .showSnackBar(
+          SnackBar(
+            content: Text(
+              _deletedBlockMessage(pendingDelete.block),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.canvas,
+              ),
+            ),
+            action: SnackBarAction(
+              label: '元に戻す',
+              textColor: AppColors.accentOlive,
+              onPressed: () {
+                restored = true;
+                _restorePendingDeletedBlock(pendingDelete);
+              },
+            ),
+            backgroundColor: AppColors.darkSurface,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            margin: _topSnackBarMargin(
+              estimatedSnackBarHeight: estimatedSnackBarHeight,
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        )
+        .closed
+        .then((_) {
+          if (!mounted || restored || _pendingBlockDelete != pendingDelete) {
+            return;
+          }
+          setState(() => _pendingBlockDelete = null);
+        });
   }
 
   void _handleActionBufferDoubleTap(String blockId) {
@@ -803,6 +905,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                                     onReorderIntentEnd: _endReorderOverview,
                                     onActionBufferDoubleTap:
                                         _handleActionBufferDoubleTap,
+                                    onSwipeDelete: _handleSwipeDeleteBlock,
                                     readOnly:
                                         state.viewMode ==
                                         TimelineViewMode.compact,

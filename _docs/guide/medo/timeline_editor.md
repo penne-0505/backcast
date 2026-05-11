@@ -20,7 +20,7 @@ related_prs: []
 `Medo` のタイムラインエディタを使って、目標時刻から逆算した行動計画を組み立てるためのガイドです。
 現状のアプリは 1 画面構成で、タイムラインの編集、詳細編集シート、timeline list island modal を行き来しながら状態を更新します。
 編集ビューに加え、同じタイムラインを低密度で読む **俯瞰** 表示が利用できます。
-Drift / SQLite ベースの永続化 Repository は画面に接続済みで、現在の plan は自動保存され、アプリ起動時には最後に開いた plan が復元されます。
+Drift / SQLite ベースの永続化 Repository は画面に接続済みで、現在の plan は自動保存され、アプリ起動時には最後に開いた plan が復元されます。Flutter Web では browser storage 上の Drift database を使うため、同一 origin 内では reload 後も plan が維持されます。
 
 現行 UI の配色は、`Canvas #F6F5F2` を基調に、`Soft Gray #DDD9D0`、`Ink #26241F`、補助テキスト用の `Muted Ink #6F6A61`、`Accent / Olive #8A9864`、`Dark Surface #1F211C` を使う固定パレットです。ブロック色は `#7898B4`, `#B48268`, `#B4A260`, `#987CA8`, `#68A294` の順で循環します。
 
@@ -28,7 +28,7 @@ Drift / SQLite ベースの永続化 Repository は画面に接続済みで、�
 
 - Flutter 開発環境が利用できること
 - 依存パッケージが取得済みであること
-- Linux desktop など、Flutter アプリを起動できるターゲットがあること
+- Linux desktop や Chrome など、Flutter アプリを起動できるターゲットがあること
 
 ## Setup / Usage
 
@@ -39,6 +39,13 @@ Drift / SQLite ベースの永続化 Repository は画面に接続済みで、�
 /home/penne/sdk/flutter/flutter/bin/flutter run -d linux
 ```
 
+Flutter Web の最低限の起動確認は次のコマンドで行います。
+
+```bash
+/home/penne/sdk/flutter/flutter/bin/flutter build web
+/home/penne/sdk/flutter/flutter/bin/flutter run -d chrome
+```
+
 起動後の基本操作は以下のとおりです。
 
 1. タイムライン下端の「目標時刻」カードを編集する
@@ -47,7 +54,7 @@ Drift / SQLite ベースの永続化 Repository は画面に接続済みで、�
 4. `actionPoint` では通過点やチェックポイント名を編集する
 5. 行動ブロック上端のドラッグハンドルで所要時間を調整する
 6. ブロック本体をタップして編集シートを開き、詳細を調整する。Pro では行動ブロック本体の下側をダブルタップすると余裕時間を 5 分ずつ追加できる
-7. 行動ブロックまたは行動ピンを右へスワイプすると、その block を削除できる
+7. 行動ブロックまたは行動ピンを右へスワイプすると、その block を削除できる。削除直後はヘッダー下に通知が出て、`元に戻す` で削除前の位置へ復元できる
 8. 移動ハンドルを長押し気味に並び替えると、タイムラインが一時的に俯瞰密度へ縮小し、より過去・未来の位置を見ながら順序変更できる
 9. 左下の timeline list button の上にある表示切り替えボタンで **俯瞰** に移動し、全体構成を一覧する
 10. 俯瞰では同じ timeline renderer を低密度で表示し、細部編集や並び替えは行わない
@@ -85,7 +92,7 @@ Drift / SQLite ベースの永続化 Repository は画面に接続済みで、�
 - インライン編集中の次タップ: まずカーソルを外して編集を確定し、その次のタップで編集シート表示や追加操作に進みます
 - 一時 UI 表示中の外側タップ: ポップアップ、popover、overlay、panel、modal の外側をタップした場合、その 1 タップは閉じるためだけに使います。背面の追加、選択、画面遷移、別ヘッダー action は同時には発火せず、必要なら次のタップで実行します
 - rail double tap insert: 左 timeline rail をダブルタップすると、タップした block の上半分では過去側境界、下半分では未来側境界に `action` を挿入する。`actionPoint` でも同様に上/下で前後の境界へ挿入できる。target anchor の rail をダブルタップすると target 直前に挿入される
-- swipe delete: 編集ビューの `action` / `actionPoint` を右へスワイプすると、その block が timeline から削除される。インライン編集中、詳細編集シート表示中、所要時間の precise drag 中は誤操作防止のため削除しない
+- swipe delete: 編集ビューの `action` / `actionPoint` を右へスワイプすると、その block が timeline から削除され、ヘッダー下に上部 SnackBar が表示される。`元に戻す` を押すと、削除前の index へ同じ block data を復元する。連続削除時は最新の削除だけが復元対象になる。インライン編集中、詳細編集シート表示中、所要時間の precise drag 中は誤操作防止のため削除しない
 - ヘッダーのエクスポート: タイムライン保存・読み込みは扱わず、カレンダー登録、テキスト共有、画像共有だけを開く。表示中に別のヘッダー action を押した場合は、まずエクスポートパネルだけを閉じ、その action は次のタップで実行する
 - template popover: Pro の編集ビュー下部ツールバーから開く浮遊 UI。画面下端から全幅で立ち上がる sheet ではなく、ツールバー直上の island として表示される。背景 scrim は置かず、ツールバーや timeline の別 action を押すと、まず popover だけを閉じ、その action は次のタップで実行する
 - timeline list island modal: 下端に接地しない浮遊モーダルとして表示され、背景 scrim のタップまたは ✕ ボタンで閉じられる。上部の作成フォームで新規 timeline を命名でき、既存 row では rename / delete を扱う。表示中は block 追加 toolbar、詳細編集シート、テンプレート popover と同時表示しない
@@ -109,12 +116,20 @@ Drift / SQLite ベースの永続化 Repository は画面に接続済みで、�
   目標名のインライン編集中は、先にフォーカスを外してから時刻ラベルまたは編集シートの時刻フィールドをタップする
 - 所要時間を短くしすぎた:
   `action` の最小所要時間は 5 分に丸められる
+- 右スワイプで消した行動を戻したい:
+  削除直後にヘッダー下へ出る `元に戻す` を押す。通知が消えた後や、連続削除で次の削除通知に差し替わった後は、その削除は復元対象外になる
 - 余裕時間を編集できない:
   余裕時間の新規編集は Pro 機能です。Free では既存の余裕時間は表示・逆算・共有に反映されます。ブロック本体のダブルタップでは短い SnackBar だけを表示し、詳細編集シートのロック表示をタップした場合だけ Paywall に遷移します
 - 行動ブロックをダブルタップしても余裕時間が増えない:
   ダブルタップ対象はタイトル入力欄ではなく、行動ブロック本体の下側です。インライン編集中、詳細編集シート表示中、所要時間の precise drag 中は無効化されます
 - アプリ再起動後に期待したタイムラインが開かない:
   最後に開いた plan が削除済み、または current plan preference が未保存の場合は、更新日時が最も新しい plan が開かれる
+- Flutter Web で reload 後にタイムラインが復元されない:
+  配信元 origin が変わると別 database として扱われる。`localhost` と `127.0.0.1`、port 違い、本番 domain はそれぞれ別 storage になる
+- Flutter Web で database 初期化に失敗する:
+  `web/sqlite3.wasm` と `web/drift_worker.dart.js` が配信されていること、特に `sqlite3.wasm` が `application/wasm` で返ることを確認する
+- Flutter Web で画像共有、カレンダー登録、購入復元が期待通りに動かない:
+  初期 Web 対応では Drift 永続化を最小目標としており、native 共有、native calendar、RevenueCat SDK に依存する導線は完全対応の対象外です
 - 並び替えの開始タイミングがわかりづらい:
   通常の長押しより短い 200ms で並び替え開始する実装になっている。一時俯瞰への縮小は、移動ハンドルに触れた瞬間ではなく、短い hold が成立した時点で始まる
 - ドラッグ中に細かく合わせにくい:
