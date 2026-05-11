@@ -296,6 +296,195 @@ void main() {
     });
   });
 
+  group('current time rail marker positioning', () {
+    test('places marker inside the current action block', () {
+      const blocks = [
+        Block(
+          id: 'early-action',
+          type: BlockType.action,
+          title: '早い行動',
+          duration: 30,
+          colorIndex: 0,
+        ),
+        Block(
+          id: 'mid-point',
+          type: BlockType.actionPoint,
+          title: '通過点',
+          duration: 0,
+          colorIndex: 1,
+        ),
+        Block(
+          id: 'late-action',
+          type: BlockType.action,
+          title: '遅い行動',
+          duration: 30,
+          colorIndex: 2,
+        ),
+      ];
+      final computed = computeBlocks(blocks, 13 * 60);
+
+      final offset = currentTimelineMarkerOffsetForBlock(
+        computedBlock: computed[0],
+        currentTimelineMinute: 12 * 60 + 15,
+        visualHeight: timelineBlockVisualHeight(
+          computed[0].block,
+          kPixelsPerMinute,
+        ),
+      );
+
+      expect(offset, 15 * kPixelsPerMinute);
+      expect(
+        currentTimelineMarkerOffsetForBlock(
+          computedBlock: computed[1],
+          currentTimelineMinute: 12 * 60 + 15,
+          visualHeight: kTimelinePointBlockVisualHeight,
+        ),
+        isNull,
+      );
+    });
+
+    test('uses the previous action at an exact boundary between actions', () {
+      const blocks = [
+        Block(
+          id: 'early-action',
+          type: BlockType.action,
+          title: '早い行動',
+          duration: 30,
+          colorIndex: 0,
+        ),
+        Block(
+          id: 'late-action',
+          type: BlockType.action,
+          title: '遅い行動',
+          duration: 30,
+          colorIndex: 1,
+        ),
+      ];
+      final computed = computeBlocks(blocks, 13 * 60);
+
+      expect(
+        currentTimelineMarkerOffsetForBlock(
+          computedBlock: computed[0],
+          currentTimelineMinute: 12 * 60 + 30,
+          visualHeight: timelineBlockVisualHeight(
+            computed[0].block,
+            kPixelsPerMinute,
+          ),
+        ),
+        30 * kPixelsPerMinute,
+      );
+      expect(
+        currentTimelineMarkerOffsetForBlock(
+          computedBlock: computed[1],
+          currentTimelineMinute: 12 * 60 + 30,
+          visualHeight: timelineBlockVisualHeight(
+            computed[1].block,
+            kPixelsPerMinute,
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test(
+      'normalizes late-night current time into an after-midnight action',
+      () {
+        const blocks = [
+          Block(
+            id: 'night-action',
+            type: BlockType.action,
+            title: '深夜の行動',
+            duration: 60,
+            colorIndex: 0,
+          ),
+        ];
+        final computed = computeBlocks(blocks, 30);
+        final currentTimelineMinute = normalizeTimelineMinuteNearTarget(
+          minutes: 23 * 60 + 45,
+          targetTime: 30,
+        );
+
+        final offset = currentTimelineMarkerOffsetForBlock(
+          computedBlock: computed[0],
+          currentTimelineMinute: currentTimelineMinute,
+          visualHeight: timelineBlockVisualHeight(
+            computed[0].block,
+            kPixelsPerMinute,
+          ),
+        );
+
+        expect(currentTimelineMinute, -15);
+        expect(offset, 15 * kPixelsPerMinute);
+      },
+    );
+
+    test('marks an action point only when current time equals the point', () {
+      const blocks = [
+        Block(
+          id: 'point',
+          type: BlockType.actionPoint,
+          title: '通過点',
+          duration: 0,
+          colorIndex: 0,
+        ),
+      ];
+      final computed = computeBlocks(blocks, 12 * 60);
+
+      final offset = currentTimelineMarkerOffsetForBlock(
+        computedBlock: computed[0],
+        currentTimelineMinute: 12 * 60,
+        visualHeight: kTimelinePointBlockVisualHeight,
+      );
+
+      expect(offset, kTimelinePointBlockVisualHeight / 2);
+      expect(
+        currentTimelineMarkerOffsetForBlock(
+          computedBlock: computed[0],
+          currentTimelineMinute: 12 * 60 + 1,
+          visualHeight: kTimelinePointBlockVisualHeight,
+        ),
+        isNull,
+      );
+    });
+  });
+
+  testWidgets('shows current time as rail marker and current action outline', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final nowMinutes = now.hour * 60 + now.minute;
+    final targetTime = (nowMinutes + 30) % (24 * 60);
+
+    await pumpMedoApp(tester);
+    containerFor(tester)
+        .read(timelineProvider.notifier)
+        .loadState(
+          TimelineState(
+            targetTime: targetTime,
+            blocks: const [
+              Block(
+                id: 'current-action',
+                type: BlockType.action,
+                title: '現在の行動',
+                duration: 60,
+                colorIndex: 0,
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('current-time-rail-marker:current-action')),
+      findsOneWidget,
+    );
+    expect(find.text('now'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('current-block-border:current-action')),
+      findsNothing,
+    );
+  });
+
   // ---------------------------------------------------------------------------
   // Unit tests: formatTime
   // ---------------------------------------------------------------------------
@@ -679,6 +868,30 @@ void main() {
     expect(find.text('余裕時間の編集はPro機能です'), findsOneWidget);
   });
 
+  testWidgets('detail sheet drag handle dismisses the sheet', (tester) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    final blockId = containerFor(
+      tester,
+    ).read(timelineProvider).blocks.single.id;
+    containerFor(tester).read(timelineProvider.notifier).selectBlock(blockId);
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動を編集'), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const ValueKey('edit-sheet-drag-handle')),
+      const Offset(0, 140),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('行動を編集'), findsNothing);
+    expect(containerFor(tester).read(timelineProvider).selectedBlockId, isNull);
+  });
+
   testWidgets(
     'drag handle enters precise mode after hold and allows 1-minute adjustment',
     (tester) async {
@@ -741,6 +954,30 @@ void main() {
     expect(state.selectedBlockId, isNull);
     expect(find.text('新しい行動'), findsOneWidget);
     expect(find.text('行動を編集'), findsNothing);
+  });
+
+  testWidgets('swipe delete snackbar times out after three seconds', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    await tester.drag(find.byType(Dismissible), const Offset(500, 0));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('「新しい行動」を削除しました'), findsOneWidget);
+    expect(find.text('元に戻す'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 3500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('「新しい行動」を削除しました'), findsNothing);
+    expect(find.text('元に戻す'), findsNothing);
+    expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
   });
 
   testWidgets('short right swipe does not delete an action block', (

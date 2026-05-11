@@ -11,7 +11,6 @@ import 'theme.dart';
 
 const double _swipeDeleteDistanceThreshold = 144;
 const double _swipeDeleteDismissThreshold = 0.62;
-const double _minBufferedOverviewBlockHeight = 52.0;
 
 // ---------------------------------------------------------------------------
 // TimeField — HH:mm inline editable widget
@@ -111,6 +110,7 @@ class BlockItem extends ConsumerStatefulWidget {
     required this.index,
     required this.sourceIndex,
     required this.pixelsPerMinute,
+    this.currentTimelineMinute,
     this.sheetVisible = false,
     this.readOnly = false,
     this.onReorderIntentStart,
@@ -127,6 +127,7 @@ class BlockItem extends ConsumerStatefulWidget {
   final int index;
   final int sourceIndex;
   final double pixelsPerMinute;
+  final int? currentTimelineMinute;
   final bool sheetVisible;
   final bool readOnly;
   final void Function(String blockId)? onReorderIntentStart;
@@ -136,6 +137,32 @@ class BlockItem extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<BlockItem> createState() => _BlockItemState();
+}
+
+@visibleForTesting
+double? currentTimelineMarkerOffsetForBlock({
+  required ComputedBlock computedBlock,
+  required int? currentTimelineMinute,
+  required double visualHeight,
+}) {
+  final minute = currentTimelineMinute;
+  if (minute == null) return null;
+
+  if (computedBlock.block.type == BlockType.actionPoint) {
+    return minute == computedBlock.startTime ? visualHeight / 2 : null;
+  }
+
+  if (minute <= computedBlock.startTime || minute > computedBlock.endTime) {
+    return null;
+  }
+
+  final effectiveDuration = computedBlock.block.effectiveDuration;
+  if (effectiveDuration <= 0) return null;
+
+  final elapsed = minute - computedBlock.startTime;
+  return (visualHeight * elapsed / effectiveDuration)
+      .clamp(0.0, visualHeight)
+      .toDouble();
 }
 
 class _BlockItemState extends ConsumerState<BlockItem> {
@@ -312,7 +339,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
     final effectiveDuration = block.effectiveDuration;
     final naturalHeight = effectiveDuration * ppm;
     final minOverviewHeight = bufferMinutes > 0
-        ? _minBufferedOverviewBlockHeight
+        ? kMinBufferedOverviewBlockHeight
         : kMinOverviewBlockHeight;
     final height =
         (isOverview
@@ -339,6 +366,12 @@ class _BlockItemState extends ConsumerState<BlockItem> {
         AppColors.blockColors[block.colorIndex % AppColors.blockColors.length];
     final startTime = widget.computedBlock.startTime;
     final actionEndTime = startTime + block.duration;
+    final currentMarkerOffset = currentTimelineMarkerOffsetForBlock(
+      computedBlock: widget.computedBlock,
+      currentTimelineMinute: widget.currentTimelineMinute,
+      visualHeight: height,
+    );
+    final isCurrentBlock = currentMarkerOffset != null;
 
     return AnimatedContainer(
       key: ValueKey('block-item-body:${block.id}'),
@@ -362,6 +395,11 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                 sourceIndex: widget.sourceIndex,
                 onInsert: _handleSidebarDoubleTap,
                 isSearchHighlighted: widget.isSearchHighlighted,
+                currentTimeMinute: widget.currentTimelineMinute,
+                currentMarkerOffset: currentMarkerOffset,
+                currentMarkerKey: ValueKey(
+                  'current-time-rail-marker:${block.id}',
+                ),
               ),
               const SizedBox(width: 8),
               // Block body
@@ -408,7 +446,9 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                       AppRadius.md,
                                     ),
                                     border: Border.all(
-                                      color: _isPreciseImpactTarget
+                                      color:
+                                          _isPreciseImpactTarget ||
+                                              isCurrentBlock
                                           ? AppColors.accentOlive.withValues(
                                               alpha: 0.70,
                                             )
@@ -654,6 +694,11 @@ class _BlockItemState extends ConsumerState<BlockItem> {
     final color =
         AppColors.blockColors[block.colorIndex % AppColors.blockColors.length];
     final startTime = widget.computedBlock.startTime;
+    final currentMarkerOffset = currentTimelineMarkerOffsetForBlock(
+      computedBlock: widget.computedBlock,
+      currentTimelineMinute: widget.currentTimelineMinute,
+      visualHeight: 52,
+    );
 
     return IntrinsicHeight(
       child: Row(
@@ -668,6 +713,9 @@ class _BlockItemState extends ConsumerState<BlockItem> {
             sourceIndex: widget.sourceIndex,
             onInsert: _handleSidebarDoubleTap,
             isSearchHighlighted: widget.isSearchHighlighted,
+            currentTimeMinute: widget.currentTimelineMinute,
+            currentMarkerOffset: currentMarkerOffset,
+            currentMarkerKey: ValueKey('current-time-rail-marker:${block.id}'),
           ),
           const SizedBox(width: 8),
           // Point block body
@@ -940,6 +988,9 @@ class _Sidebar extends StatelessWidget {
     this.sourceIndex,
     this.onInsert,
     this.isSearchHighlighted = false,
+    this.currentTimeMinute,
+    this.currentMarkerOffset,
+    this.currentMarkerKey,
   });
 
   final int startTime;
@@ -949,10 +1000,15 @@ class _Sidebar extends StatelessWidget {
   final int? sourceIndex;
   final void Function(int insertIndex)? onInsert;
   final bool isSearchHighlighted;
+  final int? currentTimeMinute;
+  final double? currentMarkerOffset;
+  final Key? currentMarkerKey;
 
   @override
   Widget build(BuildContext context) {
     final effectiveLineColor = lineColor ?? AppColors.timelineLine;
+    final showCurrentMarker =
+        currentTimeMinute != null && currentMarkerOffset != null;
     final baseSidebar = SizedBox(
       width: 48,
       child: Stack(
@@ -1039,6 +1095,13 @@ class _Sidebar extends StatelessWidget {
               ),
             ),
           ),
+          if (showCurrentMarker)
+            Positioned(
+              key: currentMarkerKey,
+              top: (currentMarkerOffset! - 16).clamp(-12.0, double.infinity),
+              right: -8,
+              child: _RailCurrentTimeMarker(minutes: currentTimeMinute!),
+            ),
         ],
       ),
     );
@@ -1108,6 +1171,86 @@ class _ReorderHandleIcon extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RailCurrentTimeMarker extends StatelessWidget {
+  const _RailCurrentTimeMarker({required this.minutes});
+
+  final int minutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 32,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: 15,
+            top: 0,
+            child: Container(
+              color: AppColors.canvas,
+              padding: const EdgeInsets.only(left: 2, right: 3),
+              child: SizedBox(
+                width: 38,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'now',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.0,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.accentOlive,
+                      ),
+                    ),
+                    Text(
+                      formatTime(minutes),
+                      textAlign: TextAlign.right,
+                      overflow: TextOverflow.visible,
+                      style: AppTextStyles.time(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accentOlive,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 5,
+            top: 19,
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: AppColors.accentOlive,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 22,
+            child: Container(
+              width: 6,
+              height: 1.5,
+              decoration: BoxDecoration(
+                color: AppColors.accentOlive.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+            ),
+          ),
         ],
       ),
     );

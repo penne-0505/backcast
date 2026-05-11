@@ -7,6 +7,7 @@ const int kBufferStepMinutes = 5;
 const int kMaxActionBufferMinutes = 60;
 const double kOverviewThresholdPpm = 5.0;
 const double kMinOverviewBlockHeight = 40.0;
+const double kMinBufferedOverviewBlockHeight = 52.0;
 
 /// 目標アンカーを識別する固定 ID（selectedBlockId に使用）
 const String kTargetTimeId = 'target-time';

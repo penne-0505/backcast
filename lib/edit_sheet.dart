@@ -20,14 +20,21 @@ class EditSheet extends ConsumerStatefulWidget {
   ConsumerState<EditSheet> createState() => _EditSheetState();
 }
 
-class _EditSheetState extends ConsumerState<EditSheet> {
+class _EditSheetState extends ConsumerState<EditSheet>
+    with SingleTickerProviderStateMixin {
+  static const double _dismissDragThreshold = 96;
+  static const double _dismissVelocityThreshold = 700;
+
   late final TextEditingController _titleCtrl;
   late final TextEditingController _durationCtrl;
   late final TextEditingController _bufferCtrl;
   late final TextEditingController _targetTimeCtrl;
   late final FocusNode _durationFocusNode;
   late final FocusNode _bufferFocusNode;
+  late final AnimationController _dragAnimationController;
   String? _lastSyncedBlockId;
+  double _dismissDragOffset = 0;
+  bool _dismissScheduled = false;
 
   @override
   void initState() {
@@ -38,6 +45,10 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     _targetTimeCtrl = TextEditingController();
     _durationFocusNode = FocusNode();
     _bufferFocusNode = FocusNode();
+    _dragAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
     _durationFocusNode.addListener(_onDurationFocusLost);
     _bufferFocusNode.addListener(_onBufferFocusLost);
   }
@@ -52,6 +63,7 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     _targetTimeCtrl.dispose();
     _durationFocusNode.dispose();
     _bufferFocusNode.dispose();
+    _dragAnimationController.dispose();
     super.dispose();
   }
 
@@ -177,6 +189,55 @@ class _EditSheetState extends ConsumerState<EditSheet> {
     );
   }
 
+  void _handleDismissDragUpdate(DragUpdateDetails details) {
+    if (_dismissScheduled) return;
+    _dragAnimationController.stop();
+    final nextOffset = _dismissDragOffset + (details.primaryDelta ?? 0);
+    setState(() => _dismissDragOffset = nextOffset.clamp(0.0, double.infinity));
+  }
+
+  void _handleDismissDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_dismissDragOffset >= _dismissDragThreshold ||
+        velocity >= _dismissVelocityThreshold) {
+      _animateDismiss();
+      return;
+    }
+    _animateDragOffset(to: 0);
+  }
+
+  void _handleDismissDragCancel() {
+    if (_dismissScheduled) return;
+    _animateDragOffset(to: 0);
+  }
+
+  Future<void> _animateDragOffset({required double to}) async {
+    final animation = Tween<double>(begin: _dismissDragOffset, end: to).animate(
+      CurvedAnimation(parent: _dragAnimationController, curve: Curves.easeOut),
+    );
+    void updateOffset() {
+      if (mounted) setState(() => _dismissDragOffset = animation.value);
+    }
+
+    _dragAnimationController
+      ..stop()
+      ..reset();
+    animation.addListener(updateOffset);
+    try {
+      await _dragAnimationController.forward();
+    } finally {
+      animation.removeListener(updateOffset);
+    }
+  }
+
+  Future<void> _animateDismiss() async {
+    if (_dismissScheduled) return;
+    _dismissScheduled = true;
+    final height = MediaQuery.of(context).size.height;
+    await _animateDragOffset(to: height);
+    if (mounted) widget.onDismiss();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(timelineProvider);
@@ -216,65 +277,99 @@ class _EditSheetState extends ConsumerState<EditSheet> {
 
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.xl),
-          topRight: Radius.circular(AppRadius.xl),
+    return Transform.translate(
+      offset: Offset(0, _dismissDragOffset),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.canvas,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppRadius.xl),
+            topRight: Radius.circular(AppRadius.xl),
+          ),
+          boxShadow: AppShadows.sheet,
         ),
-        boxShadow: AppShadows.sheet,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── ドラッグハンドル ──────────────────────────────────────────
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.softGray,
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── ドラッグハンドル ──────────────────────────────────────────
+            GestureDetector(
+              key: const ValueKey('edit-sheet-drag-handle'),
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: _handleDismissDragUpdate,
+              onVerticalDragEnd: _handleDismissDragEnd,
+              onVerticalDragCancel: _handleDismissDragCancel,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 8),
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.softGray,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomPadding),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── ヘッダー ─────────────────────────────────────────────
-                Row(
-                  children: [
-                    Text(
-                      isTarget ? '目標を編集' : '行動を編集',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppColors.darkSurface,
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomPadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── ヘッダー ─────────────────────────────────────────────
+                  Row(
+                    children: [
+                      Text(
+                        isTarget ? '目標を編集' : '行動を編集',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: AppColors.darkSurface,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    if (!isTarget && selected != null) ...[
+                      const Spacer(),
+                      if (!isTarget && selected != null) ...[
+                        Pressable(
+                          onTap: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (_) =>
+                                  _DeleteConfirmDialog(title: selected.title),
+                            );
+                            if (confirmed == true) {
+                              notifier.deleteBlock(selected.id);
+                              widget.onDismiss();
+                            }
+                          },
+                          scale: 0.88,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppColors.softGray,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            ),
+                            child: Icon(
+                              PhosphorIcons.trash(),
+                              size: 16,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 1,
+                          height: 16,
+                          color: AppColors.accentDivider,
+                        ),
+                        const SizedBox(width: 12),
+                      ],
                       Pressable(
-                        onTap: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (_) =>
-                                _DeleteConfirmDialog(title: selected.title),
-                          );
-                          if (confirmed == true) {
-                            notifier.deleteBlock(selected.id);
-                            widget.onDismiss();
-                          }
-                        },
+                        onTap: widget.onDismiss,
                         scale: 0.88,
                         child: Container(
                           width: 32,
@@ -284,194 +379,174 @@ class _EditSheetState extends ConsumerState<EditSheet> {
                             borderRadius: BorderRadius.circular(AppRadius.md),
                           ),
                           child: Icon(
-                            PhosphorIcons.trash(),
+                            PhosphorIcons.x(),
                             size: 16,
-                            color: AppColors.ink,
+                            color: AppColors.accentOlive,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Container(
-                        width: 1,
-                        height: 16,
-                        color: AppColors.accentDivider,
-                      ),
-                      const SizedBox(width: 12),
                     ],
-                    Pressable(
-                      onTap: widget.onDismiss,
-                      scale: 0.88,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.softGray,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                        child: Icon(
-                          PhosphorIcons.x(),
-                          size: 16,
-                          color: AppColors.accentOlive,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // ── 名前フィールド ────────────────────────────────────────
-                _SectionLabel(isTarget ? '目標名' : '行動名'),
-                const SizedBox(height: 6),
-                _StyledField(
-                  controller: _titleCtrl,
-                  placeholder: isTarget ? '目標を入力...' : '行動を入力...',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: AppColors.ink,
                   ),
-                  onChanged: (v) {
-                    if (isTarget) {
-                      notifier.setTargetTimeTitle(v);
-                    } else if (selected != null) {
-                      notifier.updateBlock(
-                        selected.id,
-                        (b) => b.copyWith(title: v),
-                      );
-                    }
-                  },
-                ),
-
-                // ── 目標モード専用: 時刻 ──────────────────────────────────
-                if (isTarget) ...[
                   const SizedBox(height: 20),
-                  const _SectionLabel('目標時刻'),
+
+                  // ── 名前フィールド ────────────────────────────────────────
+                  _SectionLabel(isTarget ? '目標名' : '行動名'),
                   const SizedBox(height: 6),
                   _StyledField(
-                    controller: _targetTimeCtrl,
-                    placeholder: '13:00',
-                    style: AppTextStyles.time(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                    controller: _titleCtrl,
+                    placeholder: isTarget ? '目標を入力...' : '行動を入力...',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
                       color: AppColors.ink,
-                      letterSpacing: -0.6,
-                    ),
-                    textAlign: TextAlign.center,
-                    readOnly: true,
-                    onTap: () => _pickTargetTime(state.targetTime),
-                  ),
-                ],
-
-                // ── ブロックモード専用: 所要時間 ──────────────────────────
-                if (!isTarget &&
-                    selected != null &&
-                    selected.type == BlockType.action) ...[
-                  const SizedBox(height: 20),
-                  const _SectionLabel('所要時間'),
-                  const SizedBox(height: 6),
-                  _DurationStepper(
-                    controller: _durationCtrl,
-                    focusNode: _durationFocusNode,
-                    unitLabel: '分',
-                    canDecrement: selected.duration > 5,
-                    canIncrement: true,
-                    onDecrement: () => notifier.updateBlock(
-                      selected.id,
-                      (b) =>
-                          b.copyWith(duration: (b.duration - 5).clamp(5, 9999)),
-                    ),
-                    onIncrement: () => notifier.updateBlock(
-                      selected.id,
-                      (b) => b.copyWith(duration: b.duration + 5),
                     ),
                     onChanged: (v) {
-                      final n = int.tryParse(v);
-                      if (n != null && n >= 5) {
+                      if (isTarget) {
+                        notifier.setTargetTimeTitle(v);
+                      } else if (selected != null) {
                         notifier.updateBlock(
                           selected.id,
-                          (b) => b.copyWith(duration: n),
+                          (b) => b.copyWith(title: v),
                         );
                       }
                     },
                   ),
-                  const SizedBox(height: 16),
-                  const _SectionLabel('余裕時間'),
-                  const SizedBox(height: 6),
-                  if (isPro) ...[
-                    _DurationStepper(
-                      controller: _bufferCtrl,
-                      focusNode: _bufferFocusNode,
-                      canDecrement: selected.normalizedBufferMinutes > 0,
-                      canIncrement:
-                          selected.normalizedBufferMinutes <
-                          maxSelectedBufferMinutes,
-                      fillColor: AppColors
-                          .blockColors[selected.colorIndex %
-                              AppColors.blockColors.length]
-                          .withValues(alpha: 0.08),
-                      borderRadius: AppRadius.pill,
-                      onDecrement: () => notifier.setActionBufferMinutes(
-                        selected.id,
-                        selected.normalizedBufferMinutes - kBufferStepMinutes,
+
+                  // ── 目標モード専用: 時刻 ──────────────────────────────────
+                  if (isTarget) ...[
+                    const SizedBox(height: 20),
+                    const _SectionLabel('目標時刻'),
+                    const SizedBox(height: 6),
+                    _StyledField(
+                      controller: _targetTimeCtrl,
+                      placeholder: '13:00',
+                      style: AppTextStyles.time(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        letterSpacing: -0.6,
                       ),
-                      onIncrement: () => notifier.setActionBufferMinutes(
+                      textAlign: TextAlign.center,
+                      readOnly: true,
+                      onTap: () => _pickTargetTime(state.targetTime),
+                    ),
+                  ],
+
+                  // ── ブロックモード専用: 所要時間 ──────────────────────────
+                  if (!isTarget &&
+                      selected != null &&
+                      selected.type == BlockType.action) ...[
+                    const SizedBox(height: 20),
+                    const _SectionLabel('所要時間'),
+                    const SizedBox(height: 6),
+                    _DurationStepper(
+                      controller: _durationCtrl,
+                      focusNode: _durationFocusNode,
+                      unitLabel: '分',
+                      canDecrement: selected.duration > 5,
+                      canIncrement: true,
+                      onDecrement: () => notifier.updateBlock(
                         selected.id,
-                        selected.normalizedBufferMinutes + kBufferStepMinutes,
+                        (b) => b.copyWith(
+                          duration: (b.duration - 5).clamp(5, 9999),
+                        ),
+                      ),
+                      onIncrement: () => notifier.updateBlock(
+                        selected.id,
+                        (b) => b.copyWith(duration: b.duration + 5),
                       ),
                       onChanged: (v) {
                         final n = int.tryParse(v);
-                        if (n != null) {
-                          final clamped = n.clamp(0, maxSelectedBufferMinutes);
-                          final normalized =
-                              normalizeActionBufferMinutesForDuration(
-                                BlockType.action,
-                                selected.duration,
-                                clamped,
-                              );
-                          if (normalized != n) {
-                            _bufferCtrl.text = normalized.toString();
-                          }
-                          notifier.setActionBufferMinutes(
+                        if (n != null && n >= 5) {
+                          notifier.updateBlock(
                             selected.id,
-                            normalized,
+                            (b) => b.copyWith(duration: n),
                           );
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
+                    const _SectionLabel('余裕時間'),
                     const SizedBox(height: 6),
-                    Text(
-                      '0〜$maxSelectedBufferMinutes分の範囲で5分単位で設定できます',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.mutedInk.withValues(alpha: 0.7),
+                    if (isPro) ...[
+                      _DurationStepper(
+                        controller: _bufferCtrl,
+                        focusNode: _bufferFocusNode,
+                        canDecrement: selected.normalizedBufferMinutes > 0,
+                        canIncrement:
+                            selected.normalizedBufferMinutes <
+                            maxSelectedBufferMinutes,
+                        fillColor: AppColors
+                            .blockColors[selected.colorIndex %
+                                AppColors.blockColors.length]
+                            .withValues(alpha: 0.08),
+                        borderRadius: AppRadius.pill,
+                        onDecrement: () => notifier.setActionBufferMinutes(
+                          selected.id,
+                          selected.normalizedBufferMinutes - kBufferStepMinutes,
+                        ),
+                        onIncrement: () => notifier.setActionBufferMinutes(
+                          selected.id,
+                          selected.normalizedBufferMinutes + kBufferStepMinutes,
+                        ),
+                        onChanged: (v) {
+                          final n = int.tryParse(v);
+                          if (n != null) {
+                            final clamped = n.clamp(
+                              0,
+                              maxSelectedBufferMinutes,
+                            );
+                            final normalized =
+                                normalizeActionBufferMinutesForDuration(
+                                  BlockType.action,
+                                  selected.duration,
+                                  clamped,
+                                );
+                            if (normalized != n) {
+                              _bufferCtrl.text = normalized.toString();
+                            }
+                            notifier.setActionBufferMinutes(
+                              selected.id,
+                              normalized,
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '0〜$maxSelectedBufferMinutes分の範囲で5分単位で設定できます',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.mutedInk.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ] else
+                      _LockedBufferControl(
+                        minutes: selected.normalizedBufferMinutes,
+                        onTap: _showActionBufferPaywall,
+                      ),
+                  ],
+
+                  // ── ブロックモード専用: カラー ────────────────────────────
+                  if (!isTarget && selected != null) ...[
+                    const SizedBox(height: 20),
+                    const _SectionLabel('カラー'),
+                    const SizedBox(height: 10),
+                    _ColorPicker(
+                      selectedIndex:
+                          selected.colorIndex % AppColors.blockColors.length,
+                      onSelect: (i) => notifier.updateBlock(
+                        selected.id,
+                        (b) => b.copyWith(colorIndex: i),
                       ),
                     ),
-                  ] else
-                    _LockedBufferControl(
-                      minutes: selected.normalizedBufferMinutes,
-                      onTap: _showActionBufferPaywall,
-                    ),
+                  ],
                 ],
-
-                // ── ブロックモード専用: カラー ────────────────────────────
-                if (!isTarget && selected != null) ...[
-                  const SizedBox(height: 20),
-                  const _SectionLabel('カラー'),
-                  const SizedBox(height: 10),
-                  _ColorPicker(
-                    selectedIndex:
-                        selected.colorIndex % AppColors.blockColors.length,
-                    onSelect: (i) => notifier.updateBlock(
-                      selected.id,
-                      (b) => b.copyWith(colorIndex: i),
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -31,6 +31,46 @@ const _timelineBottomSpacer =
     _floatingControlSize +
     _timelineBottomExtraSpacer;
 
+@visibleForTesting
+const kTimelineTargetAnchorVisualHeight = 72.0;
+
+@visibleForTesting
+const kTimelinePointBlockVisualHeight = 52.0;
+
+@visibleForTesting
+int normalizeTimelineMinuteNearTarget({
+  required int minutes,
+  required int targetTime,
+}) {
+  var normalized = minutes;
+  var bestDistance = (targetTime - normalized).abs();
+
+  for (final candidate in [minutes - 24 * 60, minutes + 24 * 60]) {
+    final distance = (targetTime - candidate).abs();
+    if (distance < bestDistance) {
+      normalized = candidate;
+      bestDistance = distance;
+    }
+  }
+
+  return normalized;
+}
+
+@visibleForTesting
+double timelineBlockVisualHeight(Block block, double pixelsPerMinute) {
+  if (block.type == BlockType.actionPoint) {
+    return kTimelinePointBlockVisualHeight;
+  }
+
+  final naturalHeight = block.effectiveDuration * pixelsPerMinute;
+  if (pixelsPerMinute >= kOverviewThresholdPpm) return naturalHeight.toDouble();
+
+  final minOverviewHeight = block.normalizedBufferMinutes > 0
+      ? kMinBufferedOverviewBlockHeight
+      : kMinOverviewBlockHeight;
+  return naturalHeight.clamp(minOverviewHeight, double.infinity).toDouble();
+}
+
 class _PendingBlockDelete {
   const _PendingBlockDelete({
     required this.block,
@@ -68,6 +108,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   DateTime _now = DateTime.now();
   late final Timer _clockTimer;
   Timer? _saveDebounce;
+  Timer? _swipeDeleteSnackBarTimer;
   _PendingBlockDelete? _pendingBlockDelete;
 
   // Search
@@ -564,6 +605,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   void _restorePendingDeletedBlock(_PendingBlockDelete pendingDelete) {
     if (_pendingBlockDelete != pendingDelete) return;
+    _swipeDeleteSnackBarTimer?.cancel();
+    _swipeDeleteSnackBarTimer = null;
     ScaffoldMessenger.of(
       context,
     ).hideCurrentSnackBar(reason: SnackBarClosedReason.action);
@@ -577,7 +620,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     const estimatedSnackBarHeight = 52.0;
     var restored = false;
     final messenger = ScaffoldMessenger.of(context);
+    _swipeDeleteSnackBarTimer?.cancel();
     messenger.hideCurrentSnackBar();
+    _swipeDeleteSnackBarTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted || restored || _pendingBlockDelete != pendingDelete) return;
+      _swipeDeleteSnackBarTimer = null;
+      messenger.hideCurrentSnackBar(reason: SnackBarClosedReason.timeout);
+    });
     messenger
         .showSnackBar(
           SnackBar(
@@ -608,10 +657,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               estimatedSnackBarHeight: estimatedSnackBarHeight,
             ),
             duration: const Duration(seconds: 3),
+            persist: false,
           ),
         )
         .closed
         .then((_) {
+          if (_pendingBlockDelete == pendingDelete) {
+            _swipeDeleteSnackBarTimer?.cancel();
+            _swipeDeleteSnackBarTimer = null;
+          }
           if (!mounted || restored || _pendingBlockDelete != pendingDelete) {
             return;
           }
@@ -670,6 +724,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _saveDebounce?.cancel();
     _saveIndicatorTimer?.cancel();
     _reorderOverviewTimer?.cancel();
+    _swipeDeleteSnackBarTimer?.cancel();
     _clockTimer.cancel();
     _searchHighlightTimer?.cancel();
     _searchController.dispose();
@@ -717,8 +772,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   }
 
   static const double _kSearchJumpTopMargin = 32.0;
-  static const double _kTargetAnchorHeight = 64.0;
-  static const double _kPointBlockApproxHeight = 52.0;
 
   void _jumpToActiveSearchMatch() {
     final timelineState = ref.read(timelineProvider);
@@ -731,34 +784,19 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (sourceIndex < 0) return;
 
     final ppm = timelineState.pixelsPerMinute;
-    final isOverview = ppm < kOverviewThresholdPpm;
     final bottomSpacer = MediaQuery.of(context).padding.bottom + 88;
 
     // Estimate scroll offset to the BOTTOM edge of the target block.
     // In reverse:true, larger offset = higher up (towards visual top).
-    double estimatedOffset = bottomSpacer + _kTargetAnchorHeight;
+    double estimatedOffset = bottomSpacer + kTimelineTargetAnchorVisualHeight;
     for (int i = sourceIndex + 1; i < computed.length; i++) {
       final cb = computed[i];
-      if (cb.block.type == BlockType.action) {
-        final h = cb.block.effectiveDuration * ppm;
-        estimatedOffset += isOverview
-            ? h.clamp(kMinOverviewBlockHeight, double.infinity)
-            : h;
-      } else {
-        estimatedOffset += _kPointBlockApproxHeight;
-      }
+      estimatedOffset += timelineBlockVisualHeight(cb.block, ppm);
     }
 
     // Target block height
     final targetCb = computed[sourceIndex];
-    final targetHeight = targetCb.block.type == BlockType.action
-        ? (isOverview
-              ? (targetCb.block.effectiveDuration * ppm).clamp(
-                  kMinOverviewBlockHeight,
-                  double.infinity,
-                )
-              : targetCb.block.effectiveDuration * ppm)
-        : _kPointBlockApproxHeight;
+    final targetHeight = timelineBlockVisualHeight(targetCb.block, ppm);
 
     // Top edge of the target block
     final targetTop = estimatedOffset - targetHeight;
@@ -791,6 +829,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final effectivePixelsPerMinute = _isReorderOverviewActive
         ? kOverviewPixelsPerMinute
         : state.pixelsPerMinute;
+    final currentTimelineMinute =
+        state.viewMode == TimelineViewMode.edit && !_sheetVisible
+        ? normalizeTimelineMinuteNearTarget(
+            minutes: _now.hour * 60 + _now.minute,
+            targetTime: state.targetTime,
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -899,6 +944,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                                     index: index,
                                     sourceIndex: sourceIndex,
                                     pixelsPerMinute: effectivePixelsPerMinute,
+                                    currentTimelineMinute:
+                                        currentTimelineMinute,
                                     sheetVisible: _sheetVisible,
                                     onReorderIntentStart:
                                         _scheduleReorderOverview,
@@ -922,48 +969,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       ],
                     ),
                   ),
-
-                  // 現在時刻インジケーター（edit view only）
-                  if (state.viewMode == TimelineViewMode.edit && !_sheetVisible)
-                    AnimatedBuilder(
-                      animation: _scrollController,
-                      builder: (context, _) {
-                        final ppm = effectivePixelsPerMinute;
-                        final targetTime = state.targetTime;
-                        final nowMinutes = _now.hour * 60 + _now.minute;
-                        const anchorAreaHeight = 64.0;
-                        final bottomSpacer =
-                            MediaQuery.of(context).padding.bottom +
-                            _timelineBottomSpacer;
-                        final scrollOffset = _scrollController.hasClients
-                            ? _scrollController.offset
-                            : 0.0;
-                        final nowFromBottom =
-                            bottomSpacer +
-                            anchorAreaHeight +
-                            (targetTime - nowMinutes) * ppm;
-                        final viewportHeight =
-                            MediaQuery.of(context).size.height -
-                            MediaQuery.of(context).padding.top;
-                        final top =
-                            viewportHeight - nowFromBottom + scrollOffset;
-                        if (top < -20 || top > viewportHeight + 20) {
-                          return const SizedBox.shrink();
-                        }
-                        final isOverlapping = computed.any(
-                          (cb) =>
-                              cb.startTime <= nowMinutes &&
-                              nowMinutes <= cb.endTime,
-                        );
-                        if (!isOverlapping) return const SizedBox.shrink();
-                        return Positioned(
-                          top: top,
-                          left: 0,
-                          right: 0,
-                          child: _NowIndicator(nowMinutes: nowMinutes),
-                        );
-                      },
-                    ),
 
                   // 上部フェードオーバーレイ
                   Positioned(
@@ -2482,6 +2487,7 @@ class _FloatingToolbar extends StatelessWidget {
       required String label,
       Key? key,
       bool isPending = false,
+      bool useNeutralStyle = false,
     }) {
       return Tooltip(
         message: label,
@@ -2497,9 +2503,16 @@ class _FloatingToolbar extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: isPending ? AppColors.softGray : AppColors.accentOlive,
+                color: useNeutralStyle
+                    ? AppColors.cardBackground
+                    : isPending
+                    ? AppColors.softGray
+                    : AppColors.accentOlive,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
                 boxShadow: AppShadows.floatingToolbar,
+                border: useNeutralStyle
+                    ? Border.all(color: AppColors.softGray)
+                    : null,
               ),
               child: isPending
                   ? const Center(
@@ -2512,7 +2525,13 @@ class _FloatingToolbar extends StatelessWidget {
                         ),
                       ),
                     )
-                  : Icon(icon, size: 20, color: AppColors.canvas),
+                  : Icon(
+                      icon,
+                      size: 20,
+                      color: useNeutralStyle
+                          ? AppColors.darkSurface
+                          : AppColors.canvas,
+                    ),
             ),
           ),
         ),
@@ -2527,21 +2546,22 @@ class _FloatingToolbar extends StatelessWidget {
           height: 56,
           child: Row(
             children: [
-              circularAction(
-                onTap: onAddPoint,
-                icon: PhosphorIcons.pushPin(),
-                label: '通過点を追加',
-              ),
               if (showTemplateAction) ...[
-                const SizedBox(width: 10),
                 circularAction(
                   key: const ValueKey('template-toolbar-button'),
                   onTap: onTemplateTap,
                   icon: PhosphorIcons.cards(),
                   label: 'テンプレート',
                   isPending: templateAccessPending,
+                  useNeutralStyle: true,
                 ),
+                const SizedBox(width: 10),
               ],
+              circularAction(
+                onTap: onAddPoint,
+                icon: PhosphorIcons.pushPin(),
+                label: '通過点を追加',
+              ),
               const SizedBox(width: 10),
               // 行動追加
               Expanded(
@@ -2665,64 +2685,6 @@ class _SaveIndicatorDot extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.accentOlive,
           shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Now Indicator
-// ---------------------------------------------------------------------------
-
-class _NowIndicator extends StatelessWidget {
-  const _NowIndicator({required this.nowMinutes});
-
-  final int nowMinutes;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 28),
-      child: SizedBox(
-        height: 20,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 48,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  color: AppColors.canvas,
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Text(
-                    formatTime(nowMinutes),
-                    style: AppTextStyles.time(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.mutedInk,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 3),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: AppColors.accentOlive,
-                shape: BoxShape.circle,
-              ),
-            ),
-            Expanded(
-              child: Container(
-                height: 1.5,
-                color: AppColors.accentOlive.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
         ),
       ),
     );
