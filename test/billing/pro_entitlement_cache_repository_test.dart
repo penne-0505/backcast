@@ -53,4 +53,21 @@ void main() {
     expect(cachedFree.productId, isNull);
     expect(cachedFree.lastSyncedAt?.toUtc(), DateTime.utc(2026, 5, 11, 12));
   });
+
+  test('clears every cached entitlement snapshot', () async {
+    await repository.save(
+      'user-1',
+      const ProEntitlementState(
+        isPro: true,
+        status: 'active',
+        productId: 'medo_pro_monthly',
+      ),
+    );
+    await repository.save('user-2', const ProEntitlementState.free());
+
+    await repository.clearAll();
+
+    expect(await repository.fetch('user-1'), isNull);
+    expect(await repository.fetch('user-2'), isNull);
+  });
 }

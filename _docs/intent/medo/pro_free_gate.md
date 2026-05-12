@@ -3,9 +3,10 @@ title: Pro Free Gate
 status: active
 draft_status: n/a
 created_at: "2026-05-11"
-updated_at: "2026-05-11"
+updated_at: "2026-05-12"
 references:
   - README.md
+  - _docs/intent/medo/billing_logout_state_boundary.md
   - _docs/archives/plan/Core/pro-free-gate.md
   - _docs/plan/UI/template-toolbar-popover.md
   - _docs/reference/medo/timeline_domain_reference.md
@@ -24,6 +25,7 @@ Medo では、基本編集を Free で成立させつつ、複数タイムライ
 - Pro 判定は `effectiveProAccessProvider` を UI/action 境界の source of truth として使い、互換用の `effectiveIsProProvider` は「Pro 確定済みか」の bool projection に留める
 - `loading` / `error` は Free と同一視せず、判定が確定するまで Paywall 遷移や Free 上限適用を保留する
 - Supabase から確認済みの Pro / Free snapshot は Drift の `cached_pro_entitlements` に保存し、次の問い合わせが完了するまではその snapshot を暫定判定として採用する
+- ログアウト後は user-scoped cache や RevenueCat customer state を Pro 判定に使わず、billing/logout 境界の詳細は `_docs/intent/medo/billing_logout_state_boundary.md` に従う
 - Free はタイムライン 2 件まで作成・利用できる
 - Pro はタイムライン数、テンプレート作成・適用、画像共有、buffer 編集を利用できる
 - Pro から Free へ戻っても作成済みデータは削除しない

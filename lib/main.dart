@@ -41,8 +41,9 @@ class MedoApp extends ConsumerWidget {
     // Keep RevenueCat identity in sync with Supabase auth state.
     ref.listen<String?>(currentUserIdProvider, (prev, next) async {
       if (next == null) {
+        ref.read(revenueCatIdentityProvider.notifier).setSignedOut();
         if (RevenueCatConfig.supportsCurrentPlatform && prev != null) {
-          await Purchases.logOut();
+          await ref.read(revenueCatGatewayProvider).logOut();
         }
         ref.invalidate(currentProEntitlementProvider);
         ref.invalidate(billingProvider);
@@ -52,8 +53,26 @@ class MedoApp extends ConsumerWidget {
         return;
       }
 
+      if (!RevenueCatConfig.supportsCurrentPlatform) {
+        ref.read(revenueCatIdentityProvider.notifier).setUnavailable(next);
+        await _syncReviewerEntitlement();
+        ref.invalidate(currentProEntitlementProvider);
+        return;
+      }
+
       if (RevenueCatConfig.supportsCurrentPlatform && next != prev) {
-        await Purchases.logIn(next);
+        ref.read(revenueCatIdentityProvider.notifier).setSyncing(next);
+        try {
+          await ref.read(revenueCatGatewayProvider).logIn(next);
+          if (ref.read(currentUserIdProvider) == next) {
+            ref.read(revenueCatIdentityProvider.notifier).setSynced(next);
+          }
+        } catch (error) {
+          if (ref.read(currentUserIdProvider) == next) {
+            ref.read(revenueCatIdentityProvider.notifier).setError(next, error);
+          }
+          return;
+        }
       }
       await _syncReviewerEntitlement();
       ref.invalidate(currentProEntitlementProvider);

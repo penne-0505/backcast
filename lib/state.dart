@@ -98,6 +98,10 @@ class TimelineNotifier extends Notifier<TimelineState> {
     return const TimelineState();
   }
 
+  void reset() {
+    state = const TimelineState();
+  }
+
   void setTargetTime(int minutes) {
     state = state.copyWith(targetTime: minutes);
   }

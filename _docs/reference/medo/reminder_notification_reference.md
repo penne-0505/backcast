@@ -3,7 +3,7 @@ title: Medo Reminder Notification Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-04-23"
+updated_at: "2026-05-12"
 references:
   - README.md
   - _docs/intent/medo/local_reminder_notifications.md
@@ -145,6 +145,15 @@ final result = await scheduler.scheduleReminderNotifications(
 - **Examples**:
   - 同じ `id` と `minutesBefore` を渡すと、過去に予約した同じ通知 ID をキャンセルできる
 
+### `Future<void> ReminderNotificationScheduler.cancelAllReminderNotifications()`
+
+- **Summary**: Medo が native notification plugin に登録した通知を一括キャンセルする
+- **Parameters**: なし
+- **Returns**: なし
+- **Errors**: native plugin のキャンセル失敗は呼び出し元へ伝播
+- **Examples**:
+  - アカウント削除後のローカル cleanup で、個別 request が手元になくても予約済み通知をまとめて消す
+
 ## Notes
 
 - `minutesBefore` は重複除去され、通知予定時刻が早い順に処理される
@@ -153,3 +162,4 @@ final result = await scheduler.scheduleReminderNotifications(
 - Android は `AndroidScheduleMode.inexactAllowWhileIdle` を使うため、OS 都合で通知が遅れる場合がある
 - `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` は要求しない
 - payload は `id`, `targetTitle`, `targetDateTime`, `minutesBefore` を含む JSON 文字列
+- 一括キャンセルは `flutter_local_notifications` の `cancelAll()` を使う

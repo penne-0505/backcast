@@ -23,6 +23,13 @@ class RevenueCatGateway {
 
   Future<CustomerInfo> restorePurchases() => Purchases.restorePurchases();
 
+  Future<CustomerInfo> logIn(String appUserId) async {
+    final result = await Purchases.logIn(appUserId);
+    return result.customerInfo;
+  }
+
+  Future<CustomerInfo> logOut() => Purchases.logOut();
+
   void addCustomerInfoUpdateListener(
     void Function(CustomerInfo customerInfo) listener,
   ) {
@@ -37,6 +44,72 @@ final revenueCatGatewayProvider = Provider<RevenueCatGateway>((ref) {
 final revenueCatBillingAvailableProvider = Provider<bool>((ref) {
   return RevenueCatConfig.supportsCurrentPlatform;
 });
+
+enum RevenueCatIdentityStatus { signedOut, syncing, synced, unavailable, error }
+
+@immutable
+class RevenueCatIdentityState {
+  const RevenueCatIdentityState._({
+    required this.status,
+    this.userId,
+    this.error,
+  });
+
+  const RevenueCatIdentityState.signedOut()
+    : this._(status: RevenueCatIdentityStatus.signedOut);
+
+  const RevenueCatIdentityState.syncing(String userId)
+    : this._(status: RevenueCatIdentityStatus.syncing, userId: userId);
+
+  const RevenueCatIdentityState.synced(String userId)
+    : this._(status: RevenueCatIdentityStatus.synced, userId: userId);
+
+  const RevenueCatIdentityState.unavailable(String userId)
+    : this._(status: RevenueCatIdentityStatus.unavailable, userId: userId);
+
+  const RevenueCatIdentityState.error(String userId, Object error)
+    : this._(
+        status: RevenueCatIdentityStatus.error,
+        userId: userId,
+        error: error,
+      );
+
+  final RevenueCatIdentityStatus status;
+  final String? userId;
+  final Object? error;
+
+  bool get isSyncing => status == RevenueCatIdentityStatus.syncing;
+  bool isSyncedFor(String expectedUserId) =>
+      status == RevenueCatIdentityStatus.synced && userId == expectedUserId;
+}
+
+class RevenueCatIdentityNotifier extends Notifier<RevenueCatIdentityState> {
+  @override
+  RevenueCatIdentityState build() => const RevenueCatIdentityState.signedOut();
+
+  void setSignedOut() => state = const RevenueCatIdentityState.signedOut();
+
+  void setSyncing(String userId) {
+    state = RevenueCatIdentityState.syncing(userId);
+  }
+
+  void setSynced(String userId) {
+    state = RevenueCatIdentityState.synced(userId);
+  }
+
+  void setUnavailable(String userId) {
+    state = RevenueCatIdentityState.unavailable(userId);
+  }
+
+  void setError(String userId, Object error) {
+    state = RevenueCatIdentityState.error(userId, error);
+  }
+}
+
+final revenueCatIdentityProvider =
+    NotifierProvider<RevenueCatIdentityNotifier, RevenueCatIdentityState>(
+      RevenueCatIdentityNotifier.new,
+    );
 
 /// Application-level subscription / billing state.
 @immutable
@@ -187,6 +260,15 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
       );
       return;
     }
+    if (!_isRevenueCatIdentityReady()) {
+      state = AsyncValue.data(
+        previous.copyWith(
+          purchaseStatus: BillingPurchaseStatus.failed,
+          purchaseMessage: _revenueCatIdentityMessage('Proの購入'),
+        ),
+      );
+      return;
+    }
 
     state = AsyncValue.data(
       previous.copyWith(
@@ -251,6 +333,15 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
       );
       return;
     }
+    if (!_isRevenueCatIdentityReady()) {
+      state = AsyncValue.data(
+        previous.copyWith(
+          purchaseStatus: BillingPurchaseStatus.failed,
+          purchaseMessage: _revenueCatIdentityMessage('購入の復元'),
+        ),
+      );
+      return;
+    }
 
     state = AsyncValue.data(
       previous.copyWith(
@@ -278,6 +369,21 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
   void _refreshEntitlementBoundary() {
     ref.invalidate(currentProEntitlementProvider);
     ref.invalidate(proPackageProvider);
+  }
+
+  bool _isRevenueCatIdentityReady() {
+    if (!ref.read(revenueCatBillingAvailableProvider)) return true;
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return false;
+    return ref.read(revenueCatIdentityProvider).isSyncedFor(userId);
+  }
+
+  String _revenueCatIdentityMessage(String actionName) {
+    final identity = ref.read(revenueCatIdentityProvider);
+    if (identity.isSyncing) {
+      return '$actionNameの準備中です。数秒後にもう一度お試しください。';
+    }
+    return '$actionNameの準備を完了できませんでした。ログイン状態を確認して再試行してください。';
   }
 }
 

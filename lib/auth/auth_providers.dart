@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
+import '../persistence/persistence_providers.dart';
+import '../state.dart';
+import 'account_deletion_cleanup.dart';
+
 /// Application-level authentication state.
 /// Wraps the Supabase [supabase.User] to expose a stable, app-specific API.
 @immutable
@@ -35,6 +39,14 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
     // Seed with the current session (may be null).
     final initialSession = client.auth.currentSession;
     var currentState = AppAuthState(user: initialSession?.user);
+    final cleanup = ref.read(accountDeletionLocalCleanupProvider);
+    if (await cleanup.hasPendingCleanup()) {
+      await cleanup.run();
+      await client.auth.signOut();
+      currentState = const AppAuthState();
+      ref.read(currentPlanIdProvider.notifier).clear();
+      ref.read(timelineProvider.notifier).reset();
+    }
 
     // Listen to Supabase auth events for the lifetime of this provider.
     final subscription = client.auth.onAuthStateChange.listen((event) {
@@ -107,7 +119,12 @@ class AuthNotifier extends AsyncNotifier<AppAuthState> {
         throw StateError('No authenticated user to delete.');
       }
 
+      final cleanup = ref.read(accountDeletionLocalCleanupProvider);
       await client.functions.invoke('delete-account');
+      await cleanup.markPending();
+      await cleanup.run();
+      ref.read(currentPlanIdProvider.notifier).clear();
+      ref.read(timelineProvider.notifier).reset();
       await client.auth.signOut();
       state = const AsyncValue.data(AppAuthState());
     } catch (e, st) {

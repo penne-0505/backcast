@@ -13,22 +13,26 @@ final planRepositoryProvider = Provider<PlanRepository>((ref) {
   return PlanRepository(ref.watch(databaseProvider));
 });
 
-final timelineTemplateRepositoryProvider = Provider<TimelineTemplateRepository>((ref) {
-  return TimelineTemplateRepository(ref.watch(databaseProvider));
-});
+final timelineTemplateRepositoryProvider = Provider<TimelineTemplateRepository>(
+  (ref) {
+    return TimelineTemplateRepository(ref.watch(databaseProvider));
+  },
+);
 
-final timelineTemplateApplyServiceProvider = Provider<TimelineTemplateApplyService>((ref) {
-  return TimelineTemplateApplyService(ref);
-});
+final timelineTemplateApplyServiceProvider =
+    Provider<TimelineTemplateApplyService>((ref) {
+      return TimelineTemplateApplyService(ref);
+    });
 
 class CurrentPlanIdNotifier extends Notifier<String?> {
   @override
   String? build() => null;
 
   void set(String id) => state = id;
+
+  void clear() => state = null;
 }
 
-final currentPlanIdProvider =
-    NotifierProvider<CurrentPlanIdNotifier, String?>(
-      CurrentPlanIdNotifier.new,
-    );
+final currentPlanIdProvider = NotifierProvider<CurrentPlanIdNotifier, String?>(
+  CurrentPlanIdNotifier.new,
+);

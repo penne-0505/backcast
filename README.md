@@ -68,7 +68,9 @@ Flutter SDK を PATH に通していない前提では、以下の絶対パス�
 
 Flutter アプリは `anon` / publishable key のみを使い、`user_pro_entitlements` を select します。`pro_entitlement_events` は RevenueCat webhook 由来の service-only log で、Flutter code からは参照しません。
 
-Paywall は RevenueCat の `current` offering から Pro package を取得し、価格・期間を表示します。Paywall 自体は未ログインでも閲覧できますが、`Purchases.purchasePackage(...)` による Google Play / App Store の購入フロー開始と `Purchases.restorePurchases()` による購入復元は、Supabase login 後の user id がある場合だけ許可します。購入成功後は RevenueCat `CustomerInfo` と Supabase の `currentProEntitlementProvider` を再読込します。RevenueCat webhook から Supabase へ反映されるまで短い遅延があり得るため、購入直後は「確認中」として扱い、最終的な Pro 判定は引き続き Supabase の `user_pro_entitlements` を source of truth にします。Supabase から確認済みの Pro / Free snapshot は Drift の `cached_pro_entitlements` に保存し、次の問い合わせが完了するまではローカル snapshot を暫定判定として採用します。起動直後や再同期中の未判定状態は Free と同一視せず、`effectiveProAccessProvider` で `loading` / `error` / `pro` / `free` を分けて UI と action gate を制御します。
+Paywall は RevenueCat の `current` offering から Pro package を取得し、価格・期間を表示します。Paywall 自体は未ログインでも閲覧できますが、`Purchases.purchasePackage(...)` による Google Play / App Store の購入フロー開始と `Purchases.restorePurchases()` による購入復元は、Supabase login 後の user id があり、かつ RevenueCat identity が同じ user id へ同期済みの場合だけ許可します。購入成功後は RevenueCat `CustomerInfo` と Supabase の `currentProEntitlementProvider` を再読込します。RevenueCat webhook から Supabase へ反映されるまで短い遅延があり得るため、購入直後は「確認中」として扱い、最終的な Pro 判定は引き続き Supabase の `user_pro_entitlements` を source of truth にします。Supabase から確認済みの Pro / Free snapshot は Drift の `cached_pro_entitlements` に保存し、次の問い合わせが完了するまではローカル snapshot を暫定判定として採用します。起動直後や再同期中の未判定状態は Free と同一視せず、`effectiveProAccessProvider` で `loading` / `error` / `pro` / `free` を分けて UI と action gate を制御します。
+
+アカウント削除は `delete-account` Edge Function 成功後にローカル cleanup を実行します。端末内では `plans` / `plan_blocks` / `plan_snapshots` / `timeline_templates` / `timeline_template_blocks`、現在タイムライン参照を含む `app_preferences`、`cached_pro_entitlements`、予約済みローカル通知、削除可能な `medo_share.png` 一時ファイルを削除します。cleanup 失敗時は pending marker を残し、次回起動時に再試行します。
 
 設定画面のサブスクリプションセクションでは、Free ユーザーのプランカードは Paywall へ遷移します。Pro ユーザーの `Proプラン利用中` カードは Paywall には戻さず、RevenueCat `CustomerInfo.managementURL` から Google Play / App Store の購読管理画面を外部アプリで開きます。`managementURL` が取得できない場合は、購入復元または各ストアのサブスクリプション管理を確認する案内を表示します。
 
@@ -76,7 +78,7 @@ Web / Linux / Windows など RevenueCat SDK を使わない実行環境では、
 
 レビュー担当者や検証用アカウントには、Supabase `reviewer_entitlement_allowlist` にメールアドレスと期限を登録できます。Google OAuth 後に `sync-reviewer-entitlement` Edge Function が現在ユーザーのメールアドレスを照合し、期限内で有効な場合だけ `user_pro_entitlements` に `status = temporary` の Pro 状態を作成します。メールは小文字・trim 済みで登録し、審査完了後は `disabled_at` を設定するか期限切れにしてください。
 
-closed testing で課金導線を確認する場合は、Play Store の opt-in 経由でインストールし、Supabase login 後に Paywall から sandbox purchase を開始します。未ログイン状態では Paywall の商品表示までは確認できますが、購入ボタンと復元ボタンはログイン案内に留まり、ストア購入シートは開きません。その後、RevenueCat dashboard の customer / entitlement、Supabase `user_pro_entitlements.is_pro`、アプリ内の Pro gate 解放を順に確認します。購入済み状態の再同期には Paywall または設定画面の「購入を復元」を使用し、購読の解約・更新停止は設定画面の Pro プランカードから開くストア側の管理画面で確認します。
+closed testing で課金導線を確認する場合は、Play Store の opt-in 経由でインストールし、Supabase login 後に Paywall から sandbox purchase を開始します。未ログイン状態では Paywall の商品表示までは確認できますが、購入ボタンと復元ボタンはログイン案内に留まり、ストア購入シートは開きません。ログイン直後で RevenueCat identity 同期がまだ完了していない間も購入・復元は開始せず、準備中として扱います。その後、RevenueCat dashboard の customer / entitlement、Supabase `user_pro_entitlements.is_pro`、アプリ内の Pro gate 解放を順に確認します。購入済み状態の再同期には Paywall または設定画面の「購入を復元」を使用し、購読の解約・更新停止は設定画面の Pro プランカードから開くストア側の管理画面で確認します。
 
 Supabase 側のローカル成果物は以下です。
 
@@ -126,7 +128,7 @@ npx supabase functions deploy sync-reviewer-entitlement
 - カレンダー登録時の書き込み先カレンダー選択 UI は未実装です。現状は未指定時に OS の既定カレンダーへ自動的に書き込みます
 - ローカル通知は予約サービスのみ実装済みで、権限要求や予約操作を行う UI は未実装です
 - Supabase には Auth、Pro 現在状態、service-only の RevenueCat event log だけを保持します。タイムライン、テンプレート、履歴、ローカル通知、カレンダー登録データは Supabase に同期しません
-- アカウント削除は `delete-account` Edge Function 経由で Supabase Auth user を削除し、`user_pro_entitlements` と `pro_entitlement_events` は外部キーの cascade delete で削除される設計です。ストア購読のキャンセルは Google Play / App Store 側で別途行う必要があります
+- アカウント削除は `delete-account` Edge Function 経由で Supabase Auth user を削除し、`user_pro_entitlements` と `pro_entitlement_events` は外部キーの cascade delete で削除されます。Edge Function 成功後、端末内の予定・テンプレート・履歴・Pro cache・通知予約・削除可能な共有一時ファイルも cleanup します。ストア購読のキャンセルは Google Play / App Store 側で別途行う必要があります
 - Undo / Redo は未実装です
 - `applyStartTimeEdit` は状態層に実装済みですが、現状の UI では直接使用していません
 - Web / Linux / Windows では RevenueCat billing を Free fallback として扱います。macOS / iOS 用のランナー雛形は存在しますが、運用・検証状況は別途確認が必要です

@@ -47,7 +47,7 @@ related_prs: []
 - **Functional**: ログイン済み Free ユーザーは、従来どおり Paywall から購入フローを開始できる。
 - **Functional**: RevenueCat SDK 非対応 platform では、既存どおり購入不可 state を表示する。
 - **Functional**: restore は既存仕様を維持する。ただし、restore も Supabase user へ entitlement を紐付ける必要があるため、未ログイン時の扱いを確認し、必要なら購入と同じ認証ガードへ揃える。
-- **Non-Functional**: 購入開始前に Supabase user id と RevenueCat App User ID が同期済みであることを前提にする。
+- **Non-Functional**: 購入開始前に Supabase user id と RevenueCat App User ID が同期済みであることを provider state で確認する。
 - **Non-Functional**: UI ガードだけに依存せず、billing provider 層でも未ログイン購入を拒否する。
 - **Non-Functional**: 未ログインを Pro gate 上の Free として扱う既存方針は維持し、Paywall への到達可能性は残す。
 
@@ -59,7 +59,7 @@ related_prs: []
 4. Paywall は認証状態を確認し、未ログインなら購入 API を呼ばずにログインが必要な旨を表示する。
 5. ユーザーは設定画面のアカウントセクションからログインする。
 6. ログイン後、RevenueCat identity listener が `Purchases.logIn(currentUserId)` を実行する。
-7. ログイン済み状態で Paywall の購入ボタンを押した場合だけ、`BillingNotifier.purchaseProPackage(...)` が `Purchases.purchasePackage(...)` を呼ぶ。
+7. ログイン済みで RevenueCat identity 同期も完了した状態で Paywall の購入ボタンを押した場合だけ、`BillingNotifier.purchaseProPackage(...)` が `Purchases.purchasePackage(...)` を呼ぶ。
 
 ## Implementation Notes
 
@@ -67,7 +67,7 @@ related_prs: []
 - 既存の設定画面にはログイン UI があるため、最小実装では Paywall から SettingsScreen へ遷移する導線を追加するのが自然。ただしナビゲーションが循環しすぎる場合は、まず SnackBar と「設定でログインしてください」の明示に留めてもよい。
 - `BillingNotifier.purchaseProPackage(...)` は `currentUserIdProvider` を read し、null の場合は failed / idle 相当の recoverable state と message を返す。ここで RevenueCat gateway を呼ばないことをテストで固定する。
 - `restorePurchases()` は既存では未ログインでも呼べる。RevenueCat の restore 結果を Supabase user に反映する設計と衝突する可能性があるため、実装時に purchase と同じ認証必須にするかを確認する。判断基準は「restore 後に Supabase entitlement の source of truth へ確実に紐付くか」とする。
-- `currentUserIdProvider` 変更後に `Purchases.logIn(next)` が非同期で走るため、ログイン直後の購入 tap が早すぎるケースに注意する。必要なら `BillingNotifier.purchaseProPackage(...)` で `Purchases.logIn` 完了前の race を避ける追加 state を検討する。
+- `currentUserIdProvider` 変更後に `Purchases.logIn(next)` が非同期で走るため、ログイン直後の購入 tap が早すぎるケースは `revenueCatIdentityProvider` の同期状態で拒否する。
 
 ## Tasks
 
@@ -83,7 +83,8 @@ related_prs: []
 
 - Provider test
   - `currentUserIdProvider == null` で `purchaseProPackage(...)` を呼ぶと、RevenueCat gateway の `purchasePackage` が呼ばれない。
-  - ログイン済み user id がある場合は、従来どおり `purchasePackage` が呼ばれる。
+  - ログイン済み user id があり、RevenueCat identity が同じ user id に同期済みの場合は、従来どおり `purchasePackage` が呼ばれる。
+  - ログイン済みでも RevenueCat identity が同期中の場合は、`purchasePackage` と `restorePurchases` が呼ばれない。
   - RevenueCat SDK 非対応 platform では、未ログイン判定よりも既存の platform unavailable message が破綻しない。
 - Widget test
   - 未ログイン Paywall で商品情報は表示される。

@@ -84,6 +84,8 @@ abstract class ReminderNotificationClient {
   Future<void> schedule(ReminderNotificationPlan plan);
 
   Future<void> cancel(int notificationId);
+
+  Future<void> cancelAll();
 }
 
 class ReminderNotificationScheduler {
@@ -166,6 +168,8 @@ class ReminderNotificationScheduler {
     }
     return List.unmodifiable(notificationIds);
   }
+
+  Future<void> cancelAllReminderNotifications() => _client.cancelAll();
 }
 
 class FlutterLocalReminderNotificationClient
@@ -244,6 +248,12 @@ class FlutterLocalReminderNotificationClient
   Future<void> cancel(int notificationId) async {
     await initialize();
     await _plugin.cancel(id: notificationId);
+  }
+
+  @override
+  Future<void> cancelAll() async {
+    await initialize();
+    await _plugin.cancelAll();
   }
 
   Future<void> _setLocalTimezone() async {

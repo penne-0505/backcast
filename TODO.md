@@ -221,19 +221,3 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 ---
 
 ## In Progress
-
-- **Title**: [Enhance] Clean local data on account deletion
-- **ID**: Core-Enhance-50
-- **Priority**: P0
-- **Size**: M
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: アカウント削除成功後に、端末内の予定・テンプレート・履歴・Pro cache・予約済み通知・削除可能な共有一時ファイルが削除され、古い provider state から再表示されない。
-- **Steps**:
-  1. [ ] Plan の "Scope" に従い、Drift cleanup と Pro cache 削除 API を実装する
-  2. [ ] Plan の "Requirements" に従い、通知の一括キャンセル API を追加する
-  3. [ ] account deletion flow でサーバー削除成功後にローカル cleanup、RevenueCat logout/reset、Supabase signOut、provider reset を実行する
-  4. [ ] 予定・テンプレート・Pro cache・通知 cancellation の unit test を追加する
-  5. [ ] 関連 reference / README を実装結果に合わせて更新する
-- **Description**: Supabase Auth user と Supabase 側課金 row の削除だけでは端末内の個人データが残り得るため、アカウント削除フローにローカル cleanup 境界を追加する。
-- **Plan**: `_docs/plan/Core/account-deletion-local-cleanup.md`

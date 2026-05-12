@@ -26,6 +26,12 @@ class PaywallScreen extends ConsumerWidget {
     final isBusy = billingData?.isBusy ?? billingState.isLoading;
     final userId = ref.watch(currentUserIdProvider);
     final isAuthenticated = userId != null;
+    final identityState = ref.watch(revenueCatIdentityProvider);
+    final isIdentityReady =
+        !ref.watch(revenueCatBillingAvailableProvider) ||
+        (userId != null && identityState.isSyncedFor(userId));
+    final isPreparingPurchase =
+        isAuthenticated && !isIdentityReady && identityState.isSyncing;
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -163,12 +169,22 @@ class PaywallScreen extends ConsumerWidget {
                       _PackageSummary(package: package),
                       const SizedBox(height: AppSpacing.md),
                       _PurchaseButton(
-                        label: isBusy ? '処理中' : 'Proにアップグレード',
-                        isEnabled: !isBusy,
-                        isLoading: isBusy,
+                        label: isBusy
+                            ? '処理中'
+                            : isPreparingPurchase
+                            ? '購入準備中'
+                            : 'Proにアップグレード',
+                        isEnabled: !isBusy && !isPreparingPurchase,
+                        isLoading: isBusy || isPreparingPurchase,
                         onTap: () {
                           if (!isAuthenticated) {
                             _showAuthRequiredMessage(context, 'Proの購入');
+                            return;
+                          }
+                          if (!isIdentityReady) {
+                            ref
+                                .read(billingProvider.notifier)
+                                .purchaseProPackage(package.package);
                             return;
                           }
                           ref

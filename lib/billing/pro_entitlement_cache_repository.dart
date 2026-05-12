@@ -40,4 +40,8 @@ class ProEntitlementCacheRepository {
           ),
         );
   }
+
+  Future<void> clearAll() async {
+    await _db.delete(_db.cachedProEntitlements).go();
+  }
 }

@@ -3,7 +3,7 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-11"
+updated_at: "2026-05-12"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -17,11 +17,13 @@ related_prs: []
 ## Overview
 
 本リファレンスは、`Medo` の複数プラン保存・ロード、現在プラン復元、履歴閲覧、テンプレート永続化のために追加した永続化 Repository の現状仕様をまとめます。
-対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart` です。
+対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart`、`lib/auth/account_deletion_cleanup.dart` です。
 
 アプリ画面は起動時に最後に開いた plan を復元し、編集中の状態を自動保存します。timeline list island modal の切り替え操作は current plan preference を更新します。ヘッダーの export panel は保存・ロードを扱いません。
 
 Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.wasm` と `web/drift_worker.dart.js` を読み込んで browser storage 上に `medo` database を作成します。Web database は browser origin 単位の storage であり、Android / iOS の native database file から自動移行しません。
+
+アカウント削除時は `AccountDeletionLocalCleanup` が `plans`、`plan_blocks`、`plan_snapshots`、`timeline_templates`、`timeline_template_blocks`、`app_preferences`、`cached_pro_entitlements` を削除します。削除処理は `delete-account` Edge Function 成功後に pending marker を保存してから実行され、途中で失敗した場合は次回起動時に再試行できるよう `app_preferences` の marker を残します。
 
 ## API
 
@@ -129,6 +131,23 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
 - **Errors**: `key` 重複時は upsert で置き換える
 - **Examples**:
   - `key = "currentPlanId"`, `value = plans.id`
+  - `key = "pendingAccountDeletionCleanup"`, `value = "true"`
+
+### `cached_pro_entitlements` table
+
+- **Summary**: Supabase から確認済みの Pro / Free snapshot をユーザー ID ごとに保持する
+- **Parameters**:
+  - `userId (String)`: Supabase user UUID
+  - `isPro (bool)`: Pro access が有効か
+  - `status (String)`: server entitlement status
+  - `productId (String?)`: 対応する product ID
+  - `expiresAt (DateTime?)`: entitlement 期限
+  - `lastSyncedAt (DateTime?)`: Supabase からの最終同期時刻
+  - `cachedAt (DateTime)`: 端末内 cache 更新時刻
+- **Returns**: なし
+- **Errors**: `userId` 重複時は upsert で置き換える
+- **Examples**:
+  - `ProEntitlementCacheRepository.clearAll()` はアカウント削除時に全ユーザー分の entitlement cache を削除する
 
 ### `PlanRepository.createPlan`
 

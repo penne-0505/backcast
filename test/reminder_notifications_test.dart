@@ -158,6 +158,15 @@ void main() {
       expect(client.cancelled, cancelledIds);
     });
 
+    test('cancels all reminders through the notification client', () async {
+      final client = _FakeReminderNotificationClient();
+      final scheduler = ReminderNotificationScheduler(client: client);
+
+      await scheduler.cancelAllReminderNotifications();
+
+      expect(client.cancelAllCount, 1);
+    });
+
     test('requests permissions through the notification client', () async {
       final client = _FakeReminderNotificationClient(permissionResult: false);
       final scheduler = ReminderNotificationScheduler(client: client);
@@ -178,6 +187,7 @@ class _FakeReminderNotificationClient implements ReminderNotificationClient {
   final List<int> cancelled = [];
   var initializeCount = 0;
   var permissionRequests = 0;
+  var cancelAllCount = 0;
 
   @override
   Future<void> initialize() async {
@@ -198,5 +208,10 @@ class _FakeReminderNotificationClient implements ReminderNotificationClient {
   @override
   Future<void> cancel(int notificationId) async {
     cancelled.add(notificationId);
+  }
+
+  @override
+  Future<void> cancelAll() async {
+    cancelAllCount++;
   }
 }

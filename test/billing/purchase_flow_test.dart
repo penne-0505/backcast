@@ -54,6 +54,9 @@ void main() {
         overrides: [
           revenueCatBillingAvailableProvider.overrideWithValue(true),
           currentUserIdProvider.overrideWithValue('user-id'),
+          _revenueCatIdentityOverride(
+            const RevenueCatIdentityState.synced('user-id'),
+          ),
           revenueCatGatewayProvider.overrideWithValue(gateway),
         ],
       );
@@ -78,6 +81,9 @@ void main() {
         overrides: [
           revenueCatBillingAvailableProvider.overrideWithValue(true),
           currentUserIdProvider.overrideWithValue('user-id'),
+          _revenueCatIdentityOverride(
+            const RevenueCatIdentityState.synced('user-id'),
+          ),
           revenueCatGatewayProvider.overrideWithValue(gateway),
         ],
       );
@@ -105,6 +111,9 @@ void main() {
           overrides: [
             revenueCatBillingAvailableProvider.overrideWithValue(true),
             currentUserIdProvider.overrideWithValue('user-id'),
+            _revenueCatIdentityOverride(
+              const RevenueCatIdentityState.synced('user-id'),
+            ),
             revenueCatGatewayProvider.overrideWithValue(gateway),
           ],
         );
@@ -165,6 +174,59 @@ void main() {
       expect(gateway.restoreCount, 0);
       expect(state.purchaseStatus, BillingPurchaseStatus.failed);
       expect(state.purchaseMessage, '購入の復元にはログインが必要です。設定からログインしてください。');
+    });
+
+    test('purchase waits for RevenueCat identity sync', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue('user-id'),
+          _revenueCatIdentityOverride(
+            const RevenueCatIdentityState.syncing('user-id'),
+          ),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingProvider.future);
+      final package = await container.read(proPackageProvider.future);
+      await container
+          .read(billingProvider.notifier)
+          .purchaseProPackage(package!.package);
+
+      final state = container.read(billingProvider).requireValue;
+      expect(gateway.purchaseCount, 0);
+      expect(state.purchaseStatus, BillingPurchaseStatus.failed);
+      expect(state.purchaseMessage, 'Proの購入の準備中です。数秒後にもう一度お試しください。');
+    });
+
+    test('restore waits for RevenueCat identity sync', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue('user-id'),
+          _revenueCatIdentityOverride(
+            const RevenueCatIdentityState.syncing('user-id'),
+          ),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingProvider.future);
+      await container.read(billingProvider.notifier).restorePurchases();
+
+      final state = container.read(billingProvider).requireValue;
+      expect(gateway.restoreCount, 0);
+      expect(state.purchaseStatus, BillingPurchaseStatus.failed);
+      expect(state.purchaseMessage, '購入の復元の準備中です。数秒後にもう一度お試しください。');
     });
 
     test(
@@ -328,6 +390,21 @@ void main() {
       expect(find.text('Proの購入にはログインが必要です。設定からログインしてください。'), findsOneWidget);
     });
   });
+}
+
+dynamic _revenueCatIdentityOverride(RevenueCatIdentityState state) {
+  return revenueCatIdentityProvider.overrideWith(
+    () => _FixedRevenueCatIdentityNotifier(state),
+  );
+}
+
+class _FixedRevenueCatIdentityNotifier extends RevenueCatIdentityNotifier {
+  _FixedRevenueCatIdentityNotifier(this._state);
+
+  final RevenueCatIdentityState _state;
+
+  @override
+  RevenueCatIdentityState build() => _state;
 }
 
 class _FakeRevenueCatGateway extends RevenueCatGateway {
