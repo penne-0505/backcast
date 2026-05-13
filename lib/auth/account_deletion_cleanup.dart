@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analytics/usage_analytics.dart';
 import '../billing/pro_entitlement_cache_repository.dart';
 import '../notifications/reminder_notifications.dart';
 import '../persistence/app_database.dart';
@@ -14,6 +15,7 @@ final accountDeletionLocalCleanupProvider =
       final shareCleanup = const ShareTemporaryFileCleanup();
       return AccountDeletionLocalCleanup(
         localData: LocalAccountDataCleanupRepository(db),
+        analytics: UsageAnalyticsRepository(db),
         proCache: ProEntitlementCacheRepository(db),
         notificationScheduler: ReminderNotificationScheduler(),
         deleteShareTemporaryFiles: shareCleanup.deleteShareTemporaryFiles,
@@ -23,15 +25,18 @@ final accountDeletionLocalCleanupProvider =
 class AccountDeletionLocalCleanup {
   const AccountDeletionLocalCleanup({
     required LocalAccountDataCleanupRepository localData,
+    required UsageAnalyticsRepository analytics,
     required ProEntitlementCacheRepository proCache,
     required ReminderNotificationScheduler notificationScheduler,
     required Future<void> Function() deleteShareTemporaryFiles,
   }) : _localData = localData,
+       _analytics = analytics,
        _proCache = proCache,
        _notificationScheduler = notificationScheduler,
        _deleteShareTemporaryFiles = deleteShareTemporaryFiles;
 
   final LocalAccountDataCleanupRepository _localData;
+  final UsageAnalyticsRepository _analytics;
   final ProEntitlementCacheRepository _proCache;
   final ReminderNotificationScheduler _notificationScheduler;
   final Future<void> Function() _deleteShareTemporaryFiles;
@@ -55,6 +60,8 @@ class AccountDeletionLocalCleanup {
     }
 
     await attempt(_localData.clearUserCreatedData);
+    await attempt(_analytics.clearPendingEvents);
+    await attempt(_analytics.clearAnalyticsPreferences);
     await attempt(_proCache.clearAll);
     await attempt(_notificationScheduler.cancelAllReminderNotifications);
 

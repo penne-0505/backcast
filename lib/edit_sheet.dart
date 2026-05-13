@@ -11,6 +11,10 @@ import 'platform_time_picker.dart';
 import 'state.dart';
 import 'theme.dart';
 
+abstract final class _EditSheetColors {
+  static const section = Color(0xFFF0F6F9);
+}
+
 class EditSheet extends ConsumerStatefulWidget {
   const EditSheet({super.key, required this.onDismiss});
 
@@ -281,7 +285,7 @@ class _EditSheetState extends ConsumerState<EditSheet>
       offset: Offset(0, _dismissDragOffset),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.canvas,
+          color: AppColors.cardBackground,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(AppRadius.xl),
             topRight: Radius.circular(AppRadius.xl),
@@ -306,7 +310,7 @@ class _EditSheetState extends ConsumerState<EditSheet>
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.softGray,
+                      color: AppColors.cardBackground,
                       borderRadius: BorderRadius.circular(AppRadius.xs),
                     ),
                   ),
@@ -315,234 +319,286 @@ class _EditSheetState extends ConsumerState<EditSheet>
             ),
 
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomPadding),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── ヘッダー ─────────────────────────────────────────────
-                  Row(
-                    children: [
-                      Text(
-                        isTarget ? '目標を編集' : '行動を編集',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                          color: AppColors.darkSurface,
+              padding: EdgeInsets.fromLTRB(12, 10, 12, 12 + bottomPadding),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withValues(alpha: 0.05),
+                      blurRadius: 18,
+                      spreadRadius: -6,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── ヘッダー ─────────────────────────────────────────────
+                    Row(
+                      children: [
+                        Text(
+                          isTarget ? '目標を編集' : '行動を編集',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                            color: AppColors.darkSurface,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      if (!isTarget && selected != null) ...[
+                        const Spacer(),
+                        if (!isTarget && selected != null) ...[
+                          Pressable(
+                            onTap: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (_) =>
+                                    _DeleteConfirmDialog(title: selected.title),
+                              );
+                              if (confirmed == true) {
+                                notifier.deleteBlock(selected.id);
+                                widget.onDismiss();
+                              }
+                            },
+                            scale: 0.88,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppColors.cardBackground,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.md,
+                                ),
+                              ),
+                              child: Icon(
+                                PhosphorIcons.trash(),
+                                size: 16,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            width: 1,
+                            height: 16,
+                            color: AppColors.accentDivider,
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                         Pressable(
-                          onTap: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (_) =>
-                                  _DeleteConfirmDialog(title: selected.title),
-                            );
-                            if (confirmed == true) {
-                              notifier.deleteBlock(selected.id);
-                              widget.onDismiss();
-                            }
-                          },
+                          onTap: widget.onDismiss,
                           scale: 0.88,
                           child: Container(
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: AppColors.softGray,
+                              color: AppColors.cardBackground,
                               borderRadius: BorderRadius.circular(AppRadius.md),
                             ),
                             child: Icon(
-                              PhosphorIcons.trash(),
+                              PhosphorIcons.x(),
                               size: 16,
-                              color: AppColors.ink,
+                              color: AppColors.accentOlive,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Container(
-                          width: 1,
-                          height: 16,
-                          color: AppColors.accentDivider,
-                        ),
-                        const SizedBox(width: 12),
                       ],
-                      Pressable(
-                        onTap: widget.onDismiss,
-                        scale: 0.88,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppColors.softGray,
-                            borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── 名前フィールド ────────────────────────────────────────
+                    _LayerPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _SectionLabel(isTarget ? '目標名' : '行動名'),
+                          const SizedBox(height: 6),
+                          _StyledField(
+                            controller: _titleCtrl,
+                            placeholder: isTarget ? '目標を入力...' : '行動を入力...',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: AppColors.ink,
+                            ),
+                            onChanged: (v) {
+                              if (isTarget) {
+                                notifier.setTargetTimeTitle(v);
+                              } else if (selected != null) {
+                                notifier.updateBlock(
+                                  selected.id,
+                                  (b) => b.copyWith(title: v),
+                                );
+                              }
+                            },
                           ),
-                          child: Icon(
-                            PhosphorIcons.x(),
-                            size: 16,
-                            color: AppColors.accentOlive,
-                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ── 目標モード専用: 時刻 ──────────────────────────────────
+                    if (isTarget) ...[
+                      const SizedBox(height: 20),
+                      _LayerPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _SectionLabel('目標時刻'),
+                            const SizedBox(height: 6),
+                            _StyledField(
+                              controller: _targetTimeCtrl,
+                              placeholder: '13:00',
+                              style: AppTextStyles.time(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink,
+                                letterSpacing: -0.6,
+                              ),
+                              textAlign: TextAlign.center,
+                              readOnly: true,
+                              onTap: () => _pickTargetTime(state.targetTime),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
 
-                  // ── 名前フィールド ────────────────────────────────────────
-                  _SectionLabel(isTarget ? '目標名' : '行動名'),
-                  const SizedBox(height: 6),
-                  _StyledField(
-                    controller: _titleCtrl,
-                    placeholder: isTarget ? '目標を入力...' : '行動を入力...',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: AppColors.ink,
-                    ),
-                    onChanged: (v) {
-                      if (isTarget) {
-                        notifier.setTargetTimeTitle(v);
-                      } else if (selected != null) {
-                        notifier.updateBlock(
+                    // ── ブロックモード専用: 所要時間 ──────────────────────────
+                    if (!isTarget &&
+                        selected != null &&
+                        selected.type == BlockType.action) ...[
+                      const SizedBox(height: 20),
+                      _LayerPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _SectionLabel('所要時間'),
+                            const SizedBox(height: 6),
+                            _DurationStepper(
+                              controller: _durationCtrl,
+                              focusNode: _durationFocusNode,
+                              unitLabel: '分',
+                              canDecrement: selected.duration > 5,
+                              canIncrement: true,
+                              onDecrement: () => notifier.updateBlock(
+                                selected.id,
+                                (b) => b.copyWith(
+                                  duration: (b.duration - 5).clamp(5, 9999),
+                                ),
+                              ),
+                              onIncrement: () => notifier.updateBlock(
+                                selected.id,
+                                (b) => b.copyWith(duration: b.duration + 5),
+                              ),
+                              onChanged: (v) {
+                                final n = int.tryParse(v);
+                                if (n != null && n >= 5) {
+                                  notifier.updateBlock(
+                                    selected.id,
+                                    (b) => b.copyWith(duration: n),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _LayerPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _SectionLabel('余裕時間'),
+                            const SizedBox(height: 6),
+                            if (isPro) ...[
+                              _DurationStepper(
+                                controller: _bufferCtrl,
+                                focusNode: _bufferFocusNode,
+                                canDecrement:
+                                    selected.normalizedBufferMinutes > 0,
+                                canIncrement:
+                                    selected.normalizedBufferMinutes <
+                                    maxSelectedBufferMinutes,
+                                fillColor: AppColors
+                                    .blockColors[selected.colorIndex %
+                                        AppColors.blockColors.length]
+                                    .withValues(alpha: 0.045),
+                                borderRadius: AppRadius.pill,
+                                onDecrement: () =>
+                                    notifier.setActionBufferMinutes(
+                                      selected.id,
+                                      selected.normalizedBufferMinutes -
+                                          kBufferStepMinutes,
+                                    ),
+                                onIncrement: () =>
+                                    notifier.setActionBufferMinutes(
+                                      selected.id,
+                                      selected.normalizedBufferMinutes +
+                                          kBufferStepMinutes,
+                                    ),
+                                onChanged: (v) {
+                                  final n = int.tryParse(v);
+                                  if (n != null) {
+                                    final clamped = n.clamp(
+                                      0,
+                                      maxSelectedBufferMinutes,
+                                    );
+                                    final normalized =
+                                        normalizeActionBufferMinutesForDuration(
+                                          BlockType.action,
+                                          selected.duration,
+                                          clamped,
+                                        );
+                                    if (normalized != n) {
+                                      _bufferCtrl.text = normalized.toString();
+                                    }
+                                    notifier.setActionBufferMinutes(
+                                      selected.id,
+                                      normalized,
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '0〜$maxSelectedBufferMinutes分の範囲で5分単位で設定できます',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.mutedInk.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ),
+                              ),
+                            ] else
+                              _LockedBufferControl(
+                                minutes: selected.normalizedBufferMinutes,
+                                onTap: _showActionBufferPaywall,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // ── ブロックモード専用: カラー ────────────────────────────
+                    if (!isTarget && selected != null) ...[
+                      const SizedBox(height: 20),
+                      const _SectionLabel('カラー'),
+                      const SizedBox(height: 10),
+                      _ColorPicker(
+                        selectedIndex:
+                            selected.colorIndex % AppColors.blockColors.length,
+                        onSelect: (i) => notifier.updateBlock(
                           selected.id,
-                          (b) => b.copyWith(title: v),
-                        );
-                      }
-                    },
-                  ),
-
-                  // ── 目標モード専用: 時刻 ──────────────────────────────────
-                  if (isTarget) ...[
-                    const SizedBox(height: 20),
-                    const _SectionLabel('目標時刻'),
-                    const SizedBox(height: 6),
-                    _StyledField(
-                      controller: _targetTimeCtrl,
-                      placeholder: '13:00',
-                      style: AppTextStyles.time(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                        letterSpacing: -0.6,
+                          (b) => b.copyWith(colorIndex: i),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                      readOnly: true,
-                      onTap: () => _pickTargetTime(state.targetTime),
-                    ),
+                    ],
                   ],
-
-                  // ── ブロックモード専用: 所要時間 ──────────────────────────
-                  if (!isTarget &&
-                      selected != null &&
-                      selected.type == BlockType.action) ...[
-                    const SizedBox(height: 20),
-                    const _SectionLabel('所要時間'),
-                    const SizedBox(height: 6),
-                    _DurationStepper(
-                      controller: _durationCtrl,
-                      focusNode: _durationFocusNode,
-                      unitLabel: '分',
-                      canDecrement: selected.duration > 5,
-                      canIncrement: true,
-                      onDecrement: () => notifier.updateBlock(
-                        selected.id,
-                        (b) => b.copyWith(
-                          duration: (b.duration - 5).clamp(5, 9999),
-                        ),
-                      ),
-                      onIncrement: () => notifier.updateBlock(
-                        selected.id,
-                        (b) => b.copyWith(duration: b.duration + 5),
-                      ),
-                      onChanged: (v) {
-                        final n = int.tryParse(v);
-                        if (n != null && n >= 5) {
-                          notifier.updateBlock(
-                            selected.id,
-                            (b) => b.copyWith(duration: n),
-                          );
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    const _SectionLabel('余裕時間'),
-                    const SizedBox(height: 6),
-                    if (isPro) ...[
-                      _DurationStepper(
-                        controller: _bufferCtrl,
-                        focusNode: _bufferFocusNode,
-                        canDecrement: selected.normalizedBufferMinutes > 0,
-                        canIncrement:
-                            selected.normalizedBufferMinutes <
-                            maxSelectedBufferMinutes,
-                        fillColor: AppColors
-                            .blockColors[selected.colorIndex %
-                                AppColors.blockColors.length]
-                            .withValues(alpha: 0.08),
-                        borderRadius: AppRadius.pill,
-                        onDecrement: () => notifier.setActionBufferMinutes(
-                          selected.id,
-                          selected.normalizedBufferMinutes - kBufferStepMinutes,
-                        ),
-                        onIncrement: () => notifier.setActionBufferMinutes(
-                          selected.id,
-                          selected.normalizedBufferMinutes + kBufferStepMinutes,
-                        ),
-                        onChanged: (v) {
-                          final n = int.tryParse(v);
-                          if (n != null) {
-                            final clamped = n.clamp(
-                              0,
-                              maxSelectedBufferMinutes,
-                            );
-                            final normalized =
-                                normalizeActionBufferMinutesForDuration(
-                                  BlockType.action,
-                                  selected.duration,
-                                  clamped,
-                                );
-                            if (normalized != n) {
-                              _bufferCtrl.text = normalized.toString();
-                            }
-                            notifier.setActionBufferMinutes(
-                              selected.id,
-                              normalized,
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '0〜$maxSelectedBufferMinutes分の範囲で5分単位で設定できます',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.mutedInk.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ] else
-                      _LockedBufferControl(
-                        minutes: selected.normalizedBufferMinutes,
-                        onTap: _showActionBufferPaywall,
-                      ),
-                  ],
-
-                  // ── ブロックモード専用: カラー ────────────────────────────
-                  if (!isTarget && selected != null) ...[
-                    const SizedBox(height: 20),
-                    const _SectionLabel('カラー'),
-                    const SizedBox(height: 10),
-                    _ColorPicker(
-                      selectedIndex:
-                          selected.colorIndex % AppColors.blockColors.length,
-                      onSelect: (i) => notifier.updateBlock(
-                        selected.id,
-                        (b) => b.copyWith(colorIndex: i),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ],
@@ -564,6 +620,24 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: AppTextStyles.label);
+  }
+}
+
+class _LayerPanel extends StatelessWidget {
+  const _LayerPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: _EditSheetColors.section,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -591,7 +665,7 @@ class _StyledField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: AppColors.softGray,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: TextField(
@@ -721,7 +795,7 @@ class _DurationStepperState extends State<_DurationStepper> {
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: widget.fillColor ?? AppColors.softGray,
+        color: widget.fillColor ?? AppColors.cardBackground,
         borderRadius: BorderRadius.circular(widget.borderRadius),
       ),
       child: Row(
@@ -840,12 +914,8 @@ class _LockedBufferControl extends StatelessWidget {
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: AppColors.softGray,
+          color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
-            color: AppColors.accentDivider.withValues(alpha: 0.8),
-            width: 1,
-          ),
         ),
         child: Row(
           children: [

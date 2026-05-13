@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import 'analytics/usage_analytics.dart';
 import 'block_item.dart';
 import 'edit_sheet.dart';
 import 'models.dart';
@@ -214,7 +215,24 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           state: state ?? ref.read(timelineProvider),
           createSnapshot: false,
         );
+    final TimelineState savedState = state ?? ref.read(timelineProvider);
+    await _track(
+      UsageAnalyticsEvent.planSaved,
+      properties: {
+        'block_count_bucket': analyticsCountBucket(savedState.blocks.length),
+        'has_buffer': savedState.blocks.any((block) => block.bufferMinutes > 0),
+      },
+    );
     if (mounted) setState(() => _saveIndicatorVisible = false);
+  }
+
+  Future<void> _track(
+    UsageAnalyticsEvent event, {
+    Map<String, Object?> properties = const {},
+  }) {
+    return ref
+        .read(usageAnalyticsServiceProvider)
+        .track(event, properties: properties);
   }
 
   @override
@@ -246,6 +264,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           await ref
               .read(planRepositoryProvider)
               .savePlan(planId: planId, state: next, createSnapshot: false);
+          await _track(
+            UsageAnalyticsEvent.planSaved,
+            properties: {
+              'block_count_bucket': analyticsCountBucket(next.blocks.length),
+              'has_buffer': next.blocks.any((block) => block.bufferMinutes > 0),
+            },
+          );
         } catch (e, st) {
           debugPrint('Auto-save error: $e\n$st');
           if (mounted) setState(() => _saveIndicatorVisible = false);
@@ -266,6 +291,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
+        await _track(
+          UsageAnalyticsEvent.appOpened,
+          properties: {
+            'launch_source': 'cold_start',
+            'platform': currentAnalyticsPlatform(),
+          },
+        );
         final repo = ref.read(planRepositoryProvider);
         final plans = await repo.listPlans();
         if (!mounted) return;
@@ -286,6 +318,23 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           if (!mounted) return;
           ref.read(currentPlanIdProvider.notifier).set(plan.id);
           await repo.saveCurrentPlanId(plan.id);
+          await _track(
+            UsageAnalyticsEvent.firstPlanCreated,
+            properties: {
+              'block_count_bucket': analyticsCountBucket(
+                plan.state.blocks.length,
+              ),
+            },
+          );
+          await _track(
+            UsageAnalyticsEvent.planCreated,
+            properties: {
+              'source': 'initial_bootstrap',
+              'block_count_bucket': analyticsCountBucket(
+                plan.state.blocks.length,
+              ),
+            },
+          );
         }
       } catch (e, st) {
         _suppressAutoSave = false;
@@ -387,6 +436,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       );
       if (!mounted) return;
       await repo.saveCurrentPlanId(plan.id);
+      await _track(
+        UsageAnalyticsEvent.planCreated,
+        properties: {
+          'source': 'timeline_list',
+          'block_count_bucket': analyticsCountBucket(plan.state.blocks.length),
+        },
+      );
       _suppressAutoSave = true;
       ref.read(currentPlanIdProvider.notifier).set(plan.id);
       ref
@@ -716,6 +772,16 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     ref
         .read(timelineProvider.notifier)
         .moveBlockByIndex(n - 1 - oldIndex, n - 1 - newIndex);
+    unawaited(
+      _track(
+        UsageAnalyticsEvent.blockReordered,
+        properties: {
+          'block_count_bucket': analyticsCountBucket(
+            ref.read(timelineProvider).blocks.length,
+          ),
+        },
+      ),
+    );
   }
 
   void _handleReorderStart(int index, List<ComputedBlock> computed) {
@@ -1090,6 +1156,17 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           if (_dismissInlineEditorIfNeeded()) return;
                           FocusManager.instance.primaryFocus?.unfocus();
                           notifier.addBlock(0, BlockType.action);
+                          unawaited(
+                            _track(
+                              UsageAnalyticsEvent.blockAdded,
+                              properties: {
+                                'block_type': 'action',
+                                'block_count_bucket': analyticsCountBucket(
+                                  ref.read(timelineProvider).blocks.length,
+                                ),
+                              },
+                            ),
+                          );
                         },
                         onAddPoint: () {
                           if (_closeHeaderPopovers()) return;
@@ -1097,6 +1174,17 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           if (_dismissInlineEditorIfNeeded()) return;
                           FocusManager.instance.primaryFocus?.unfocus();
                           notifier.addBlock(0, BlockType.actionPoint);
+                          unawaited(
+                            _track(
+                              UsageAnalyticsEvent.blockAdded,
+                              properties: {
+                                'block_type': 'actionPoint',
+                                'block_count_bucket': analyticsCountBucket(
+                                  ref.read(timelineProvider).blocks.length,
+                                ),
+                              },
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -1579,6 +1667,19 @@ class _TargetTimeAnchorState extends ConsumerState<_TargetTimeAnchor> {
               ref
                   .read(timelineProvider.notifier)
                   .addBlock(insertIndex, BlockType.action);
+              unawaited(
+                ref
+                    .read(usageAnalyticsServiceProvider)
+                    .track(
+                      UsageAnalyticsEvent.blockAdded,
+                      properties: {
+                        'block_type': 'action',
+                        'block_count_bucket': analyticsCountBucket(
+                          ref.read(timelineProvider).blocks.length,
+                        ),
+                      },
+                    ),
+              );
             },
             child: SizedBox(
               width: 48,

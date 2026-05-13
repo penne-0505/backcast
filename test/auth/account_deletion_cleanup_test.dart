@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:medo/analytics/usage_analytics.dart';
 import 'package:medo/auth/account_deletion_cleanup.dart';
 import 'package:medo/billing/pro_entitlement_cache_repository.dart';
 import 'package:medo/billing/pro_entitlement_repository.dart';
@@ -59,8 +60,20 @@ void main() {
 
       final notificationClient = _FakeReminderNotificationClient();
       final localData = LocalAccountDataCleanupRepository(db);
+      final analytics = UsageAnalyticsRepository(db);
+      await analytics.setConsent(AnalyticsConsent.enabled);
+      await analytics.enqueue(
+        event: UsageAnalyticsEvent.appOpened,
+        properties: const {
+          'launch_source': 'cold_start',
+          'platform': 'android',
+        },
+        sessionId: 'session-1',
+        installId: 'install-1',
+      );
       final cleanup = AccountDeletionLocalCleanup(
         localData: localData,
+        analytics: analytics,
         proCache: proCacheRepository,
         notificationScheduler: ReminderNotificationScheduler(
           client: notificationClient,
@@ -76,6 +89,8 @@ void main() {
       expect(await planRepository.listPlans(), isEmpty);
       expect(await templateRepository.listTemplates(), isEmpty);
       expect(await planRepository.loadCurrentPlanId(), isNull);
+      expect(await analytics.pendingEvents(), isEmpty);
+      expect(await analytics.fetchConsent(), AnalyticsConsent.disabled);
       expect(await proCacheRepository.fetch('user-1'), isNull);
       expect(await localData.hasPendingAccountDeletionCleanup(), isFalse);
       expect(notificationClient.cancelAllCount, 1);
@@ -89,6 +104,7 @@ void main() {
     final localData = LocalAccountDataCleanupRepository(db);
     final cleanup = AccountDeletionLocalCleanup(
       localData: localData,
+      analytics: UsageAnalyticsRepository(db),
       proCache: proCacheRepository,
       notificationScheduler: ReminderNotificationScheduler(
         client: notificationClient,

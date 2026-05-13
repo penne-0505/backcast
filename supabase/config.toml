@@ -26,3 +26,9 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/sync-reviewer-entitlement/deno.json"
 entrypoint = "./functions/sync-reviewer-entitlement/index.ts"
+
+[functions.usage-analytics]
+enabled = true
+verify_jwt = false
+import_map = "./functions/usage-analytics/deno.json"
+entrypoint = "./functions/usage-analytics/index.ts"

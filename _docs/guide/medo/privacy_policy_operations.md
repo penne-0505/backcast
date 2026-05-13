@@ -3,10 +3,11 @@ title: Medo Privacy Policy Operations Guide
 status: active
 draft_status: n/a
 created_at: "2026-05-09"
-updated_at: "2026-05-09"
+updated_at: "2026-05-14"
 references:
   - README.md
   - _docs/standards/privacy-policy.md
+  - _docs/guide/medo/google_play_data_safety_memo.md
   - _docs/archives/plan/Core/revenuecat-supabase-entitlement-sync.md
 related_issues: []
 related_prs: []
@@ -24,7 +25,10 @@ Medo のユーザーデータ、課金状態、アカウント削除、外部サ
 
 - 原稿: `_docs/standards/privacy-policy.md`
 - 公開用 HTML: `public/medo/privacy/index.html`
+- アカウント削除申請ページ: `public/medo/account-deletion/index.html`
 - 公開予定 URL: `https://otibo.dev/medo/privacy/`
+- 削除申請 URL: `https://otibo.dev/medo/account-deletion/`
+- Google Play Data Safety 記入候補: `_docs/guide/medo/google_play_data_safety_memo.md`
 
 Cloudflare Pages へアップロードする場合は、`public` ディレクトリを deploy 対象にする。
 
@@ -39,6 +43,7 @@ npx wrangler pages deploy /home/penne/dev/active/backcast/public --project-name 
 - 取得するユーザーデータの種類を増やす、減らす、または名称を変える
 - タイムライン、テンプレート、履歴、通知、カレンダー登録データの保存先を端末内からクラウドへ変更する
 - Supabase に保存する情報、保存期間、削除条件、RLS / service role 境界を変更する
+- 利用改善 analytics の opt-in 条件、送信 event、識別子、削除動作、Edge Function の公開条件を変更する
 - RevenueCat、Google OAuth、Google Play など、第三者サービスの利用目的や連携範囲を変更する
 - アカウント削除時に削除される情報、残る情報、復元可否を変更する
 - サブスクリプション、購入検証、Pro 判定、返金・解約案内の説明が変わる
@@ -61,6 +66,7 @@ npx wrangler pages deploy /home/penne/dev/active/backcast/public --project-name 
 
 ```bash
 rg -n "privacy|プライバシー|個人情報|アカウント削除|Data Safety|RevenueCat|Supabase|Google Play|App Store" README.md _docs lib supabase public
+rg -n "analytics|アナリティクス|利用改善|account_deleted|uploading|uploaded|user_id|email" README.md _docs lib supabase public
 python3 - <<'PY'
 from html.parser import HTMLParser
 from pathlib import Path

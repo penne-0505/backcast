@@ -1,29 +1,54 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../analytics/usage_analytics.dart';
 import '../auth/auth_providers.dart';
 import '../theme.dart';
 import 'billing_providers.dart';
 import 'gate_helper.dart';
 
 /// Pro description / paywall screen that accepts a feature context.
-class PaywallScreen extends ConsumerWidget {
+class PaywallScreen extends ConsumerStatefulWidget {
   const PaywallScreen({super.key, required this.feature});
 
   final PaywallFeature feature;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final featureTitle = _featureTitle(feature);
-    final featureDescription = _featureDescription(feature);
+  ConsumerState<PaywallScreen> createState() => _PaywallScreenState();
+}
+
+class _PaywallScreenState extends ConsumerState<PaywallScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        ref
+            .read(usageAnalyticsServiceProvider)
+            .track(
+              UsageAnalyticsEvent.paywallViewed,
+              properties: {'source': _featureSource(widget.feature)},
+            ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final featureTitle = _featureTitle(widget.feature);
+    final featureDescription = _featureDescription(widget.feature);
     final packageState = ref.watch(proPackageProvider);
     final billingState = ref.watch(billingProvider);
+    final proAccess = ref.watch(effectiveProAccessProvider);
     final billingData = billingState.maybeWhen(
       data: (value) => value,
       orElse: () => null,
     );
     final isBusy = billingData?.isBusy ?? billingState.isLoading;
+    final canRestorePurchases = !isBusy && !proAccess.isPro;
     final userId = ref.watch(currentUserIdProvider);
     final isAuthenticated = userId != null;
     final identityState = ref.watch(revenueCatIdentityProvider);
@@ -181,6 +206,14 @@ class PaywallScreen extends ConsumerWidget {
                             _showAuthRequiredMessage(context, 'Proの購入');
                             return;
                           }
+                          unawaited(
+                            ref
+                                .read(usageAnalyticsServiceProvider)
+                                .track(
+                                  UsageAnalyticsEvent.purchaseStarted,
+                                  properties: {'source': 'paywall'},
+                                ),
+                          );
                           if (!isIdentityReady) {
                             ref
                                 .read(billingProvider.notifier)
@@ -202,7 +235,7 @@ class PaywallScreen extends ConsumerWidget {
               ],
               const SizedBox(height: AppSpacing.md),
               Pressable(
-                onTap: isBusy
+                onTap: !canRestorePurchases
                     ? null
                     : () {
                         if (!isAuthenticated) {
@@ -218,7 +251,7 @@ class PaywallScreen extends ConsumerWidget {
                     color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(color: AppColors.softGray, width: 1),
-                    boxShadow: AppShadows.card,
+                    boxShadow: canRestorePurchases ? AppShadows.card : null,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -226,7 +259,9 @@ class PaywallScreen extends ConsumerWidget {
                       Icon(
                         PhosphorIcons.arrowCounterClockwise(),
                         size: 18,
-                        color: AppColors.mutedInk,
+                        color: canRestorePurchases
+                            ? AppColors.mutedInk
+                            : AppColors.softGray,
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
@@ -234,9 +269,9 @@ class PaywallScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: isBusy
-                              ? AppColors.softGray
-                              : AppColors.mutedInk,
+                          color: canRestorePurchases
+                              ? AppColors.mutedInk
+                              : AppColors.softGray,
                         ),
                       ),
                     ],
@@ -274,6 +309,19 @@ class PaywallScreen extends ConsumerWidget {
         return 'タイムラインを美しい画像として生成し、SNSやメッセージで共有できます。Proにアップグレードして、シェアの質を高めましょう。';
       case PaywallFeature.actionBuffer:
         return '行動ごとに余裕時間を足すと、実際の所要時間とは別に遅れを吸収できます。設定済みの余裕時間はFreeでも予定計算に残ります。';
+    }
+  }
+
+  String _featureSource(PaywallFeature feature) {
+    switch (feature) {
+      case PaywallFeature.templates:
+        return 'templates';
+      case PaywallFeature.timelineCount:
+        return 'timeline_count';
+      case PaywallFeature.imageExport:
+        return 'image_export';
+      case PaywallFeature.actionBuffer:
+        return 'action_buffer';
     }
   }
 

@@ -58,6 +58,7 @@ Flutter SDK を PATH に通していない前提では、以下の絶対パス�
 - カレンダー登録の native delivery は `lib/calendar_export_delivery.dart` にあります
 - テキスト共有の純粋関数は `lib/timeline_text_export.dart` にあります
 - 画像共有の純粋関数と Widget、delivery は `lib/timeline_image_export.dart`、`lib/timeline_image_share_card.dart`、`lib/image_export_delivery.dart` にあります
+- 利用改善用 analytics は `lib/analytics/usage_analytics.dart` にあり、明示同意後に allowlist event だけをローカル queue へ保存し、Supabase Edge Function へ background best-effort で送信します
 - ローカル通知リマインダーのサービス層は `lib/notifications/` にあります
 - 永続化 Repository は `lib/persistence/` にあります
 - Pro 判定の現在状態は `lib/billing/pro_entitlement_repository.dart` と `lib/billing/pro_entitlement_providers.dart` で Supabase の `user_pro_entitlements` から read-only 取得します
@@ -70,9 +71,9 @@ Flutter アプリは `anon` / publishable key のみを使い、`user_pro_entitl
 
 Paywall は RevenueCat の `current` offering から Pro package を取得し、価格・期間を表示します。Paywall 自体は未ログインでも閲覧できますが、`Purchases.purchasePackage(...)` による Google Play / App Store の購入フロー開始と `Purchases.restorePurchases()` による購入復元は、Supabase login 後の user id があり、かつ RevenueCat identity が同じ user id へ同期済みの場合だけ許可します。購入成功後は RevenueCat `CustomerInfo` と Supabase の `currentProEntitlementProvider` を再読込します。RevenueCat webhook から Supabase へ反映されるまで短い遅延があり得るため、購入直後は「確認中」として扱い、最終的な Pro 判定は引き続き Supabase の `user_pro_entitlements` を source of truth にします。Supabase から確認済みの Pro / Free snapshot は Drift の `cached_pro_entitlements` に保存し、次の問い合わせが完了するまではローカル snapshot を暫定判定として採用します。起動直後や再同期中の未判定状態は Free と同一視せず、`effectiveProAccessProvider` で `loading` / `error` / `pro` / `free` を分けて UI と action gate を制御します。
 
-アカウント削除は `delete-account` Edge Function 成功後にローカル cleanup を実行します。端末内では `plans` / `plan_blocks` / `plan_snapshots` / `timeline_templates` / `timeline_template_blocks`、現在タイムライン参照を含む `app_preferences`、`cached_pro_entitlements`、予約済みローカル通知、削除可能な `medo_share.png` 一時ファイルを削除します。cleanup 失敗時は pending marker を残し、次回起動時に再試行します。
+アカウント削除は `delete-account` Edge Function 成功直後に cleanup marker を保存してからローカル cleanup を実行します。端末内では `plans` / `plan_blocks` / `plan_snapshots` / `timeline_templates` / `timeline_template_blocks`、現在タイムライン参照と analytics 同意状態を含む `app_preferences`、`cached_pro_entitlements`、未送信 analytics queue、予約済みローカル通知、削除可能な `medo_share.png` 一時ファイルを削除します。cleanup 失敗時は pending marker を残し、次回起動時に再試行します。
 
-設定画面のサブスクリプションセクションでは、Free ユーザーのプランカードは Paywall へ遷移します。Pro ユーザーの `Proプラン利用中` カードは Paywall には戻さず、RevenueCat `CustomerInfo.managementURL` から Google Play / App Store の購読管理画面を外部アプリで開きます。`managementURL` が取得できない場合は、購入復元または各ストアのサブスクリプション管理を確認する案内を表示します。
+設定画面のサブスクリプションセクションでは、Free ユーザーのプランカードは Paywall へ遷移します。Pro ユーザーの `Proプラン利用中` カードは Paywall には戻さず、RevenueCat `CustomerInfo.managementURL` から Google Play / App Store の購読管理画面を外部アプリで開きます。Pro 判定済みの間は「購入を復元」ボタンを無効化し、UI 状態にかかわらず復元処理自体も開始しません。`managementURL` が取得できない場合は、各ストアのサブスクリプション管理を確認する案内を表示します。
 
 Web / Linux / Windows など RevenueCat SDK を使わない実行環境では、アプリ起動時に `Purchases.configure(...)`、`logIn`、`logOut`、offering 取得、restore を呼ばず、billing state は Free 相当に倒します。Paywall は Pro package なしとして表示され、ストア購入フローは Android / iOS / macOS の対応環境だけで有効になります。
 
@@ -84,9 +85,11 @@ Supabase 側のローカル成果物は以下です。
 
 - SQL migration: `supabase/migrations/20260509081731_revenuecat_supabase_entitlement_sync.sql`
 - reviewer allowlist migration: `supabase/migrations/20260510113000_reviewer_temporary_entitlement.sql`
+- usage analytics migration: `supabase/migrations/20260513090000_usage_analytics.sql`
 - RevenueCat webhook: `supabase/functions/revenuecat-webhook/index.ts`
 - account deletion function: `supabase/functions/delete-account/index.ts`
 - reviewer entitlement sync function: `supabase/functions/sync-reviewer-entitlement/index.ts`
+- usage analytics ingestion function: `supabase/functions/usage-analytics/index.ts`
 
 Edge Function secrets は、Supabase hosted defaults の `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEYS`、`SUPABASE_SECRET_KEYS` を優先します。互換用に `SUPABASE_ANON_KEY` と `SUPABASE_SERVICE_ROLE_KEY` も読みます。追加で以下が必要です。
 
@@ -94,13 +97,14 @@ Edge Function secrets は、Supabase hosted defaults の `SUPABASE_URL`、`SUPAB
 - `REVENUECAT_SECRET_API_KEY`: RevenueCat subscriber API 用の secret API key
 - `REVENUECAT_PRO_ENTITLEMENT_ID`: Pro entitlement identifier
 
-Supabase CLI が PATH にない環境では `npx supabase ...` で実行できます。
+Supabase CLI が PATH にない環境では `npx supabase ...` で実行できます。`usage-analytics` は未ログインの opt-in event も受けるため、`supabase/config.toml` で `verify_jwt = false` を明示しています。
 
 ```bash
 npx supabase db push
 npx supabase functions deploy revenuecat-webhook
 npx supabase functions deploy delete-account
 npx supabase functions deploy sync-reviewer-entitlement
+npx supabase functions deploy usage-analytics
 ```
 
 ## ドキュメント
@@ -117,6 +121,7 @@ npx supabase functions deploy sync-reviewer-entitlement
 - カレンダー書き出し設計意図: [`_docs/intent/medo/calendar_export_ics.md`](_docs/intent/medo/calendar_export_ics.md)
 - ローカル通知設計意図: [`_docs/intent/medo/local_reminder_notifications.md`](_docs/intent/medo/local_reminder_notifications.md)
 - 永続化設計意図: [`_docs/intent/medo/drift_persistence_repository.md`](_docs/intent/medo/drift_persistence_repository.md)
+- 利用改善 analytics 設計意図: [`_docs/intent/medo/usage_analytics.md`](_docs/intent/medo/usage_analytics.md)
 - ドキュメント運用ガイド: [`_docs/documentation_guide.md`](_docs/documentation_guide.md)
 
 ## 現状の制約
@@ -127,7 +132,8 @@ npx supabase functions deploy sync-reviewer-entitlement
 - Android / iOS のカレンダー登録では、権限拒否・書き込み可能カレンダーなし・ペイロード不正・保存失敗を domain error として区別します。iOS 17+ では write-only access を優先し、それ以前の OS では full access にフォールバックします
 - カレンダー登録時の書き込み先カレンダー選択 UI は未実装です。現状は未指定時に OS の既定カレンダーへ自動的に書き込みます
 - ローカル通知は予約サービスのみ実装済みで、権限要求や予約操作を行う UI は未実装です
-- Supabase には Auth、Pro 現在状態、service-only の RevenueCat event log だけを保持します。タイムライン、テンプレート、履歴、ローカル通知、カレンダー登録データは Supabase に同期しません
+- Supabase には Auth、Pro 現在状態、service-only の RevenueCat event log、明示同意後の利用改善 analytics event だけを保持します。タイムライン、テンプレート、履歴、ローカル通知、カレンダー登録データは Supabase に同期しません
+- 利用改善 analytics は既定で off です。設定画面で明示的に有効化した場合のみ、起動、作成、保存、共有、カレンダー登録、Paywall などの allowlist event と bucket 化済み property を送信します。タイムライン本文、タイトル、自由入力、raw time、メールアドレス、Supabase user id は送信しません
 - アカウント削除は `delete-account` Edge Function 経由で Supabase Auth user を削除し、`user_pro_entitlements` と `pro_entitlement_events` は外部キーの cascade delete で削除されます。Edge Function 成功後、端末内の予定・テンプレート・履歴・Pro cache・通知予約・削除可能な共有一時ファイルも cleanup します。ストア購読のキャンセルは Google Play / App Store 側で別途行う必要があります
 - Undo / Redo は未実装です
 - `applyStartTimeEdit` は状態層に実装済みですが、現状の UI では直接使用していません
@@ -135,9 +141,10 @@ npx supabase functions deploy sync-reviewer-entitlement
 
 ## 検証済みコマンド
 
-2026-05-10 時点で、少なくとも以下は通過済みです。
+2026-05-14 時点で、少なくとも以下は通過済みです。
 
 ```bash
-/home/penne/sdk/flutter/flutter/bin/flutter analyze
-/home/penne/sdk/flutter/flutter/bin/flutter test
+/home/penne/sdk/flutter/flutter/bin/flutter analyze lib/analytics/usage_analytics.dart lib/auth/auth_providers.dart lib/auth/account_deletion_cleanup.dart lib/persistence/app_database.dart lib/plan_panel.dart lib/settings/settings_screen.dart lib/timeline_screen.dart lib/template_sheet.dart lib/billing/billing_providers.dart lib/billing/paywall_screen.dart
+/home/penne/sdk/flutter/flutter/bin/flutter test test/analytics/usage_analytics_test.dart test/auth/account_deletion_cleanup_test.dart
+deno test --config supabase/functions/usage-analytics/deno.json --allow-env --allow-net supabase/functions/usage-analytics/index_test.ts
 ```

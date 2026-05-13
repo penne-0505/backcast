@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../analytics/usage_analytics.dart';
 import '../auth/auth_providers.dart';
 import '../config/revenuecat_config.dart';
+import 'gate_helper.dart';
 import 'pro_entitlement_providers.dart';
 
 /// Thin gateway around RevenueCat static APIs.
@@ -286,6 +288,12 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
         purchaseMessage: '購入を確認中です。反映まで少し時間がかかる場合があります。',
       );
       state = AsyncValue.data(next);
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.purchaseCompleted,
+            properties: {'result': 'pending'},
+          );
       _refreshEntitlementBoundary();
     } on PlatformException catch (e) {
       final errorCode = PurchasesErrorHelper.getErrorCode(e);
@@ -296,6 +304,12 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
             purchaseMessage: '購入はキャンセルされました。',
           ),
         );
+        await ref
+            .read(usageAnalyticsServiceProvider)
+            .track(
+              UsageAnalyticsEvent.purchaseCompleted,
+              properties: {'result': 'cancelled'},
+            );
       } else {
         state = AsyncValue.data(
           previous.copyWith(
@@ -303,6 +317,12 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
             purchaseMessage: '購入を完了できませんでした。時間をおいて再試行してください。',
           ),
         );
+        await ref
+            .read(usageAnalyticsServiceProvider)
+            .track(
+              UsageAnalyticsEvent.purchaseCompleted,
+              properties: {'result': 'failed'},
+            );
       }
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -315,6 +335,9 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
       data: (value) => value,
       orElse: () => const BillingState(),
     );
+    if (ref.read(effectiveProAccessProvider).isPro) {
+      return;
+    }
     if (!ref.read(revenueCatBillingAvailableProvider)) {
       state = AsyncValue.data(
         previous.copyWith(
@@ -360,6 +383,12 @@ class BillingNotifier extends AsyncNotifier<BillingState> {
           purchaseMessage: '購入情報を復元しました。Pro状態を再確認しています。',
         ),
       );
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.purchaseCompleted,
+            properties: {'result': 'restored'},
+          );
       _refreshEntitlementBoundary();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import 'analytics/usage_analytics.dart';
 import 'billing/gate_helper.dart';
 import 'billing/paywall_screen.dart';
 import 'models.dart';
@@ -97,6 +98,14 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
       final repo = ref.read(timelineTemplateRepositoryProvider);
       final state = ref.read(timelineProvider);
       await repo.createTemplate(state: state);
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.templateCreated,
+            properties: {
+              'block_count_bucket': analyticsCountBucket(state.blocks.length),
+            },
+          );
       await _load();
     } catch (e, st) {
       debugPrint('TemplateSheet save error: $e\n$st');
@@ -117,6 +126,16 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
     try {
       final service = ref.read(timelineTemplateApplyServiceProvider);
       await service.applyTemplate(templateId);
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.templateApplied,
+            properties: {
+              'block_count_bucket': analyticsCountBucket(
+                ref.read(timelineProvider).blocks.length,
+              ),
+            },
+          );
       if (mounted) widget.onDismiss();
     } catch (e, st) {
       debugPrint('TemplateSheet apply error: $e\n$st');

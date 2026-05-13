@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../analytics/usage_analytics.dart';
 import '../auth/auth_providers.dart';
 import '../billing/billing_providers.dart';
 import '../billing/gate_helper.dart';
@@ -203,9 +204,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               _RestorePurchasesButton(
-                onTap: () =>
-                    ref.read(billingProvider.notifier).restorePurchases(),
+                isEnabled: !proAccess.isPro,
+                onTap: proAccess.isPro
+                    ? null
+                    : () =>
+                          ref.read(billingProvider.notifier).restorePurchases(),
               ),
+              const SizedBox(height: AppSpacing.xxl),
+              _SectionHeader(title: 'プライバシー'),
+              const SizedBox(height: AppSpacing.md),
+              _AnalyticsConsentCard(),
             ],
           ),
         ),
@@ -218,6 +226,81 @@ bool get _supportsAppleSignIn {
   if (kIsWeb) return false;
   return defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.macOS;
+}
+
+class _AnalyticsConsentCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final consent = ref.watch(analyticsConsentProvider);
+    final isEnabled =
+        consent.whenOrNull(data: (value) => value) ==
+            AnalyticsConsent.enabled &&
+        !consent.isLoading;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.softGray, width: 1),
+        boxShadow: AppShadows.card,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.selectionFill,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              PhosphorIcons.chartLineUp(),
+              size: 20,
+              color: AppColors.accentOlive,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '利用改善データを送信',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'タイムライン本文や入力文字列は送信しません',
+                  style: TextStyle(fontSize: 13, color: AppColors.mutedInk),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isEnabled,
+            activeThumbColor: AppColors.accentOlive,
+            onChanged: consent.isLoading
+                ? null
+                : (value) async {
+                    await ref
+                        .read(usageAnalyticsServiceProvider)
+                        .setConsent(
+                          value
+                              ? AnalyticsConsent.enabled
+                              : AnalyticsConsent.disabled,
+                        );
+                    ref.invalidate(analyticsConsentProvider);
+                  },
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DeleteAccountButton extends StatelessWidget {
@@ -479,8 +562,9 @@ class _ProStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPro = proAccess.isPro;
     final isPending = proAccess.isLoading || proAccess.hasError;
+    final canOpenPlanAction = !isPending && !isBusy;
     return Pressable(
-      onTap: onTap,
+      onTap: canOpenPlanAction ? onTap : null,
       scale: 0.98,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -493,7 +577,7 @@ class _ProStatusCard extends StatelessWidget {
                 : AppColors.softGray,
             width: 1,
           ),
-          boxShadow: AppShadows.card,
+          boxShadow: canOpenPlanAction ? AppShadows.card : null,
         ),
         child: Row(
           children: [
@@ -562,14 +646,15 @@ class _ProStatusCard extends StatelessWidget {
 }
 
 class _RestorePurchasesButton extends StatelessWidget {
-  const _RestorePurchasesButton({required this.onTap});
+  const _RestorePurchasesButton({required this.isEnabled, required this.onTap});
 
-  final VoidCallback onTap;
+  final bool isEnabled;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Pressable(
-      onTap: onTap,
+      onTap: isEnabled ? onTap : null,
       scale: 0.98,
       child: Container(
         height: 52,
@@ -577,7 +662,7 @@ class _RestorePurchasesButton extends StatelessWidget {
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(color: AppColors.softGray, width: 1),
-          boxShadow: AppShadows.card,
+          boxShadow: isEnabled ? AppShadows.card : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -585,7 +670,7 @@ class _RestorePurchasesButton extends StatelessWidget {
             Icon(
               PhosphorIcons.arrowCounterClockwise(),
               size: 20,
-              color: AppColors.mutedInk,
+              color: isEnabled ? AppColors.mutedInk : AppColors.softGray,
             ),
             const SizedBox(width: AppSpacing.sm),
             Text(
@@ -593,7 +678,7 @@ class _RestorePurchasesButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: AppColors.mutedInk,
+                color: isEnabled ? AppColors.mutedInk : AppColors.softGray,
               ),
             ),
           ],

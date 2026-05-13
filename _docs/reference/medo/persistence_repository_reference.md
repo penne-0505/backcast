@@ -3,7 +3,7 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-12"
+updated_at: "2026-05-14"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -16,14 +16,16 @@ related_prs: []
 
 ## Overview
 
-本リファレンスは、`Medo` の複数プラン保存・ロード、現在プラン復元、履歴閲覧、テンプレート永続化のために追加した永続化 Repository の現状仕様をまとめます。
-対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart`、`lib/auth/account_deletion_cleanup.dart` です。
+本リファレンスは、`Medo` の複数プラン保存・ロード、現在プラン復元、履歴閲覧、テンプレート永続化、Pro cache、利用改善 analytics queue のために追加した永続化 Repository の現状仕様をまとめます。
+対象は `lib/persistence/app_database.dart`、`lib/persistence/plan_repository.dart`、`lib/persistence/timeline_template_repository.dart`、`lib/persistence/timeline_template_apply_service.dart`、`lib/persistence/timeline_state_codec.dart`、`lib/analytics/usage_analytics.dart`、`lib/auth/account_deletion_cleanup.dart` です。
 
 アプリ画面は起動時に最後に開いた plan を復元し、編集中の状態を自動保存します。timeline list island modal の切り替え操作は current plan preference を更新します。ヘッダーの export panel は保存・ロードを扱いません。
 
 Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.wasm` と `web/drift_worker.dart.js` を読み込んで browser storage 上に `medo` database を作成します。Web database は browser origin 単位の storage であり、Android / iOS の native database file から自動移行しません。
 
-アカウント削除時は `AccountDeletionLocalCleanup` が `plans`、`plan_blocks`、`plan_snapshots`、`timeline_templates`、`timeline_template_blocks`、`app_preferences`、`cached_pro_entitlements` を削除します。削除処理は `delete-account` Edge Function 成功後に pending marker を保存してから実行され、途中で失敗した場合は次回起動時に再試行できるよう `app_preferences` の marker を残します。
+利用改善 analytics は既定で off です。設定画面で同意した場合のみ、`UsageAnalyticsService` が allowlist event を `analytics_events` queue に保存し、Supabase Edge Function へ background best-effort で batch 送信します。タイムライン本文、タイトル、自由入力、raw time、メールアドレス、Supabase user id は保存・送信しません。
+
+アカウント削除時は `AccountDeletionLocalCleanup` が `plans`、`plan_blocks`、`plan_snapshots`、`timeline_templates`、`timeline_template_blocks`、`app_preferences`、`cached_pro_entitlements`、`analytics_events` を削除します。削除処理は `delete-account` Edge Function 成功後に pending marker を保存してから実行され、途中で失敗した場合は次回起動時に再試行できるよう `app_preferences` の marker を残します。
 
 ## API
 
@@ -38,7 +40,7 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
   - 本番用: `AppDatabase.defaults()`
   - テスト用: `AppDatabase(NativeDatabase.memory())`
 - **Notes**:
-  - 現行 Drift schema version は 5。version 4 で `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` を追加し、version 5 で `cached_pro_entitlements` を追加した
+  - 現行 Drift schema version は 6。version 4 で `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` を追加し、version 5 で `cached_pro_entitlements` を追加し、version 6 で `analytics_events` を追加した
   - Flutter Web では `AppDatabase.defaults()` が `DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3.wasm'), driftWorker: Uri.parse('drift_worker.dart.js'))` を渡す
 
 ### `plans` table
@@ -148,6 +150,38 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
 - **Errors**: `userId` 重複時は upsert で置き換える
 - **Examples**:
   - `ProEntitlementCacheRepository.clearAll()` はアカウント削除時に全ユーザー分の entitlement cache を削除する
+
+### `analytics_events` table
+
+- **Summary**: 利用改善 analytics の未送信 queue を保持する
+- **Parameters**:
+  - `id (String)`: local event UUID
+  - `eventName (String)`: allowlist event name
+  - `propertiesJson (String)`: sanitizer 通過後の JSON
+  - `occurredAt (DateTime)`: event 発生日時
+  - `sessionId (String)`: app session UUID
+  - `installId (String)`: random install UUID
+  - `uploadState (String)`: `pending` / `failed`
+  - `attemptCount (int)`: 送信試行回数
+  - `lastAttemptAt (DateTime?)`: 最終送信試行日時
+  - `createdAt (DateTime)`: row 作成日時
+- **Returns**: なし
+- **Errors**: `id` 重複や必須列欠落は SQLite エラーになる
+- **Examples**:
+  - `UsageAnalyticsService.track(UsageAnalyticsEvent.blockAdded, properties: {...})` が consent enabled の場合だけ queue に追加し、upload は background flush に任せる
+  - `UsageAnalyticsRepository.clearPendingEvents()` は opt-out とアカウント削除時に未送信 event を削除する
+
+### `UsageAnalyticsService.track`
+
+- **Summary**: allowlist event を sanitizer に通して端末内 queue に保存し、送信可能な場合は background best-effort で flush を試行する
+- **Parameters**:
+  - `event (UsageAnalyticsEvent)`: 記録対象 event
+  - `properties (Map<String, Object?>)`: event ごとの許可済み property 候補
+- **Returns**: queue 保存まで完了したら返る。network upload 完了は待たない
+- **Errors**: 送信失敗は service 内で failed queue として保持し、呼び出し元 UI には伝播しない
+- **Examples**:
+  - `block_added` では `block_type` と `block_count_bucket` のみ保存される
+  - `title`、`text`、`email`、`user_id` など schema 外 property は破棄される
 
 ### `PlanRepository.createPlan`
 

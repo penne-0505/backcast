@@ -129,6 +129,34 @@ void main() {
       },
     );
 
+    test('restore is skipped when effective access is already Pro', () async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          revenueCatBillingAvailableProvider.overrideWithValue(true),
+          currentUserIdProvider.overrideWithValue('user-id'),
+          effectiveProAccessProvider.overrideWithValue(
+            const ProAccessState.pro(),
+          ),
+          _revenueCatIdentityOverride(
+            const RevenueCatIdentityState.synced('user-id'),
+          ),
+          revenueCatGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingProvider.future);
+      await container.read(billingProvider.notifier).restorePurchases();
+
+      final state = container.read(billingProvider).requireValue;
+      expect(gateway.restoreCount, 0);
+      expect(state.purchaseStatus, BillingPurchaseStatus.idle);
+      expect(state.purchaseMessage, isNull);
+    });
+
     test('purchase requires an authenticated user', () async {
       final gateway = _FakeRevenueCatGateway(
         offerings: _offeringsWithMonthlyPackage(),
@@ -388,6 +416,43 @@ void main() {
 
       expect(gateway.purchaseCount, 0);
       expect(find.text('Proの購入にはログインが必要です。設定からログインしてください。'), findsOneWidget);
+    });
+
+    testWidgets('paywall restore button is inert for Pro access', (
+      tester,
+    ) async {
+      final gateway = _FakeRevenueCatGateway(
+        offerings: _offeringsWithMonthlyPackage(),
+      );
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            revenueCatBillingAvailableProvider.overrideWithValue(true),
+            currentUserIdProvider.overrideWithValue('user-id'),
+            effectiveProAccessProvider.overrideWithValue(
+              const ProAccessState.pro(),
+            ),
+            _revenueCatIdentityOverride(
+              const RevenueCatIdentityState.synced('user-id'),
+            ),
+            revenueCatGatewayProvider.overrideWithValue(gateway),
+          ],
+          child: const MaterialApp(
+            home: PaywallScreen(feature: PaywallFeature.timelineCount),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('購入を復元'));
+      await tester.pump();
+
+      expect(gateway.restoreCount, 0);
     });
   });
 }

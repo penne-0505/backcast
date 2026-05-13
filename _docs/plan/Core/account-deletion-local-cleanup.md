@@ -2,8 +2,8 @@
 title: "Account Deletion Local Cleanup"
 status: proposed
 draft_status: n/a
-created_at: 2026-05-12
-updated_at: 2026-05-12
+created_at: "2026-05-12"
+updated_at: "2026-05-12"
 references:
   - "../../intent/medo/drift_persistence_repository.md"
   - "../../intent/medo/local_reminder_notifications.md"

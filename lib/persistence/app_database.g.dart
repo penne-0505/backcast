@@ -2969,6 +2969,638 @@ class CachedProEntitlementsCompanion
   }
 }
 
+class $AnalyticsEventsTable extends AnalyticsEvents
+    with TableInfo<$AnalyticsEventsTable, AnalyticsEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AnalyticsEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventNameMeta = const VerificationMeta(
+    'eventName',
+  );
+  @override
+  late final GeneratedColumn<String> eventName = GeneratedColumn<String>(
+    'event_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _propertiesJsonMeta = const VerificationMeta(
+    'propertiesJson',
+  );
+  @override
+  late final GeneratedColumn<String> propertiesJson = GeneratedColumn<String>(
+    'properties_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> occurredAt = GeneratedColumn<DateTime>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _installIdMeta = const VerificationMeta(
+    'installId',
+  );
+  @override
+  late final GeneratedColumn<String> installId = GeneratedColumn<String>(
+    'install_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _uploadStateMeta = const VerificationMeta(
+    'uploadState',
+  );
+  @override
+  late final GeneratedColumn<String> uploadState = GeneratedColumn<String>(
+    'upload_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptCountMeta = const VerificationMeta(
+    'attemptCount',
+  );
+  @override
+  late final GeneratedColumn<int> attemptCount = GeneratedColumn<int>(
+    'attempt_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastAttemptAtMeta = const VerificationMeta(
+    'lastAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAttemptAt =
+      GeneratedColumn<DateTime>(
+        'last_attempt_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    eventName,
+    propertiesJson,
+    occurredAt,
+    sessionId,
+    installId,
+    uploadState,
+    attemptCount,
+    lastAttemptAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'analytics_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AnalyticsEvent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('event_name')) {
+      context.handle(
+        _eventNameMeta,
+        eventName.isAcceptableOrUnknown(data['event_name']!, _eventNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventNameMeta);
+    }
+    if (data.containsKey('properties_json')) {
+      context.handle(
+        _propertiesJsonMeta,
+        propertiesJson.isAcceptableOrUnknown(
+          data['properties_json']!,
+          _propertiesJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_propertiesJsonMeta);
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('install_id')) {
+      context.handle(
+        _installIdMeta,
+        installId.isAcceptableOrUnknown(data['install_id']!, _installIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_installIdMeta);
+    }
+    if (data.containsKey('upload_state')) {
+      context.handle(
+        _uploadStateMeta,
+        uploadState.isAcceptableOrUnknown(
+          data['upload_state']!,
+          _uploadStateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_uploadStateMeta);
+    }
+    if (data.containsKey('attempt_count')) {
+      context.handle(
+        _attemptCountMeta,
+        attemptCount.isAcceptableOrUnknown(
+          data['attempt_count']!,
+          _attemptCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_attempt_at')) {
+      context.handle(
+        _lastAttemptAtMeta,
+        lastAttemptAt.isAcceptableOrUnknown(
+          data['last_attempt_at']!,
+          _lastAttemptAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AnalyticsEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AnalyticsEvent(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      eventName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_name'],
+      )!,
+      propertiesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}properties_json'],
+      )!,
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      installId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}install_id'],
+      )!,
+      uploadState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}upload_state'],
+      )!,
+      attemptCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempt_count'],
+      )!,
+      lastAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_attempt_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AnalyticsEventsTable createAlias(String alias) {
+    return $AnalyticsEventsTable(attachedDatabase, alias);
+  }
+}
+
+class AnalyticsEvent extends DataClass implements Insertable<AnalyticsEvent> {
+  final String id;
+  final String eventName;
+  final String propertiesJson;
+  final DateTime occurredAt;
+  final String sessionId;
+  final String installId;
+  final String uploadState;
+  final int attemptCount;
+  final DateTime? lastAttemptAt;
+  final DateTime createdAt;
+  const AnalyticsEvent({
+    required this.id,
+    required this.eventName,
+    required this.propertiesJson,
+    required this.occurredAt,
+    required this.sessionId,
+    required this.installId,
+    required this.uploadState,
+    required this.attemptCount,
+    this.lastAttemptAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['event_name'] = Variable<String>(eventName);
+    map['properties_json'] = Variable<String>(propertiesJson);
+    map['occurred_at'] = Variable<DateTime>(occurredAt);
+    map['session_id'] = Variable<String>(sessionId);
+    map['install_id'] = Variable<String>(installId);
+    map['upload_state'] = Variable<String>(uploadState);
+    map['attempt_count'] = Variable<int>(attemptCount);
+    if (!nullToAbsent || lastAttemptAt != null) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AnalyticsEventsCompanion toCompanion(bool nullToAbsent) {
+    return AnalyticsEventsCompanion(
+      id: Value(id),
+      eventName: Value(eventName),
+      propertiesJson: Value(propertiesJson),
+      occurredAt: Value(occurredAt),
+      sessionId: Value(sessionId),
+      installId: Value(installId),
+      uploadState: Value(uploadState),
+      attemptCount: Value(attemptCount),
+      lastAttemptAt: lastAttemptAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastAttemptAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AnalyticsEvent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AnalyticsEvent(
+      id: serializer.fromJson<String>(json['id']),
+      eventName: serializer.fromJson<String>(json['eventName']),
+      propertiesJson: serializer.fromJson<String>(json['propertiesJson']),
+      occurredAt: serializer.fromJson<DateTime>(json['occurredAt']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      installId: serializer.fromJson<String>(json['installId']),
+      uploadState: serializer.fromJson<String>(json['uploadState']),
+      attemptCount: serializer.fromJson<int>(json['attemptCount']),
+      lastAttemptAt: serializer.fromJson<DateTime?>(json['lastAttemptAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'eventName': serializer.toJson<String>(eventName),
+      'propertiesJson': serializer.toJson<String>(propertiesJson),
+      'occurredAt': serializer.toJson<DateTime>(occurredAt),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'installId': serializer.toJson<String>(installId),
+      'uploadState': serializer.toJson<String>(uploadState),
+      'attemptCount': serializer.toJson<int>(attemptCount),
+      'lastAttemptAt': serializer.toJson<DateTime?>(lastAttemptAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AnalyticsEvent copyWith({
+    String? id,
+    String? eventName,
+    String? propertiesJson,
+    DateTime? occurredAt,
+    String? sessionId,
+    String? installId,
+    String? uploadState,
+    int? attemptCount,
+    Value<DateTime?> lastAttemptAt = const Value.absent(),
+    DateTime? createdAt,
+  }) => AnalyticsEvent(
+    id: id ?? this.id,
+    eventName: eventName ?? this.eventName,
+    propertiesJson: propertiesJson ?? this.propertiesJson,
+    occurredAt: occurredAt ?? this.occurredAt,
+    sessionId: sessionId ?? this.sessionId,
+    installId: installId ?? this.installId,
+    uploadState: uploadState ?? this.uploadState,
+    attemptCount: attemptCount ?? this.attemptCount,
+    lastAttemptAt: lastAttemptAt.present
+        ? lastAttemptAt.value
+        : this.lastAttemptAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AnalyticsEvent copyWithCompanion(AnalyticsEventsCompanion data) {
+    return AnalyticsEvent(
+      id: data.id.present ? data.id.value : this.id,
+      eventName: data.eventName.present ? data.eventName.value : this.eventName,
+      propertiesJson: data.propertiesJson.present
+          ? data.propertiesJson.value
+          : this.propertiesJson,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      installId: data.installId.present ? data.installId.value : this.installId,
+      uploadState: data.uploadState.present
+          ? data.uploadState.value
+          : this.uploadState,
+      attemptCount: data.attemptCount.present
+          ? data.attemptCount.value
+          : this.attemptCount,
+      lastAttemptAt: data.lastAttemptAt.present
+          ? data.lastAttemptAt.value
+          : this.lastAttemptAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnalyticsEvent(')
+          ..write('id: $id, ')
+          ..write('eventName: $eventName, ')
+          ..write('propertiesJson: $propertiesJson, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('installId: $installId, ')
+          ..write('uploadState: $uploadState, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    eventName,
+    propertiesJson,
+    occurredAt,
+    sessionId,
+    installId,
+    uploadState,
+    attemptCount,
+    lastAttemptAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AnalyticsEvent &&
+          other.id == this.id &&
+          other.eventName == this.eventName &&
+          other.propertiesJson == this.propertiesJson &&
+          other.occurredAt == this.occurredAt &&
+          other.sessionId == this.sessionId &&
+          other.installId == this.installId &&
+          other.uploadState == this.uploadState &&
+          other.attemptCount == this.attemptCount &&
+          other.lastAttemptAt == this.lastAttemptAt &&
+          other.createdAt == this.createdAt);
+}
+
+class AnalyticsEventsCompanion extends UpdateCompanion<AnalyticsEvent> {
+  final Value<String> id;
+  final Value<String> eventName;
+  final Value<String> propertiesJson;
+  final Value<DateTime> occurredAt;
+  final Value<String> sessionId;
+  final Value<String> installId;
+  final Value<String> uploadState;
+  final Value<int> attemptCount;
+  final Value<DateTime?> lastAttemptAt;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const AnalyticsEventsCompanion({
+    this.id = const Value.absent(),
+    this.eventName = const Value.absent(),
+    this.propertiesJson = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.installId = const Value.absent(),
+    this.uploadState = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AnalyticsEventsCompanion.insert({
+    required String id,
+    required String eventName,
+    required String propertiesJson,
+    required DateTime occurredAt,
+    required String sessionId,
+    required String installId,
+    required String uploadState,
+    this.attemptCount = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       eventName = Value(eventName),
+       propertiesJson = Value(propertiesJson),
+       occurredAt = Value(occurredAt),
+       sessionId = Value(sessionId),
+       installId = Value(installId),
+       uploadState = Value(uploadState),
+       createdAt = Value(createdAt);
+  static Insertable<AnalyticsEvent> custom({
+    Expression<String>? id,
+    Expression<String>? eventName,
+    Expression<String>? propertiesJson,
+    Expression<DateTime>? occurredAt,
+    Expression<String>? sessionId,
+    Expression<String>? installId,
+    Expression<String>? uploadState,
+    Expression<int>? attemptCount,
+    Expression<DateTime>? lastAttemptAt,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (eventName != null) 'event_name': eventName,
+      if (propertiesJson != null) 'properties_json': propertiesJson,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (sessionId != null) 'session_id': sessionId,
+      if (installId != null) 'install_id': installId,
+      if (uploadState != null) 'upload_state': uploadState,
+      if (attemptCount != null) 'attempt_count': attemptCount,
+      if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AnalyticsEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? eventName,
+    Value<String>? propertiesJson,
+    Value<DateTime>? occurredAt,
+    Value<String>? sessionId,
+    Value<String>? installId,
+    Value<String>? uploadState,
+    Value<int>? attemptCount,
+    Value<DateTime?>? lastAttemptAt,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AnalyticsEventsCompanion(
+      id: id ?? this.id,
+      eventName: eventName ?? this.eventName,
+      propertiesJson: propertiesJson ?? this.propertiesJson,
+      occurredAt: occurredAt ?? this.occurredAt,
+      sessionId: sessionId ?? this.sessionId,
+      installId: installId ?? this.installId,
+      uploadState: uploadState ?? this.uploadState,
+      attemptCount: attemptCount ?? this.attemptCount,
+      lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (eventName.present) {
+      map['event_name'] = Variable<String>(eventName.value);
+    }
+    if (propertiesJson.present) {
+      map['properties_json'] = Variable<String>(propertiesJson.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (installId.present) {
+      map['install_id'] = Variable<String>(installId.value);
+    }
+    if (uploadState.present) {
+      map['upload_state'] = Variable<String>(uploadState.value);
+    }
+    if (attemptCount.present) {
+      map['attempt_count'] = Variable<int>(attemptCount.value);
+    }
+    if (lastAttemptAt.present) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnalyticsEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('eventName: $eventName, ')
+          ..write('propertiesJson: $propertiesJson, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('installId: $installId, ')
+          ..write('uploadState: $uploadState, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2982,6 +3614,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AppPreferencesTable appPreferences = $AppPreferencesTable(this);
   late final $CachedProEntitlementsTable cachedProEntitlements =
       $CachedProEntitlementsTable(this);
+  late final $AnalyticsEventsTable analyticsEvents = $AnalyticsEventsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2994,6 +3629,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     timelineTemplateBlocks,
     appPreferences,
     cachedProEntitlements,
+    analyticsEvents,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5317,6 +5953,317 @@ typedef $$CachedProEntitlementsTableProcessedTableManager =
       CachedProEntitlement,
       PrefetchHooks Function()
     >;
+typedef $$AnalyticsEventsTableCreateCompanionBuilder =
+    AnalyticsEventsCompanion Function({
+      required String id,
+      required String eventName,
+      required String propertiesJson,
+      required DateTime occurredAt,
+      required String sessionId,
+      required String installId,
+      required String uploadState,
+      Value<int> attemptCount,
+      Value<DateTime?> lastAttemptAt,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$AnalyticsEventsTableUpdateCompanionBuilder =
+    AnalyticsEventsCompanion Function({
+      Value<String> id,
+      Value<String> eventName,
+      Value<String> propertiesJson,
+      Value<DateTime> occurredAt,
+      Value<String> sessionId,
+      Value<String> installId,
+      Value<String> uploadState,
+      Value<int> attemptCount,
+      Value<DateTime?> lastAttemptAt,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$AnalyticsEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $AnalyticsEventsTable> {
+  $$AnalyticsEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventName => $composableBuilder(
+    column: $table.eventName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get propertiesJson => $composableBuilder(
+    column: $table.propertiesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get installId => $composableBuilder(
+    column: $table.installId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uploadState => $composableBuilder(
+    column: $table.uploadState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AnalyticsEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AnalyticsEventsTable> {
+  $$AnalyticsEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventName => $composableBuilder(
+    column: $table.eventName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get propertiesJson => $composableBuilder(
+    column: $table.propertiesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get installId => $composableBuilder(
+    column: $table.installId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get uploadState => $composableBuilder(
+    column: $table.uploadState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AnalyticsEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AnalyticsEventsTable> {
+  $$AnalyticsEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get eventName =>
+      $composableBuilder(column: $table.eventName, builder: (column) => column);
+
+  GeneratedColumn<String> get propertiesJson => $composableBuilder(
+    column: $table.propertiesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get installId =>
+      $composableBuilder(column: $table.installId, builder: (column) => column);
+
+  GeneratedColumn<String> get uploadState => $composableBuilder(
+    column: $table.uploadState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$AnalyticsEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AnalyticsEventsTable,
+          AnalyticsEvent,
+          $$AnalyticsEventsTableFilterComposer,
+          $$AnalyticsEventsTableOrderingComposer,
+          $$AnalyticsEventsTableAnnotationComposer,
+          $$AnalyticsEventsTableCreateCompanionBuilder,
+          $$AnalyticsEventsTableUpdateCompanionBuilder,
+          (
+            AnalyticsEvent,
+            BaseReferences<
+              _$AppDatabase,
+              $AnalyticsEventsTable,
+              AnalyticsEvent
+            >,
+          ),
+          AnalyticsEvent,
+          PrefetchHooks Function()
+        > {
+  $$AnalyticsEventsTableTableManager(
+    _$AppDatabase db,
+    $AnalyticsEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AnalyticsEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AnalyticsEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AnalyticsEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> eventName = const Value.absent(),
+                Value<String> propertiesJson = const Value.absent(),
+                Value<DateTime> occurredAt = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> installId = const Value.absent(),
+                Value<String> uploadState = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AnalyticsEventsCompanion(
+                id: id,
+                eventName: eventName,
+                propertiesJson: propertiesJson,
+                occurredAt: occurredAt,
+                sessionId: sessionId,
+                installId: installId,
+                uploadState: uploadState,
+                attemptCount: attemptCount,
+                lastAttemptAt: lastAttemptAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String eventName,
+                required String propertiesJson,
+                required DateTime occurredAt,
+                required String sessionId,
+                required String installId,
+                required String uploadState,
+                Value<int> attemptCount = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AnalyticsEventsCompanion.insert(
+                id: id,
+                eventName: eventName,
+                propertiesJson: propertiesJson,
+                occurredAt: occurredAt,
+                sessionId: sessionId,
+                installId: installId,
+                uploadState: uploadState,
+                attemptCount: attemptCount,
+                lastAttemptAt: lastAttemptAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AnalyticsEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AnalyticsEventsTable,
+      AnalyticsEvent,
+      $$AnalyticsEventsTableFilterComposer,
+      $$AnalyticsEventsTableOrderingComposer,
+      $$AnalyticsEventsTableAnnotationComposer,
+      $$AnalyticsEventsTableCreateCompanionBuilder,
+      $$AnalyticsEventsTableUpdateCompanionBuilder,
+      (
+        AnalyticsEvent,
+        BaseReferences<_$AppDatabase, $AnalyticsEventsTable, AnalyticsEvent>,
+      ),
+      AnalyticsEvent,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5338,4 +6285,6 @@ class $AppDatabaseManager {
       $$AppPreferencesTableTableManager(_db, _db.appPreferences);
   $$CachedProEntitlementsTableTableManager get cachedProEntitlements =>
       $$CachedProEntitlementsTableTableManager(_db, _db.cachedProEntitlements);
+  $$AnalyticsEventsTableTableManager get analyticsEvents =>
+      $$AnalyticsEventsTableTableManager(_db, _db.analyticsEvents);
 }

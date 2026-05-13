@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import 'analytics/usage_analytics.dart';
 import 'billing/gate_helper.dart';
 import 'billing/paywall_screen.dart';
 import 'calendar_export.dart';
@@ -51,6 +52,15 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
       clock: DateTime.now,
     );
     final preview = CalendarExportPreview.fromRequest(request);
+    await ref
+        .read(usageAnalyticsServiceProvider)
+        .track(
+          UsageAnalyticsEvent.calendarExportStarted,
+          properties: {
+            'event_count_bucket': analyticsEventCountBucket(preview.eventCount),
+            'platform': currentAnalyticsPlatform(),
+          },
+        );
 
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
@@ -67,8 +77,18 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
 
   Future<void> _executeExport(CalendarExportRequest request) async {
     setState(() => _exporting = true);
+    final eventCount = projectCalendarExportEvents(request).length;
     try {
       final result = await _calendarExportDelivery.deliver(request: request);
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.calendarExportCompleted,
+            properties: {
+              'event_count_bucket': analyticsEventCountBucket(eventCount),
+              'result': 'success',
+            },
+          );
 
       if (!mounted) return;
       final calendarLabel = result.calendarName != null
@@ -76,6 +96,23 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
           : '';
       _showResultSnackBar('${result.savedCount}件をカレンダーに登録しました$calendarLabel');
     } on CalendarExportException catch (e) {
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.calendarExportCompleted,
+            properties: {
+              'event_count_bucket': analyticsEventCountBucket(eventCount),
+              'result': switch (e.error) {
+                CalendarExportError.permissionDenied => 'permission_denied',
+                CalendarExportError.noWritableCalendar =>
+                  'no_writable_calendar',
+                CalendarExportError.invalidPayload => 'invalid_payload',
+                CalendarExportError.unsupportedPlatform =>
+                  'unsupported_platform',
+                CalendarExportError.saveFailed => 'save_failed',
+              },
+            },
+          );
       if (!mounted) return;
       final message = switch (e.error) {
         CalendarExportError.permissionDenied =>
@@ -88,6 +125,15 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
       };
       _showResultSnackBar(message, success: false);
     } on Exception {
+      await ref
+          .read(usageAnalyticsServiceProvider)
+          .track(
+            UsageAnalyticsEvent.calendarExportCompleted,
+            properties: {
+              'event_count_bucket': analyticsEventCountBucket(eventCount),
+              'result': 'exception',
+            },
+          );
       if (!mounted) return;
       _showResultSnackBar('カレンダー登録に失敗しました', success: false);
     } finally {

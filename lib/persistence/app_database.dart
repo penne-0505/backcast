@@ -91,6 +91,22 @@ class CachedProEntitlements extends Table {
   Set<Column<Object>> get primaryKey => {userId};
 }
 
+class AnalyticsEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get eventName => text()();
+  TextColumn get propertiesJson => text()();
+  DateTimeColumn get occurredAt => dateTime()();
+  TextColumn get sessionId => text()();
+  TextColumn get installId => text()();
+  TextColumn get uploadState => text()();
+  IntColumn get attemptCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastAttemptAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Plans,
@@ -100,6 +116,7 @@ class CachedProEntitlements extends Table {
     TimelineTemplateBlocks,
     AppPreferences,
     CachedProEntitlements,
+    AnalyticsEvents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -117,7 +134,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -141,6 +158,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) {
         await m.createTable(cachedProEntitlements);
+      }
+      if (from < 6) {
+        await m.createTable(analyticsEvents);
       }
     },
   );
