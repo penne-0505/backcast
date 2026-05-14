@@ -18,18 +18,20 @@ class TemplateSheet extends ConsumerStatefulWidget {
     super.key,
     required this.onDismiss,
     this.presentation = TemplateSheetPresentation.sheet,
+    this.initialTemplates,
   });
 
   final VoidCallback onDismiss;
   final TemplateSheetPresentation presentation;
+  final List<TimelineTemplateSummary>? initialTemplates;
 
   @override
   ConsumerState<TemplateSheet> createState() => _TemplateSheetState();
 }
 
 class _TemplateSheetState extends ConsumerState<TemplateSheet> {
-  List<TimelineTemplateSummary> _templates = [];
-  bool _loading = true;
+  late List<TimelineTemplateSummary> _templates;
+  late bool _loading;
   bool _saving = false;
   String? _renamingId;
   final _renameCtrl = TextEditingController();
@@ -38,7 +40,12 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
   @override
   void initState() {
     super.initState();
-    _load();
+    final initialTemplates = widget.initialTemplates;
+    _templates = List<TimelineTemplateSummary>.unmodifiable(
+      initialTemplates ?? const [],
+    );
+    _loading = initialTemplates == null;
+    if (_loading) _load();
   }
 
   @override

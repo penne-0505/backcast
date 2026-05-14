@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:medo/billing/gate_helper.dart';
 import 'package:medo/billing/paywall_screen.dart';
 import 'package:medo/main.dart';
@@ -23,11 +25,32 @@ class _TestCurrentPlanIdNotifier extends CurrentPlanIdNotifier {
   String? build() => _value;
 }
 
-Future<void> pumpMedoApp(WidgetTester tester, {bool isPro = true}) async {
+class _ControlledTemplateRepository extends TimelineTemplateRepository {
+  _ControlledTemplateRepository(super.db, this._templatesFuture);
+
+  final Future<List<TimelineTemplateSummary>> _templatesFuture;
+  int listCalls = 0;
+
+  @override
+  Future<List<TimelineTemplateSummary>> listTemplates() {
+    listCalls++;
+    return _templatesFuture;
+  }
+}
+
+Future<void> pumpMedoApp(
+  WidgetTester tester, {
+  bool isPro = true,
+  TimelineTemplateRepository? templateRepository,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(db),
+        if (templateRepository != null)
+          timelineTemplateRepositoryProvider.overrideWithValue(
+            templateRepository,
+          ),
         effectiveProAccessProvider.overrideWithValue(
           isPro ? const ProAccessState.pro() : const ProAccessState.free(),
         ),
@@ -90,6 +113,53 @@ void main() {
       );
       expect(find.text('テンプレート'), findsOneWidget);
       expect(find.text('保存済みテンプレートはありません'), findsOneWidget);
+    });
+
+    testWidgets('preloads templates before showing popover', (tester) async {
+      await setLargeScreen(tester);
+      final templatesCompleter = Completer<List<TimelineTemplateSummary>>();
+      final templateRepository = _ControlledTemplateRepository(
+        db,
+        templatesCompleter.future,
+      );
+      await pumpMedoApp(tester, templateRepository: templateRepository);
+      await tester.pumpAndSettle();
+
+      await tester.tap(templateToolbarButton());
+      await tester.pump();
+
+      expect(templateRepository.listCalls, 1);
+      expect(find.byType(TemplateSheet), findsNothing);
+      expect(
+        find.descendant(
+          of: templateToolbarButton(),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+
+      templatesCompleter.complete([
+        TimelineTemplateSummary(
+          id: 'template-1',
+          title: '夜の支度',
+          targetTime: 1080,
+          targetTimeTitle: '就寝',
+          blockCount: 3,
+          createdAt: DateTime.utc(2026, 5, 14),
+          updatedAt: DateTime.utc(2026, 5, 14),
+        ),
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TemplateSheet), findsOneWidget);
+      expect(find.text('夜の支度'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(TemplateSheet),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('Free user does not see template toolbar button', (

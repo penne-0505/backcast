@@ -12,6 +12,7 @@ import 'edit_sheet.dart';
 import 'models.dart';
 import 'persistence/persistence_providers.dart';
 import 'persistence/plan_repository.dart';
+import 'persistence/timeline_template_repository.dart';
 import 'plan_panel.dart';
 import 'platform_time_picker.dart';
 import 'billing/gate_helper.dart';
@@ -94,12 +95,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   final _scrollController = ScrollController();
   bool _sheetVisible = false;
   bool _templateSheetVisible = false;
+  bool _templateSheetLoading = false;
+  int _templateSheetLoadGeneration = 0;
+  List<TimelineTemplateSummary> _templateSheetInitialTemplates = const [];
   bool _timelineListVisible = false;
   bool _timelineSwitching = false;
   bool _suppressAutoSave = false;
-  String? _pendingReorderOverviewBlockId;
   String? _reorderOverviewBlockId;
-  Timer? _reorderOverviewTimer;
   final Map<int, Offset> _activePointers = {};
   double _basePixelsPerMinute = kPixelsPerMinute;
   double _initialPinchDistance = 0;
@@ -169,35 +171,23 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   bool get _isReorderOverviewActive => _reorderOverviewBlockId != null;
 
-  void _scheduleReorderOverview(String blockId) {
-    if (ref.read(timelineProvider).viewMode != TimelineViewMode.edit) return;
-    _pendingReorderOverviewBlockId = blockId;
-    _reorderOverviewTimer?.cancel();
-    _reorderOverviewTimer = Timer(const Duration(milliseconds: 180), () {
-      if (!mounted || _pendingReorderOverviewBlockId != blockId) return;
-      _startReorderOverview(blockId);
-    });
-  }
-
-  void _startReorderOverview(String blockId) {
-    _pendingReorderOverviewBlockId = null;
-    _reorderOverviewTimer?.cancel();
-    _reorderOverviewTimer = null;
+  Future<void> _prepareReorderOverview(String blockId) async {
+    if (ref.read(timelineProvider).viewMode != TimelineViewMode.edit) {
+      return;
+    }
     _dismissInlineEditorIfNeeded();
     if (_sheetVisible) _dismissSheet();
     if (_templateSheetVisible) _dismissTemplateSheet();
     if (_timelineListVisible) _closeTimelineList();
     if (_isSearchActive || _exportPanelVisible) _closeHeaderPopovers();
-    if (!mounted || _reorderOverviewBlockId == blockId) return;
-    setState(() => _reorderOverviewBlockId = blockId);
+    if (!mounted) return;
+    if (_reorderOverviewBlockId != blockId) {
+      setState(() => _reorderOverviewBlockId = blockId);
+    }
+    await WidgetsBinding.instance.endOfFrame;
   }
 
   void _endReorderOverview([String? blockId]) {
-    if (blockId == null || _pendingReorderOverviewBlockId == blockId) {
-      _pendingReorderOverviewBlockId = null;
-      _reorderOverviewTimer?.cancel();
-      _reorderOverviewTimer = null;
-    }
     if (_reorderOverviewBlockId == null) return;
     if (blockId != null && _reorderOverviewBlockId != blockId) return;
     if (!mounted) return;
@@ -540,6 +530,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   }
 
   void _showTemplateSheet() {
+    if (_templateSheetLoading) return;
     _endReorderOverview();
     if (_closeHeaderPopovers()) return;
     if (_dismissWorkSurfaceIfNeeded()) return;
@@ -567,16 +558,42 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     setState(() {
       _timelineListVisible = false;
       _exportPanelVisible = false;
-      _templateSheetVisible = true;
+      _templateSheetLoading = true;
     });
+    final loadGeneration = ++_templateSheetLoadGeneration;
+    unawaited(_openTemplateSheetAfterLoad(loadGeneration));
+  }
+
+  Future<void> _openTemplateSheetAfterLoad(int loadGeneration) async {
+    try {
+      final repo = ref.read(timelineTemplateRepositoryProvider);
+      final templates = await repo.listTemplates();
+      if (!mounted || loadGeneration != _templateSheetLoadGeneration) return;
+      setState(() {
+        _templateSheetInitialTemplates = templates;
+        _templateSheetLoading = false;
+        _templateSheetVisible = true;
+      });
+    } catch (e, st) {
+      debugPrint('TemplateSheet preload error: $e\n$st');
+      if (!mounted || loadGeneration != _templateSheetLoadGeneration) return;
+      setState(() => _templateSheetLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('テンプレートを読み込めませんでした。少し待ってから再試行してください。')),
+      );
+    }
   }
 
   void _dismissTemplateSheet() {
-    setState(() => _templateSheetVisible = false);
+    _templateSheetLoadGeneration++;
+    setState(() {
+      _templateSheetLoading = false;
+      _templateSheetVisible = false;
+    });
   }
 
   bool _dismissTemplateSheetIfNeeded() {
-    if (!_templateSheetVisible) return false;
+    if (!_templateSheetVisible && !_templateSheetLoading) return false;
     _dismissTemplateSheet();
     return true;
   }
@@ -788,7 +805,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final n = computed.length;
     final sourceIndex = n - 1 - index;
     if (sourceIndex < 0 || sourceIndex >= computed.length) return;
-    _startReorderOverview(computed[sourceIndex].block.id);
+    if (_reorderOverviewBlockId == null) {
+      unawaited(_prepareReorderOverview(computed[sourceIndex].block.id));
+    }
   }
 
   void _handleReorderEnd(int index) {
@@ -803,7 +822,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void dispose() {
     _saveDebounce?.cancel();
     _saveIndicatorTimer?.cancel();
-    _reorderOverviewTimer?.cancel();
     _swipeDeleteSnackBarTimer?.cancel();
     _clockTimer.cancel();
     _searchHighlightTimer?.cancel();
@@ -1028,7 +1046,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                                         currentTimelineMinute,
                                     sheetVisible: _sheetVisible,
                                     onReorderIntentStart:
-                                        _scheduleReorderOverview,
+                                        _prepareReorderOverview,
                                     onReorderIntentEnd: _endReorderOverview,
                                     onActionBufferDoubleTap:
                                         _handleActionBufferDoubleTap,
@@ -1148,7 +1166,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           _floatingControlBottomInset,
                       child: _FloatingToolbar(
                         showTemplateAction: isPro || !proAccess.isKnown,
-                        templateAccessPending: !proAccess.isKnown,
+                        templateAccessPending:
+                            !proAccess.isKnown || _templateSheetLoading,
                         onTemplateTap: _showTemplateSheet,
                         onAdd: () {
                           if (_closeHeaderPopovers()) return;
@@ -1243,6 +1262,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                         child: TemplateSheet(
                           onDismiss: _dismissTemplateSheet,
                           presentation: TemplateSheetPresentation.popover,
+                          initialTemplates: _templateSheetInitialTemplates,
                         ),
                       ),
                     ),

@@ -3,7 +3,7 @@ title: "Reorder Overview Scaling"
 status: proposed
 draft_status: n/a
 created_at: "2026-05-11"
-updated_at: "2026-05-11"
+updated_at: "2026-05-14"
 references:
   - _docs/plan/UI/two-step-timeline-density.md
   - _docs/intent/medo/timeline_compact_overview.md
@@ -19,9 +19,13 @@ related_prs: []
 
 基本方針は、既存の詳細編集ビュー上で `SliverReorderableList` の並び替え操作を開始したときだけ発火する transient interaction として扱うことにある。ただし、移動中に使用する俯瞰表現は既存の二段階 density の俯瞰を流用してもよいし、操作性の都合があれば reorder 専用の縮小状態を別途用意してもよい。
 
+2026-05-14 時点の追加課題として、縮小が表示上だけに留まり、`SliverReorderableList` の drag gap / proxy / 挿入判定が詳細編集 density の item extent を保持している可能性がある。2 時間程度の長い block を移動すると、見た目は小さいのに判定上は大きな block として残り、縮小表示の目的である「遠い移動先を扱いやすくする」効果が弱くなる。
+
 ## Problem
 
 現状の移動ハンドルは `SliverReorderableList.startItemDragReorder` を短い delay で開始するため、操作開始は速い。一方で、詳細編集 density のまま block を掴むため、長時間の予定や block 数が多い予定では移動先の前後関係を見渡しにくい。
+
+現在の実装では `TimelineScreen` が reorder overview active 中だけ `BlockItem` に渡す `pixelsPerMinute` を `kOverviewPixelsPerMinute` へ差し替える。これは周囲の block の再描画には効くが、`_QuickReorderListener` は pointer down 直後に `SliverReorderableList.startItemDragReorder` を呼ぶため、reorder system が縮小後レイアウトを掴む前にドラッグを開始している可能性がある。この場合、見た目の縮小と判定領域が分離する。
 
 常設の俯瞰表示は全体把握には有効だが、俯瞰表示そのものに恒常的な直接編集や reorder を増やすと、読む状態と触る状態の境界が曖昧になる。今回の課題は「俯瞰表示を編集モード化すること」ではなく、「移動中だけ必要な視野を広げること」にある。
 
@@ -31,6 +35,7 @@ related_prs: []
 - 移動中の俯瞰表現は、既存の二段階 density の俯瞰を流用する案と、reorder 専用 scale を持つ案の両方を実装候補に含める。
 - 縮小はアニメーションで行い、reorder 開始と並走させる。
 - 縮小中も既存の `SliverReorderableList` / `moveBlockByIndex` の reorder model を維持する。
+- 縮小中の drag gap / dragged proxy / 挿入判定は、表示上の縮小後 height と一致させる。
 - pointer up / cancel / reorder end で縮小状態を解除する。
 - 必要に応じて dragged proxy の見た目を調整し、掴んでいる block が視認できるようにする。
 - 実装後、guide / reference に「移動中の一時俯瞰」として追記する。
@@ -42,11 +47,14 @@ related_prs: []
 - `TimelineState` に永続化される新しい UI state は追加しない。
 - block のデータモデル、persistence、template apply の挙動は変更しない。
 - reorder 中の自動スクロール仕様を大きく作り替えない。必要な微調整に留める。
+- block の duration 自体を一時的に変更しない。縮小はレイアウトと判定に限り、timeline 計算結果は不変に保つ。
 
 ## Requirements
 
 - **Functional**: ユーザーが移動ハンドルを長押しすると、詳細編集ビューのタイムラインが滑らかに縮小する。
 - **Functional**: 縮小中も block を上下へ移動でき、並び替え結果は既存と同じ `moveBlockByIndex` に反映される。
+- **Functional**: 長時間 block を移動しても、判定上の占有高さが詳細編集 density のまま残らず、縮小後の表示高さに対応する。
+- **Functional**: drag gap と dragged proxy の高さは、縮小後の `timelineBlockVisualHeight` と矛盾しない。
 - **Functional**: 指を離す、cancel される、または reorder が終了すると、タイムラインは詳細編集 density へ戻る。
 - **Functional**: 移動ハンドル以外の tap、duration drag、swipe delete、inline edit では縮小しない。
 - **Non-Functional**: 縮小状態は local transient UI state とし、保存・template・plan repository へ影響させない。
@@ -66,6 +74,10 @@ related_prs: []
 
 実装では候補 A を採用する。`TimelineState.viewMode` は切り替えず、`TimelineScreen` の local state で reorder overview active を保持し、`BlockItem` に渡す effective density だけを `kOverviewPixelsPerMinute` 相当にする。これにより通常俯瞰の read-only 分岐や永続化対象の `pixelsPerMinute` へ影響させず、移動中だけ既存俯瞰の見え方を流用できる。
 
+ただし、判定同期の修正では「effective density を渡す」だけでは不十分な可能性がある。`SliverReorderableList` が drag 開始時に item extent を保持するなら、drag が成立する前に overview state を反映し、少なくとも 1 frame 後に reorder gesture を成立させる必要がある。Flutter の gesture arena は pointer down 後の async 完了時に `startItemDragReorder` を新規登録する使い方に向かないため、`startItemDragReorder` の登録自体は pointer down 中に行い、`DelayedMultiDragGestureRecognizer` の delay を overview 反映より長く取る。
+
+この案で解決しない場合は、reorder 中だけ `SliverReorderableList` の child key を overview state に応じて切り替え、縮小後 layout として list item を再生成してから drag を開始する。それでも内部 placeholder が古い extent を保持する場合は、`SliverReorderableList` に依存したままの修正を諦め、reorder 専用の compact interaction、または選択 + 上下移動方式へ切り替える。
+
 候補 B を採用する場合の想定値:
 
 - scale: `1.0` → `0.72` から `0.80` の範囲で調整
@@ -81,6 +93,9 @@ related_prs: []
 - 候補 A では、`_isReorderOverviewActive` 中だけ timeline renderer の density を overview 相当にする。`TimelineState.viewMode` 自体を切り替えるか、view mode は edit のまま effective density だけ overview にするかは、sheet / toolbar / handle 表示の副作用を見て選ぶ。
 - 候補 A では `TimelineState.viewMode` を直接 compact にしない。通常俯瞰の read-only 分岐や toolbar 表示にも影響するため、`effectivePixelsPerMinute` の局所計算で移動中だけ density を変える。
 - `_QuickReorderListener` では pointer down 直後に縮小せず、短い hold timer が成立した場合に `onReorderIntentStart` を呼ぶ。pointer up では timer cancel と cleanup を行う。Flutter の reorder recognizer が内部的に pointer cancel を出す場合があるため、開始前の pointer cancel では pending timer を即時破棄しない。
+- 判定同期の第一候補は、pointer down 中に `startItemDragReorder` を登録しつつ、reorder overview の hold timer を 200ms、drag recognizer delay をそれより長い値にすること。現行実装では `BlockItem` の高さアニメーション 160ms も待てるよう、drag recognizer delay を 380ms にする。`setState` 直後や縮小途中に drag が成立しないようにする。
+- `_QuickReorderListener` は overview callback を `Future<void>` として扱うが、Flutter の gesture arena 制約上、callback 完了後に `startItemDragReorder` を新規登録しない。親側は `endOfFrame` まで overview state の成立を待機し、recognizer delay 側がその frame を待つ。
+- `timelineBlockVisualHeight(block, kOverviewPixelsPerMinute)` を期待 height の基準にし、2 時間 action block、buffer あり action、actionPoint の各ケースで gap / proxy / hit behavior を確認する。
 - `SliverReorderableList` が利用可能な `onReorderStart` / `onReorderEnd` を持つ場合は、終了判定をそちらへ寄せる。利用できない場合は pointer up / cancel と `_onReorder` 後の cleanup で補う。
 - 候補 B の場合は、`CustomScrollView` 全体、または `SliverReorderableList` を含む timeline content に `AnimatedScale` / `TweenAnimationBuilder` を適用する。
 - `proxyDecorator` は初回は現状維持とし、縮小中に dragged item が小さすぎる場合のみ補正する。
@@ -88,15 +103,16 @@ related_prs: []
 
 ## Tasks
 
-1. `TimelineScreen` の local transient state と start/end handler を追加する。
-2. `_QuickReorderListener` の hold timer で action block / action point の block id を渡し、reorder overview を開始する。
-3. 既存俯瞰 density の流用と reorder 専用 scale のどちらが副作用少なく実装できるかを確認し、採用案を plan に追記する。
-4. 採用案に従い、timeline content に俯瞰遷移アニメーションを適用し、density / scale / alignment / duration を実機確認しやすい定数へ分離する。
-5. reorder end / pointer cancel / view mode change / sheet open 時に縮小状態が残らない cleanup を追加する。
-6. 必要なら `proxyDecorator` を調整し、掴んでいる block の視認性を保つ。
+1. 現状の `SliverReorderableList` で、reorder 開始時の item extent が縮小前 / 縮小後のどちらを参照しているかを widget test または手動再現で確認する。
+2. `_QuickReorderListener` の drag start を、pointer down 中の reorder 登録、hold 成立、overview state 反映、layout frame 完了後の delayed recognizer 成立、の順に分離する。
+3. 2 時間 action block を使い、drag gap / dragged proxy / 挿入判定が縮小後 height に追従するか確認する。
+4. 追従しない場合は、reorder overview active 中の list item key / child 再生成、または `proxyDecorator` / placeholder 周辺の補正で解決できるかを調べる。
+5. `SliverReorderableList` の内部挙動で解決できない場合は、reorder 専用 compact interaction または選択 + 上下移動方式を fallback として設計する。
+6. reorder end / pointer cancel / view mode change / sheet open 時に縮小状態と pending drag start が残らない cleanup を追加する。
 7. widget test で、移動ハンドル操作時に overview state が入り、終了後に戻ることを確認する。
-8. 既存の duration drag、右スワイプ削除、inline edit、表示切り替えの回帰を確認する。
-9. `_docs/guide/medo/timeline_editor.md` と `_docs/reference/medo/timeline_domain_reference.md` を実装結果に合わせて更新する。
+8. widget test または integration/manual test で、長時間 block の移動判定が縮小後 height と一致することを確認する。
+9. 既存の duration drag、右スワイプ削除、inline edit、表示切り替えの回帰を確認する。
+10. `_docs/guide/medo/timeline_editor.md` と `_docs/reference/medo/timeline_domain_reference.md` を実装結果に合わせて更新する。
 
 ## Test Plan
 
@@ -105,6 +121,8 @@ related_prs: []
   - 短い hold 成立後に縮小 state が有効になる。
   - pointer up / cancel で縮小 state が解除される。
   - reorder 後の `TimelineState.blocks` の順序が既存期待値どおり変わる。
+  - 120 分 action block をドラッグしても、drop target の境界遷移が縮小後 height に対応する。
+  - dragged proxy / gap が詳細編集 density の 120 分 height を保持しない。
   - duration drag の長押し precise mode では reorder overview が発火しない。
 - Regression:
   - `flutter test test/widget_test.dart`

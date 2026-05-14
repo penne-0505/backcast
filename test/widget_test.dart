@@ -620,7 +620,7 @@ void main() {
       initialPpm,
     );
 
-    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pump(const Duration(milliseconds: 40));
     await tester.pump();
 
     expect(
@@ -698,30 +698,33 @@ void main() {
     expect(panelRect.bottom - imageShareRect.bottom, greaterThanOrEqualTo(24));
   });
 
-  testWidgets('export quick overlay closes outside without firing toolbar action', (
+  testWidgets(
+    'export quick overlay closes outside without firing toolbar action',
+    (tester) async {
+      await pumpMedoApp(tester);
+
+      await tester.tap(find.byIcon(PhosphorIcons.calendarBlank()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('エクスポート'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Container && widget.color == AppColors.scrim,
+        ),
+        findsNothing,
+      );
+
+      await tester.tapAt(tester.getCenter(find.text('前の行動を追加')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('エクスポート'), findsNothing);
+      expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
+    },
+  );
+
+  testWidgets('edit sheet consumes header action while closing', (
     tester,
   ) async {
-    await pumpMedoApp(tester);
-
-    await tester.tap(find.byIcon(PhosphorIcons.calendarBlank()));
-    await tester.pumpAndSettle();
-
-    expect(find.text('エクスポート'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is Container && widget.color == AppColors.scrim,
-      ),
-      findsNothing,
-    );
-
-    await tester.tapAt(tester.getCenter(find.text('前の行動を追加')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('エクスポート'), findsNothing);
-    expect(containerFor(tester).read(timelineProvider).blocks, isEmpty);
-  });
-
-  testWidgets('edit sheet consumes header action while closing', (tester) async {
     await pumpMedoApp(tester);
 
     await tester.tap(find.text('前の行動を追加'));

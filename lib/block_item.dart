@@ -130,7 +130,7 @@ class BlockItem extends ConsumerStatefulWidget {
   final int? currentTimelineMinute;
   final bool sheetVisible;
   final bool readOnly;
-  final void Function(String blockId)? onReorderIntentStart;
+  final Future<void> Function(String blockId)? onReorderIntentStart;
   final void Function(String blockId)? onReorderIntentEnd;
   final void Function(String blockId)? onActionBufferDoubleTap;
   final void Function(String blockId)? onSwipeDelete;
@@ -647,8 +647,13 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                         width: 52,
                         child: _QuickReorderListener(
                           index: widget.index,
-                          onReorderIntentStart: () =>
-                              widget.onReorderIntentStart?.call(block.id),
+                          onReorderIntentStart: () {
+                            final onStart = widget.onReorderIntentStart;
+                            if (onStart == null) {
+                              return Future<void>.value();
+                            }
+                            return onStart(block.id);
+                          },
                           onReorderIntentEnd: () =>
                               widget.onReorderIntentEnd?.call(block.id),
                           child: Semantics(
@@ -805,8 +810,13 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                         if (!widget.readOnly)
                           _QuickReorderListener(
                             index: widget.index,
-                            onReorderIntentStart: () =>
-                                widget.onReorderIntentStart?.call(block.id),
+                            onReorderIntentStart: () {
+                              final onStart = widget.onReorderIntentStart;
+                              if (onStart == null) {
+                                return Future<void>.value();
+                              }
+                              return onStart(block.id);
+                            },
                             onReorderIntentEnd: () =>
                                 widget.onReorderIntentEnd?.call(block.id),
                             child: Semantics(
@@ -1427,7 +1437,7 @@ class _QuickReorderListener extends StatefulWidget {
 
   final int index;
   final Widget child;
-  final VoidCallback? onReorderIntentStart;
+  final Future<void> Function()? onReorderIntentStart;
   final VoidCallback? onReorderIntentEnd;
 
   @override
@@ -1436,6 +1446,7 @@ class _QuickReorderListener extends StatefulWidget {
 
 class _QuickReorderListenerState extends State<_QuickReorderListener> {
   int? _activePointer;
+  Timer? _holdTimer;
 
   @override
   Widget build(BuildContext context) {
@@ -1449,16 +1460,26 @@ class _QuickReorderListenerState extends State<_QuickReorderListener> {
     );
   }
 
+  @override
+  void dispose() {
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
   MultiDragGestureRecognizer createRecognizer() {
     return DelayedMultiDragGestureRecognizer(
-      delay: const Duration(milliseconds: 200),
+      delay: const Duration(milliseconds: 380),
       debugOwner: this,
     );
   }
 
   void _handlePointerDown(BuildContext context, PointerDownEvent event) {
     _activePointer = event.pointer;
-    widget.onReorderIntentStart?.call();
+    _holdTimer?.cancel();
+    _holdTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted || _activePointer != event.pointer) return;
+      unawaited(widget.onReorderIntentStart?.call());
+    });
 
     final gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
     final list = SliverReorderableList.maybeOf(context);
@@ -1472,12 +1493,14 @@ class _QuickReorderListenerState extends State<_QuickReorderListener> {
 
   void _handlePointerUp(PointerUpEvent event) {
     if (_activePointer != event.pointer) return;
+    _holdTimer?.cancel();
     _activePointer = null;
     widget.onReorderIntentEnd?.call();
   }
 
   void _handlePointerCancel(PointerCancelEvent event) {
     if (_activePointer != event.pointer) return;
+    _holdTimer?.cancel();
     _activePointer = null;
   }
 }

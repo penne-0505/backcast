@@ -451,6 +451,8 @@ related_prs: []
 - **Notes**:
   - `pixelsPerMinute` は一時 UI 状態であり、plan persistence には保存しない
   - 主導線では `setViewMode` による詳細編集 / 俯瞰の二段階切り替えを使う
+  - 移動ハンドルから始まる一時俯瞰では `TimelineState.viewMode` と永続化対象の `pixelsPerMinute` は変更せず、`TimelineScreen` が `BlockItem` へ渡す effective density だけを一時的に `kOverviewPixelsPerMinute` 相当にする
+  - 一時俯瞰の reorder gesture は、縮小 layout が drag gap / dragged proxy / 挿入判定に反映されるよう、overview hold 成立と高さアニメーション完了後に成立する
 
 ### `TimelineNotifier.applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise)`
 
