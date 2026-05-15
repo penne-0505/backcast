@@ -3,7 +3,7 @@ title: Reverse Timeline Interaction Model
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-12"
+updated_at: "2026-05-15"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -27,6 +27,7 @@ related_prs: []
 
 - タイムラインは目標時刻アンカーを下端に置き、上方向へ過去の行動を積み上げる
 - ドメインモデルは `action` と `actionPoint` の 2 種類に絞る
+- `actionPoint` は時間を消費しない節目として扱うが、`action` へ戻すための raw duration / buffer 設定値は保持できる
 - 逆算ロジックは `computeBlocks` に集約し、UI 表示時に毎回派生計算する
 - 画面上の編集中状態は `TimelineNotifier` に集約し、永続化層とは Repository 経由で分離する
 - 編集 UI はインライン編集と下部シート編集を併用する
@@ -60,7 +61,7 @@ related_prs: []
 
 - 目標時刻アンカーを UI 上の基準点に固定すると、すべての計算が「その直前に何を置くか」に統一される
 - `computeBlocks` を純粋関数として切り出すことで、表示と計算の整合性をテストで担保しやすい
-- `actionPoint` を 0 分ブロックとして扱うと、通過点を増やしても逆算アルゴリズム自体を複雑化せずに済む
+- `actionPoint` を effective 0 分ブロックとして扱うと、通過点を増やしても逆算アルゴリズム自体を複雑化せずに済む。raw 設定値を別に保持しても、逆算は `effectiveDuration` だけを見る
 - インライン編集は試行錯誤を速くし、編集シートは値を落ち着いて調整したい場面を支える
 - フォーカス中の次タップを解除専用にすると、意図せず編集シートを開いて文脈が切り替わる事故を減らせる
 - 一時 UI の外側タップを閉じる専用の 1 ターンとして扱うと、ユーザーが「閉じたい」と思って触れた場所で、追加・選択・画面遷移まで同時に起きる事故を避けられる。この方針はインライン編集のフォーカス解除と同じ安全側の操作モデルとして扱う

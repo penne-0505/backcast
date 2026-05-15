@@ -22,6 +22,7 @@ class MainActivity : FlutterActivity() {
 
 	private var pendingResult: MethodChannel.Result? = null
 	private var pendingEvents: List<CalendarExportEventPayload>? = null
+	private var pendingExportGroup: CalendarExportGroupPayload? = null
 	private var pendingCalendarId: Long? = null
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -48,9 +49,11 @@ class MainActivity : FlutterActivity() {
 
 		val result = pendingResult
 		val events = pendingEvents
+		val exportGroup = pendingExportGroup
 		val calendarId = pendingCalendarId
 		pendingResult = null
 		pendingEvents = null
+		pendingExportGroup = null
 		pendingCalendarId = null
 
 		if (result == null || events == null) {
@@ -59,7 +62,7 @@ class MainActivity : FlutterActivity() {
 
 		if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
 			try {
-				val exportResult = saveCalendarExport(events, calendarId)
+				val exportResult = saveCalendarExport(events, exportGroup, calendarId)
 				result.success(exportResult)
 			} catch (e: Exception) {
 				result.error("save_failed", e.message, null)
@@ -77,6 +80,7 @@ class MainActivity : FlutterActivity() {
 		try {
 			val events = parseEvents(call.arguments)
 			val args = call.arguments as? Map<*, *>
+			val exportGroup = parseExportGroup(args?.get("exportGroup"))
 			val calendarId = (args?.get("calendarId") as? String)?.toLongOrNull()
 
 			if (!hasCalendarPermissions()) {
@@ -86,12 +90,13 @@ class MainActivity : FlutterActivity() {
 
 				pendingResult = result
 				pendingEvents = events
+				pendingExportGroup = exportGroup
 				pendingCalendarId = calendarId
 				requestCalendarPermissions()
 				return
 			}
 
-			val exportResult = saveCalendarExport(events, calendarId)
+			val exportResult = saveCalendarExport(events, exportGroup, calendarId)
 			result.success(exportResult)
 		} catch (e: IllegalArgumentException) {
 			result.error("invalid_payload", e.message, null)
@@ -104,25 +109,58 @@ class MainActivity : FlutterActivity() {
 		}
 	}
 
-	private fun saveCalendarExport(events: List<CalendarExportEventPayload>, calendarId: Long?): Map<String, Any> {
+	private fun saveCalendarExport(
+		events: List<CalendarExportEventPayload>,
+		exportGroup: CalendarExportGroupPayload?,
+		calendarId: Long?,
+	): Map<String, Any> {
 		val resolvedCalendarId = calendarId ?: resolveWritableCalendarId()
 			?: throw IllegalStateException("No writable calendar is available.")
 		val calendarName = resolveCalendarName(resolvedCalendarId)
 		val timezone = TimeZone.getDefault().id
-		val operations = events.map { event ->
+		val operations = mutableListOf<ContentProviderOperation>()
+
+		if (exportGroup != null) {
+			operations.add(
+				ContentProviderOperation.newDelete(CalendarContract.Events.CONTENT_URI)
+					.withSelection(
+						"${CalendarContract.Events.CALENDAR_ID} = ? AND " +
+							"${CalendarContract.Events.DESCRIPTION} LIKE ? AND " +
+							"${CalendarContract.Events.DESCRIPTION} LIKE ? AND " +
+							"${CalendarContract.Events.DESCRIPTION} LIKE ?",
+						arrayOf(
+							resolvedCalendarId.toString(),
+							"%MEDO_EXPORT_VERSION=${exportGroup.version}%",
+							"%MEDO_EXPORT_PLAN_ID=${exportGroup.planId}%",
+							"%MEDO_EXPORT_DATE=${exportGroup.targetDate}%",
+						),
+					)
+					.build(),
+			)
+		}
+
+		val insertStartIndex = operations.size
+		operations.addAll(events.map { event ->
 			ContentProviderOperation.newInsert(CalendarContract.Events.CONTENT_URI)
 				.withValue(CalendarContract.Events.CALENDAR_ID, resolvedCalendarId)
 				.withValue(CalendarContract.Events.TITLE, event.title)
 				.withValue(CalendarContract.Events.DTSTART, event.startAtMillis)
 				.withValue(CalendarContract.Events.DTEND, event.endAtMillis)
 				.withValue(CalendarContract.Events.EVENT_TIMEZONE, timezone)
+				.withValue(CalendarContract.Events.DESCRIPTION, buildEventDescription(exportGroup, event))
 				.build()
+		})
+
+		val results = contentResolver.applyBatch(CalendarContract.AUTHORITY, ArrayList(operations))
+		val deletedCount = if (exportGroup != null && results.isNotEmpty()) {
+			results[0].count ?: 0
+		} else {
+			0
 		}
 
-		contentResolver.applyBatch(CalendarContract.AUTHORITY, ArrayList(operations))
-
 		return mapOf(
-			"savedCount" to operations.size,
+			"savedCount" to (operations.size - insertStartIndex),
+			"deletedCount" to deletedCount,
 			"calendarName" to (calendarName ?: ""),
 		)
 	}
@@ -151,6 +189,35 @@ class MainActivity : FlutterActivity() {
 				endAtMillis = endAtMillis,
 			)
 		}
+	}
+
+	private fun parseExportGroup(raw: Any?): CalendarExportGroupPayload? {
+		if (raw == null) return null
+		val map = raw as? Map<*, *> ?: throw IllegalArgumentException("Invalid exportGroup payload.")
+		val version = (map["version"] as? Number)?.toInt()
+			?: throw IllegalArgumentException("Missing exportGroup version.")
+		val planId = map["planId"] as? String
+			?: throw IllegalArgumentException("Missing exportGroup planId.")
+		val targetDate = map["targetDate"] as? String
+			?: throw IllegalArgumentException("Missing exportGroup targetDate.")
+		if (planId.isBlank() || targetDate.isBlank()) {
+			throw IllegalArgumentException("Invalid exportGroup values.")
+		}
+		return CalendarExportGroupPayload(version, planId, targetDate)
+	}
+
+	private fun buildEventDescription(
+		exportGroup: CalendarExportGroupPayload?,
+		event: CalendarExportEventPayload,
+	): String? {
+		if (exportGroup == null) return null
+		return listOf(
+			"Created by Medo.",
+			"MEDO_EXPORT_VERSION=${exportGroup.version}",
+			"MEDO_EXPORT_PLAN_ID=${exportGroup.planId}",
+			"MEDO_EXPORT_DATE=${exportGroup.targetDate}",
+			"MEDO_EXPORT_EVENT_ID=${event.id}",
+		).joinToString("\n")
 	}
 
 	private fun hasCalendarPermissions(): Boolean {
@@ -219,5 +286,11 @@ class MainActivity : FlutterActivity() {
 		val title: String,
 		val startAtMillis: Long,
 		val endAtMillis: Long,
+	)
+
+	private data class CalendarExportGroupPayload(
+		val version: Int,
+		val planId: String,
+		val targetDate: String,
 	)
 }

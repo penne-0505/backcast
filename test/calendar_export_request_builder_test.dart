@@ -34,11 +34,14 @@ void main() {
         state: state,
         baseDate: DateTime(2026, 5, 10),
         clock: () => fixedClock,
+        planId: 'plan-1',
       );
 
       expect(request.startDateTime, DateTime(2026, 5, 10, 12, 15));
       expect(request.blocks, hasLength(2));
       expect(request.anchor.title, '会議開始');
+      expect(request.exportGroup?.planId, 'plan-1');
+      expect(request.exportGroup?.targetDateKey, '2026-05-10');
       expect(request.generatedAt, fixedClock);
     });
 

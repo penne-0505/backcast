@@ -203,6 +203,93 @@ void main() {
       expect(restored.effectiveDuration, 35);
     });
 
+    test('type toggle preserves raw duration and buffer for recovery', () {
+      const block = Block(
+        id: 'a1',
+        type: BlockType.action,
+        title: '移動',
+        duration: 20,
+        bufferMinutes: 10,
+        colorIndex: 0,
+      );
+
+      final point = block.copyWith(type: BlockType.actionPoint);
+      expect(point.duration, 20);
+      expect(point.bufferMinutes, 10);
+      expect(point.normalizedBufferMinutes, 0);
+      expect(point.effectiveDuration, 0);
+
+      final restored = point.copyWith(type: BlockType.action);
+      expect(restored.duration, 20);
+      expect(restored.bufferMinutes, 10);
+      expect(restored.normalizedBufferMinutes, 10);
+      expect(restored.effectiveDuration, 30);
+    });
+
+    test('notifier restores action settings when toggling a point back', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(timelineProvider.notifier);
+      notifier.loadState(
+        const TimelineState(
+          blocks: [
+            Block(
+              id: 'a1',
+              type: BlockType.action,
+              title: '移動',
+              duration: 20,
+              bufferMinutes: 10,
+              colorIndex: 0,
+            ),
+          ],
+        ),
+      );
+
+      notifier.setBlockType('a1', BlockType.actionPoint);
+      var block = container.read(timelineProvider).blocks.single;
+      expect(block.type, BlockType.actionPoint);
+      expect(block.duration, 20);
+      expect(block.bufferMinutes, 10);
+      expect(block.effectiveDuration, 0);
+
+      notifier.setBlockType('a1', BlockType.action);
+      block = container.read(timelineProvider).blocks.single;
+      expect(block.type, BlockType.action);
+      expect(block.duration, 20);
+      expect(block.bufferMinutes, 10);
+      expect(block.effectiveDuration, 30);
+    });
+
+    test(
+      'notifier gives legacy zero-duration point a default action duration',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final notifier = container.read(timelineProvider.notifier);
+        notifier.loadState(
+          const TimelineState(
+            blocks: [
+              Block(
+                id: 'p1',
+                type: BlockType.actionPoint,
+                title: '受付',
+                duration: 0,
+                bufferMinutes: 10,
+                colorIndex: 0,
+              ),
+            ],
+          ),
+        );
+
+        notifier.setBlockType('p1', BlockType.action);
+        final block = container.read(timelineProvider).blocks.single;
+        expect(block.type, BlockType.action);
+        expect(block.duration, 15);
+        expect(block.bufferMinutes, 10);
+        expect(block.effectiveDuration, 25);
+      },
+    );
+
     test('manual buffer edit clears pending buffer recovery', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -877,6 +964,62 @@ void main() {
     expect(find.text('5'), findsOneWidget);
   });
 
+  testWidgets(
+    'detail sheet toggles an action to a point and restores settings',
+    (tester) async {
+      await pumpMedoApp(tester, effectiveIsPro: true);
+      containerFor(tester)
+          .read(timelineProvider.notifier)
+          .loadState(
+            const TimelineState(
+              blocks: [
+                Block(
+                  id: 'toggle',
+                  type: BlockType.action,
+                  title: '移動',
+                  duration: 20,
+                  bufferMinutes: 10,
+                  colorIndex: 0,
+                ),
+              ],
+            ),
+          );
+      await tester.pump();
+
+      containerFor(
+        tester,
+      ).read(timelineProvider.notifier).selectBlock('toggle');
+      await tester.pumpAndSettle();
+
+      expect(find.text('行動を編集'), findsOneWidget);
+      expect(find.text('所要時間'), findsOneWidget);
+      expect(find.text('余裕時間'), findsOneWidget);
+
+      await tester.tap(find.text('ピン'));
+      await tester.pumpAndSettle();
+
+      var block = containerFor(tester).read(timelineProvider).blocks.single;
+      expect(block.type, BlockType.actionPoint);
+      expect(block.duration, 20);
+      expect(block.bufferMinutes, 10);
+      expect(block.effectiveDuration, 0);
+      expect(find.text('所要時間'), findsNothing);
+      expect(find.text('余裕時間'), findsNothing);
+
+      await tester.tap(find.text('ブロック'));
+      await tester.pumpAndSettle();
+
+      block = containerFor(tester).read(timelineProvider).blocks.single;
+      expect(block.type, BlockType.action);
+      expect(block.duration, 20);
+      expect(block.bufferMinutes, 10);
+      expect(block.effectiveDuration, 30);
+      expect(find.text('所要時間'), findsOneWidget);
+      expect(find.text('余裕時間'), findsOneWidget);
+      expect(find.text('10'), findsOneWidget);
+    },
+  );
+
   testWidgets('detail sheet preserves existing buffer for Free users', (
     tester,
   ) async {
@@ -916,7 +1059,7 @@ void main() {
     expect(find.text('余裕時間の編集はPro機能です'), findsOneWidget);
   });
 
-  testWidgets('detail sheet drag handle dismisses the sheet', (tester) async {
+  testWidgets('detail sheet close button dismisses the sheet', (tester) async {
     await pumpMedoApp(tester);
 
     await tester.tap(find.text('前の行動を追加'));
@@ -930,10 +1073,7 @@ void main() {
 
     expect(find.text('行動を編集'), findsOneWidget);
 
-    await tester.drag(
-      find.byKey(const ValueKey('edit-sheet-drag-handle')),
-      const Offset(0, 140),
-    );
+    await tester.tap(find.byIcon(PhosphorIcons.x()).last);
     await tester.pumpAndSettle();
 
     expect(find.text('行動を編集'), findsNothing);
@@ -963,6 +1103,37 @@ void main() {
       expect(find.text('16分'), findsOneWidget);
     },
   );
+
+  testWidgets('action block affordances are contained in swipe target', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+
+    await tester.tap(find.text('前の行動を追加'));
+    await tester.pump();
+
+    final block = containerFor(tester).read(timelineProvider).blocks.single;
+    final swipeTarget = find.byType(Dismissible);
+
+    expect(
+      find.descendant(of: swipeTarget, matching: find.text('15分')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: swipeTarget,
+        matching: find.byKey(ValueKey('reorder-handle:${block.id}')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: swipeTarget,
+        matching: find.byKey(ValueKey('duration-drag-handle:${block.id}')),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('right swipe deletes an action block', (tester) async {
     await pumpMedoApp(tester);

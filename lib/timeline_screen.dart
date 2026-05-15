@@ -101,6 +101,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   bool _timelineListVisible = false;
   bool _timelineSwitching = false;
   bool _suppressAutoSave = false;
+  String? _currentTimelineTitle;
   String? _reorderOverviewBlockId;
   final Map<int, Offset> _activePointers = {};
   double _basePixelsPerMinute = kPixelsPerMinute;
@@ -300,12 +301,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
             if (!mounted) return;
           }
           _suppressAutoSave = true;
+          _currentTimelineTitle = plan.title;
           ref.read(currentPlanIdProvider.notifier).set(plan.id);
           ref.read(timelineProvider.notifier).loadState(plan.state);
           _suppressAutoSave = false;
         } else {
           final plan = await repo.createPlan(state: ref.read(timelineProvider));
           if (!mounted) return;
+          _currentTimelineTitle = plan.title;
           ref.read(currentPlanIdProvider.notifier).set(plan.id);
           await repo.saveCurrentPlanId(plan.id);
           await _track(
@@ -390,6 +393,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       if (!mounted || plan == null) return;
       await repo.saveCurrentPlanId(plan.id);
       _suppressAutoSave = true;
+      _currentTimelineTitle = plan.title;
       ref.read(currentPlanIdProvider.notifier).set(plan.id);
       ref
           .read(timelineProvider.notifier)
@@ -434,6 +438,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         },
       );
       _suppressAutoSave = true;
+      _currentTimelineTitle = plan.title;
       ref.read(currentPlanIdProvider.notifier).set(plan.id);
       ref
           .read(timelineProvider.notifier)
@@ -459,6 +464,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     setState(() => _timelineSwitching = true);
     try {
       await ref.read(planRepositoryProvider).renamePlan(summary.id, title);
+      if (summary.id == ref.read(currentPlanIdProvider)) {
+        _currentTimelineTitle = title.trim().isEmpty
+            ? '無題のタイムライン'
+            : title.trim();
+      }
       if (mounted) setState(() => _timelineSwitching = false);
     } catch (e, st) {
       debugPrint('Timeline rename error: $e\n$st');
@@ -490,6 +500,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         if (!mounted) return;
         await repo.saveCurrentPlanId(nextPlan!.id);
         _suppressAutoSave = true;
+        _currentTimelineTitle = nextPlan.title;
         ref.read(currentPlanIdProvider.notifier).set(nextPlan.id);
         ref
             .read(timelineProvider.notifier)
@@ -1263,6 +1274,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                           onDismiss: _dismissTemplateSheet,
                           presentation: TemplateSheetPresentation.popover,
                           initialTemplates: _templateSheetInitialTemplates,
+                          currentTimelineTitle: _currentTimelineTitle,
+                          onBeforeSaveCurrent: _saveCurrentPlanNow,
                         ),
                       ),
                     ),

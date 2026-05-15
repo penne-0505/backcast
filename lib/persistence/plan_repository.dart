@@ -440,7 +440,7 @@ class PlanRepository {
       type: type,
       title: row.title,
       duration: row.duration,
-      bufferMinutes: normalizeActionBufferMinutes(type, row.bufferMinutes),
+      bufferMinutes: normalizeRawActionBufferMinutes(row.bufferMinutes),
       colorIndex: row.colorIndex,
     );
   }

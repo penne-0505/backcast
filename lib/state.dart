@@ -141,6 +141,16 @@ class TimelineNotifier extends Notifier<TimelineState> {
     );
   }
 
+  void setBlockType(String id, BlockType type) {
+    updateBlock(id, (block) {
+      if (block.type == type) return block;
+      final duration = type == BlockType.action && block.duration < 5
+          ? 15
+          : block.duration;
+      return block.copyWith(type: type, duration: duration);
+    });
+  }
+
   void incrementActionBuffer(String id) {
     final current = _blockById(id)?.normalizedBufferMinutes ?? 0;
     setActionBufferMinutes(id, current + kBufferStepMinutes);

@@ -44,7 +44,8 @@ void main() {
           id: _uuid.v4(),
           type: BlockType.actionPoint,
           title: '受付',
-          duration: 0,
+          duration: 20,
+          bufferMinutes: 10,
           colorIndex: 2,
         ),
       ],
@@ -76,8 +77,10 @@ void main() {
       BlockType.actionPoint,
     ]);
     expect(loaded.state.blocks.map((b) => b.title), ['移動', '受付']);
-    expect(loaded.state.blocks.map((b) => b.duration), [30, 0]);
+    expect(loaded.state.blocks.map((b) => b.duration), [30, 20]);
+    expect(loaded.state.blocks.map((b) => b.bufferMinutes), [10, 10]);
     expect(loaded.state.blocks.map((b) => b.normalizedBufferMinutes), [10, 0]);
+    expect(loaded.state.blocks.map((b) => b.effectiveDuration), [40, 0]);
     expect(loaded.state.blocks.map((b) => b.colorIndex), [1, 2]);
   });
 
@@ -98,6 +101,8 @@ void main() {
     expect(restored.blocks[0].type, BlockType.action);
     expect(restored.blocks[1].type, BlockType.actionPoint);
     expect(restored.blocks[0].bufferMinutes, 10);
+    expect(restored.blocks[1].duration, 20);
+    expect(restored.blocks[1].bufferMinutes, 10);
     expect(restored.blocks[1].normalizedBufferMinutes, 0);
   });
 
@@ -129,19 +134,19 @@ void main() {
   });
 
   test(
-    'normalizes empty or whitespace-only title to Untitled template',
+    'normalizes empty or whitespace-only title to untitled template',
     () async {
       final withEmpty = await repository.createTemplate(
         state: sampleState(),
         title: '',
       );
-      expect(withEmpty.title, 'Untitled template');
+      expect(withEmpty.title, '無題のテンプレート');
 
       final withWhitespace = await repository.createTemplate(
         state: sampleState(),
         title: '   ',
       );
-      expect(withWhitespace.title, 'Untitled template');
+      expect(withWhitespace.title, '無題のテンプレート');
     },
   );
 
@@ -154,11 +159,11 @@ void main() {
   );
 
   test(
-    'falls back to Untitled template when targetTimeTitle is empty',
+    'falls back to untitled template when targetTimeTitle is empty',
     () async {
       final state = sampleState().copyWith(targetTimeTitle: '');
       final created = await repository.createTemplate(state: state);
-      expect(created.title, 'Untitled template');
+      expect(created.title, '無題のテンプレート');
     },
   );
 

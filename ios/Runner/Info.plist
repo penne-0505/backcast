@@ -38,6 +38,8 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>NSCalendarsUsageDescription</key>
 		<string>Medo はタイムラインをカレンダーに直接登録するためにカレンダーへのアクセスを使用します。</string>
+		<key>NSCalendarsFullAccessUsageDescription</key>
+		<string>Medo は前回登録した同じタイムラインを置き換えるためにカレンダーへのアクセスを使用します。</string>
 		<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 		<string>Medo はタイムラインをカレンダーに直接登録するためにカレンダーへのアクセスを使用します。</string>
 		<key>LSRequiresIPhoneOS</key>

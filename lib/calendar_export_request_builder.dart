@@ -11,6 +11,7 @@ CalendarExportRequest buildCalendarExportRequest({
   required TimelineState state,
   required DateTime baseDate,
   required DateTime Function() clock,
+  String? planId,
 }) {
   final totalMin = totalTimelineDuration(state.blocks);
   var startMin = state.targetTime - totalMin;
@@ -30,6 +31,12 @@ CalendarExportRequest buildCalendarExportRequest({
     ),
     blocks: state.blocks.map(CalendarExportBlock.fromBlock).toList(),
     anchor: CalendarExportAnchor(id: 'target', title: state.targetTimeTitle),
+    exportGroup: planId == null
+        ? null
+        : CalendarExportGroup(
+            planId: planId,
+            targetDate: DateTime(baseDate.year, baseDate.month, baseDate.day),
+          ),
     generatedAt: clock(),
   );
 }

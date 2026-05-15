@@ -3,7 +3,7 @@ title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-12"
+updated_at: "2026-05-15"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -56,7 +56,7 @@ related_prs: []
 - **Errors**: なし
 - **Examples**:
   - `action`: 所要時間を持つ行動
-  - `actionPoint`: 所要時間 0 分の通過点
+  - `actionPoint`: 有効所要時間 0 分の通過点
 
 ### `class Block`
 
@@ -65,15 +65,15 @@ related_prs: []
   - `id (String)`: ブロック識別子
   - `type (BlockType)`: 行動か行動ポイントか
   - `title (String)`: 表示名
-  - `duration (int)`: 分単位の所要時間。`actionPoint` では 0 を想定
-  - `bufferMinutes (int)`: 分単位の余裕時間。ユーザーが意図した desired 値として保持され、`action` のみ有効
+  - `duration (int)`: 分単位の raw action 所要時間。`actionPoint` では timeline 上の有効所要時間に含めないが、ブロックへ戻すために保持され得る
+  - `bufferMinutes (int)`: 分単位の raw desired 余裕時間。`actionPoint` では effective buffer は 0 だが、ブロックへ戻すために保持され得る
   - `colorIndex (int)`: `AppColors.blockColors` を参照するためのインデックス
 - **Returns**: `copyWith` で差分更新済みの新しい `Block`
 - **Errors**: モデル自体はバリデーション例外を投げない
 - **Examples**:
   - `Block(id: '1', type: BlockType.action, title: '移動', duration: 30, bufferMinutes: 10, colorIndex: 0)`
 - **Notes**:
-  - `normalizedBufferMinutes` は表示・計算に使う effective 値。`bufferMinutes` を 0〜60 分、5 分刻みに丸め、さらに `duration - 5` 分以下に抑える
+  - `normalizedBufferMinutes` は表示・計算に使う effective 値。`action` では `bufferMinutes` を 0〜60 分、5 分刻みに丸め、さらに `duration - 5` 分以下に抑える。`actionPoint` では raw `bufferMinutes` を保持していても 0 になる
   - `effectiveDuration` は `action` では `duration + normalizedBufferMinutes`、`actionPoint` では 0
   - duration を短くして `bufferMinutes` が上限を超えても desired 値は保持され、duration を伸ばすと `normalizedBufferMinutes` が回復する。余裕時間を手動編集した場合は、その時点の effective 値を新しい desired 値として保存する
 
@@ -112,6 +112,17 @@ related_prs: []
 - **Examples**:
   - `normalizeActionBufferMinutes(BlockType.action, 63) -> 60`
   - `normalizeActionBufferMinutes(BlockType.actionPoint, 15) -> 0`
+
+### `int normalizeRawActionBufferMinutes(int minutes)`
+
+- **Summary**: raw desired buffer を永続化・復元用の値へ正規化する
+- **Parameters**:
+  - `minutes (int)`: 入力値
+- **Returns**: 0〜60 分の 5 分刻み。`BlockType` は見ない
+- **Errors**: なし
+- **Examples**:
+  - `normalizeRawActionBufferMinutes(63) -> 60`
+  - `normalizeRawActionBufferMinutes(12) -> 10`
 
 ### `int maxActionBufferMinutesForDuration(int duration)`
 
@@ -322,6 +333,21 @@ related_prs: []
 - **Errors**: ID 不一致時は実質的に無変更
 - **Examples**:
   - タイトル変更、所要時間変更、色変更などに利用可能
+
+### `TimelineNotifier.setBlockType(String id, BlockType type)`
+
+- **Summary**: 指定ブロックを `action` / `actionPoint` の間で切り替える
+- **Parameters**:
+  - `id (String)`: 更新対象ブロック ID
+  - `type (BlockType)`: 切り替え先の種別
+- **Returns**: なし
+- **Errors**: ID 不一致時は実質的に無変更
+- **Examples**:
+  - 詳細編集シートの「ブロック / ピン」切り替えから呼ばれる
+- **Notes**:
+  - `action -> actionPoint` では raw `duration` / `bufferMinutes` を破棄しない
+  - `actionPoint -> action` では raw `duration` が 5 分未満の場合だけ 15 分へ補正する
+  - `actionPoint` の間は `effectiveDuration` と `normalizedBufferMinutes` が 0 になるため、timeline 上の時間は消費しない
 
 ### `TimelineNotifier.incrementActionBuffer(String id)`
 

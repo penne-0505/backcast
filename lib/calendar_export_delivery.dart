@@ -18,30 +18,34 @@ class CalendarExportException implements Exception {
   final String? message;
 
   @override
-  String toString() => 'CalendarExportException: $error${message != null ? ' ($message)' : ''}';
+  String toString() =>
+      'CalendarExportException: $error${message != null ? ' ($message)' : ''}';
 }
 
 class CalendarExportResult {
   const CalendarExportResult({
     required this.savedCount,
+    this.deletedCount = 0,
     this.calendarName,
   });
 
   final int savedCount;
+  final int deletedCount;
   final String? calendarName;
 }
 
-typedef CalendarExportNativeOpener = Future<CalendarExportResult> Function(
-  CalendarExportRequest request, {
-  String? calendarId,
-});
+typedef CalendarExportNativeOpener =
+    Future<CalendarExportResult> Function(
+      CalendarExportRequest request, {
+      String? calendarId,
+    });
 
 class CalendarExportDelivery {
   CalendarExportDelivery({
     CalendarExportNativeOpener? nativeOpener,
     bool Function()? isNativePlatform,
-  })  : _nativeOpener = nativeOpener ?? _defaultNativeOpener,
-        _isNativePlatform = isNativePlatform ?? _defaultIsNativePlatform;
+  }) : _nativeOpener = nativeOpener ?? _defaultNativeOpener,
+       _isNativePlatform = isNativePlatform ?? _defaultIsNativePlatform;
 
   final CalendarExportNativeOpener _nativeOpener;
   final bool Function() _isNativePlatform;
@@ -60,10 +64,7 @@ class CalendarExportDelivery {
     try {
       return await _nativeOpener(request, calendarId: calendarId);
     } on PlatformException catch (e) {
-      throw CalendarExportException(
-        _mapNativeError(e),
-        e.message,
-      );
+      throw CalendarExportException(_mapNativeError(e), e.message);
     }
   }
 }
@@ -83,20 +84,22 @@ Future<CalendarExportResult> _defaultNativeOpener(
   CalendarExportRequest request, {
   String? calendarId,
 }) async {
-  final events = projectCalendarExportEvents(request)
-      .map((event) => event.toNativePayload())
-      .toList(growable: false);
+  final events = projectCalendarExportEvents(
+    request,
+  ).map((event) => event.toNativePayload()).toList(growable: false);
 
   final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
     'saveCalendarExport',
     <String, Object?>{
       'events': events,
+      'exportGroup': request.exportGroup?.toNativePayload(),
       'calendarId': calendarId,
     },
   );
 
   return CalendarExportResult(
     savedCount: (result?['savedCount'] as num?)?.toInt() ?? events.length,
+    deletedCount: (result?['deletedCount'] as num?)?.toInt() ?? 0,
     calendarName: result?['calendarName'] as String?,
   );
 }

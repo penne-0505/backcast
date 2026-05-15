@@ -371,7 +371,6 @@ class _BlockItemState extends ConsumerState<BlockItem> {
       currentTimelineMinute: widget.currentTimelineMinute,
       visualHeight: height,
     );
-    final isCurrentBlock = currentMarkerOffset != null;
 
     return AnimatedContainer(
       key: ValueKey('block-item-body:${block.id}'),
@@ -404,13 +403,13 @@ class _BlockItemState extends ConsumerState<BlockItem> {
               const SizedBox(width: 8),
               // Block body
               Expanded(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Block container
-                    Positioned.fill(
-                      child: _wrapSwipeDelete(
-                        block: block,
+                child: _wrapSwipeDelete(
+                  block: block,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Block container
+                      Positioned.fill(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
@@ -446,9 +445,7 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                                       AppRadius.md,
                                     ),
                                     border: Border.all(
-                                      color:
-                                          _isPreciseImpactTarget ||
-                                              isCurrentBlock
+                                      color: _isPreciseImpactTarget
                                           ? AppColors.accentOlive.withValues(
                                               alpha: 0.70,
                                             )
@@ -609,83 +606,86 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                           ),
                         ),
                       ),
-                    ),
-                    // Duration pill
-                    Positioned(
-                      right: 56,
-                      top: 0,
-                      bottom: pillAndHandleBottomInset,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                          ),
-                          child: Text(
-                            bufferMinutes > 0
-                                ? '計${block.effectiveDuration}分'
-                                : '${block.duration}分',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: color,
+                      // Duration pill
+                      Positioned(
+                        right: 56,
+                        top: 0,
+                        bottom: pillAndHandleBottomInset,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
+                              ),
+                            ),
+                            child: Text(
+                              bufferMinutes > 0
+                                  ? '計${block.effectiveDuration}分'
+                                  : '${block.duration}分',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    // Reorder handle
-                    if (!widget.readOnly)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        bottom: pillAndHandleBottomInset,
-                        width: 52,
-                        child: _QuickReorderListener(
-                          index: widget.index,
-                          onReorderIntentStart: () {
-                            final onStart = widget.onReorderIntentStart;
-                            if (onStart == null) {
-                              return Future<void>.value();
-                            }
-                            return onStart(block.id);
-                          },
-                          onReorderIntentEnd: () =>
-                              widget.onReorderIntentEnd?.call(block.id),
-                          child: Semantics(
-                            key: ValueKey('reorder-handle:${block.id}'),
-                            label: '並び替え',
-                            child: SizedBox.expand(
-                              child: Center(
-                                child: _ReorderHandleIcon(
-                                  color: AppColors.mutedInk.withValues(
-                                    alpha: 0.5,
+                      // Reorder handle
+                      if (!widget.readOnly)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          bottom: pillAndHandleBottomInset,
+                          width: 52,
+                          child: _QuickReorderListener(
+                            index: widget.index,
+                            onReorderIntentStart: () {
+                              final onStart = widget.onReorderIntentStart;
+                              if (onStart == null) {
+                                return Future<void>.value();
+                              }
+                              return onStart(block.id);
+                            },
+                            onReorderIntentEnd: () =>
+                                widget.onReorderIntentEnd?.call(block.id),
+                            child: Semantics(
+                              key: ValueKey('reorder-handle:${block.id}'),
+                              label: '並び替え',
+                              child: SizedBox.expand(
+                                child: Center(
+                                  child: _ReorderHandleIcon(
+                                    color: AppColors.mutedInk.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    // Drag handle
-                    if (!isOverview && !widget.readOnly)
-                      Positioned(
-                        top: -_DragHandle.overhang,
-                        left: 0,
-                        right: 0,
-                        child: _DragHandle(
-                          blockId: block.id,
-                          initialDuration: block.duration,
-                          onDrag: notifier.applyDurationDrag,
-                          onPreciseChange: (id, precise) =>
-                              notifier.setPreciseDragging(precise ? id : null),
+                      // Drag handle
+                      if (!isOverview && !widget.readOnly)
+                        Positioned(
+                          top: -_DragHandle.overhang,
+                          left: 0,
+                          right: 0,
+                          child: _DragHandle(
+                            key: ValueKey('duration-drag-handle:${block.id}'),
+                            blockId: block.id,
+                            initialDuration: block.duration,
+                            onDrag: notifier.applyDurationDrag,
+                            onPreciseChange: (id, precise) => notifier
+                                .setPreciseDragging(precise ? id : null),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1276,6 +1276,7 @@ class _DragHandle extends StatefulWidget {
   static const double overhang = 16.0;
 
   const _DragHandle({
+    super.key,
     required this.blockId,
     required this.initialDuration,
     required this.onDrag,
@@ -1344,7 +1345,9 @@ class _DragHandleState extends State<_DragHandle> {
 
   void _onPointerMove(PointerMoveEvent event) {
     if (_activePointer != event.pointer) return;
+    final delta = event.position.dy - _startY;
     _updateMovement(event.position);
+    widget.onDrag(widget.blockId, delta, _startDuration, _isPrecise);
   }
 
   void _onPointerUp(PointerUpEvent event) {
@@ -1354,16 +1357,6 @@ class _DragHandleState extends State<_DragHandle> {
 
   void _onPointerCancel(PointerCancelEvent event) {
     if (_activePointer != event.pointer) return;
-    _endInteraction();
-  }
-
-  void _onDragUpdate(DragUpdateDetails details) {
-    final delta = details.globalPosition.dy - _startY;
-    _updateMovement(details.globalPosition);
-    widget.onDrag(widget.blockId, delta, _startDuration, _isPrecise);
-  }
-
-  void _onDragEnd(DragEndDetails details) {
     _endInteraction();
   }
 
@@ -1407,13 +1400,7 @@ class _DragHandleState extends State<_DragHandle> {
                 onPointerMove: _onPointerMove,
                 onPointerUp: _onPointerUp,
                 onPointerCancel: _onPointerCancel,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragUpdate: _onDragUpdate,
-                  onVerticalDragEnd: _onDragEnd,
-                  onVerticalDragCancel: _endInteraction,
-                  child: const SizedBox.expand(),
-                ),
+                child: const SizedBox.expand(),
               ),
             ),
           ),

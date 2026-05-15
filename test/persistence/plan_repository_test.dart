@@ -39,7 +39,8 @@ void main() {
           id: 'block-2',
           type: BlockType.actionPoint,
           title: '受付',
-          duration: 0,
+          duration: 20,
+          bufferMinutes: 10,
           colorIndex: 2,
         ),
       ],
@@ -106,6 +107,9 @@ void main() {
       'block-2',
     ]);
     expect(loaded.state.blocks.first.bufferMinutes, 10);
+    expect(loaded.state.blocks[1].duration, 20);
+    expect(loaded.state.blocks[1].bufferMinutes, 10);
+    expect(loaded.state.blocks[1].effectiveDuration, 0);
     expect(loaded.state.selectedBlockId, isNull);
 
     final snapshots = await repository.listSnapshots(created.id);

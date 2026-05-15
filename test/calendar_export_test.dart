@@ -91,6 +91,20 @@ void main() {
   });
 
   group('generateCalendarIcs', () {
+    test('formats export group metadata for native payloads', () {
+      final group = CalendarExportGroup(
+        planId: 'plan-1',
+        targetDate: DateTime(2026, 5, 10, 23, 30),
+      );
+
+      expect(group.targetDateKey, '2026-05-10');
+      expect(group.toNativePayload(), {
+        'version': 1,
+        'planId': 'plan-1',
+        'targetDate': '2026-05-10',
+      });
+    });
+
     test('chains block times from the supplied start DateTime', () {
       final ics = generateCalendarIcs(
         CalendarExportRequest(
@@ -274,6 +288,23 @@ void main() {
                 duration: Duration(minutes: -1),
               ),
             ],
+            anchor: const CalendarExportAnchor(id: 'target', title: 'Target'),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects blank export group plan ids', () {
+      expect(
+        () => projectCalendarExportEvents(
+          CalendarExportRequest(
+            startDateTime: DateTime.utc(2026, 4, 23, 8),
+            exportGroup: CalendarExportGroup(
+              planId: '   ',
+              targetDate: DateTime(2026, 4, 23),
+            ),
+            blocks: const [],
             anchor: const CalendarExportAnchor(id: 'target', title: 'Target'),
           ),
         ),

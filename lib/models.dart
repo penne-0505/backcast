@@ -12,7 +12,10 @@ const double kMinBufferedOverviewBlockHeight = 52.0;
 /// 目標アンカーを識別する固定 ID（selectedBlockId に使用）
 const String kTargetTimeId = 'target-time';
 
-/// 行動ブロック（duration 型）か 行動ポイント（point 型）かを表す
+/// 行動ブロック（duration 型）か 行動ポイント（point 型）かを表す。
+///
+/// `actionPoint` は timeline 上では 0 分の節目だが、ブロックへ戻したときの
+/// 復元用に `duration` / `bufferMinutes` の raw action 設定値を保持できる。
 enum BlockType { action, actionPoint }
 
 /// moveBlock の方向を意味で表す
@@ -32,8 +35,8 @@ class Block {
   final String id;
   final BlockType type;
   final String title;
-  final int duration; // minutes; 0 for actionPoint
-  final int bufferMinutes; // minutes; action only
+  final int duration; // raw action minutes; actionPoint consumes 0 minutes
+  final int bufferMinutes; // raw desired buffer; effective only for action
   final int colorIndex;
 
   int get normalizedBufferMinutes =>
@@ -57,8 +60,7 @@ class Block {
       type: nextType,
       title: title ?? this.title,
       duration: nextDuration,
-      bufferMinutes: normalizeActionBufferMinutes(
-        nextType,
+      bufferMinutes: normalizeRawActionBufferMinutes(
         bufferMinutes ?? this.bufferMinutes,
       ),
       colorIndex: colorIndex ?? this.colorIndex,
@@ -117,6 +119,10 @@ List<ComputedBlock> computeBlocks(List<Block> blocks, int targetTime) {
 
 int normalizeActionBufferMinutes(BlockType type, int minutes) {
   if (type != BlockType.action) return 0;
+  return normalizeRawActionBufferMinutes(minutes);
+}
+
+int normalizeRawActionBufferMinutes(int minutes) {
   final clamped = minutes.clamp(0, kMaxActionBufferMinutes);
   return (((clamped / kBufferStepMinutes).round() * kBufferStepMinutes).clamp(
     0,

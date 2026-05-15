@@ -180,12 +180,12 @@ class TimelineTemplateRepository {
 
   String _defaultTemplateTitle(TimelineState state) {
     final title = state.targetTimeTitle.trim();
-    return title.isEmpty ? 'Untitled template' : title;
+    return title.isEmpty ? '無題のテンプレート' : title;
   }
 
   String _normalizeTitle(String title) {
     final trimmed = title.trim();
-    return trimmed.isEmpty ? 'Untitled template' : trimmed;
+    return trimmed.isEmpty ? '無題のテンプレート' : trimmed;
   }
 
   Future<int> _countBlocks(String templateId) async {
@@ -236,7 +236,7 @@ class TimelineTemplateRepository {
       type: type,
       title: row.title,
       duration: row.duration,
-      bufferMinutes: normalizeActionBufferMinutes(type, row.bufferMinutes),
+      bufferMinutes: normalizeRawActionBufferMinutes(row.bufferMinutes),
       colorIndex: row.colorIndex,
     );
   }

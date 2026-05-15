@@ -81,8 +81,7 @@ Block blockFromJson(Map<String, Object?> json) {
     type: type,
     title: _readString(json, 'title'),
     duration: duration,
-    bufferMinutes: normalizeActionBufferMinutes(
-      type,
+    bufferMinutes: normalizeRawActionBufferMinutes(
       _readOptionalInt(json, 'bufferMinutes') ?? 0,
     ),
     colorIndex: _readInt(json, 'colorIndex'),

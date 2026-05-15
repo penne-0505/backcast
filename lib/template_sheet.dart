@@ -19,11 +19,15 @@ class TemplateSheet extends ConsumerStatefulWidget {
     required this.onDismiss,
     this.presentation = TemplateSheetPresentation.sheet,
     this.initialTemplates,
+    this.currentTimelineTitle,
+    this.onBeforeSaveCurrent,
   });
 
   final VoidCallback onDismiss;
   final TemplateSheetPresentation presentation;
   final List<TimelineTemplateSummary>? initialTemplates;
+  final String? currentTimelineTitle;
+  final Future<void> Function()? onBeforeSaveCurrent;
 
   @override
   ConsumerState<TemplateSheet> createState() => _TemplateSheetState();
@@ -33,7 +37,10 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
   late List<TimelineTemplateSummary> _templates;
   late bool _loading;
   bool _saving = false;
+  bool _saveFormVisible = false;
   String? _renamingId;
+  final _saveTitleCtrl = TextEditingController();
+  final _saveTitleFocusNode = FocusNode();
   final _renameCtrl = TextEditingController();
   final _renameFocusNode = FocusNode();
 
@@ -50,6 +57,8 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
 
   @override
   void dispose() {
+    _saveTitleCtrl.dispose();
+    _saveTitleFocusNode.dispose();
     _renameCtrl.dispose();
     _renameFocusNode.dispose();
     super.dispose();
@@ -97,14 +106,47 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
     return true;
   }
 
+  String _defaultSaveTitle() {
+    final timelineTitle = widget.currentTimelineTitle?.trim();
+    if (timelineTitle != null && timelineTitle.isNotEmpty) {
+      return timelineTitle;
+    }
+
+    final targetTitle = ref.read(timelineProvider).targetTimeTitle.trim();
+    return targetTitle.isEmpty ? '無題のテンプレート' : targetTitle;
+  }
+
+  void _showSaveForm() {
+    if (!_guardTemplateAction()) return;
+
+    setState(() {
+      _saveFormVisible = true;
+      _renamingId = null;
+      _saveTitleCtrl.text = _defaultSaveTitle();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _saveTitleFocusNode.requestFocus();
+    });
+  }
+
+  void _cancelSaveForm() {
+    if (_saving) return;
+    setState(() {
+      _saveFormVisible = false;
+      _saveTitleCtrl.clear();
+    });
+  }
+
   Future<void> _saveCurrent() async {
+    if (_saving) return;
     if (!_guardTemplateAction()) return;
 
     setState(() => _saving = true);
     try {
+      await widget.onBeforeSaveCurrent?.call();
       final repo = ref.read(timelineTemplateRepositoryProvider);
       final state = ref.read(timelineProvider);
-      await repo.createTemplate(state: state);
+      await repo.createTemplate(state: state, title: _saveTitleCtrl.text);
       await ref
           .read(usageAnalyticsServiceProvider)
           .track(
@@ -114,6 +156,12 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
             },
           );
       await _load();
+      if (mounted) {
+        setState(() {
+          _saveFormVisible = false;
+          _saveTitleCtrl.clear();
+        });
+      }
     } catch (e, st) {
       debugPrint('TemplateSheet save error: $e\n$st');
     } finally {
@@ -291,47 +339,47 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
                   ),
                   const SizedBox(height: 16),
                   // Save current timeline
-                  Pressable(
-                    onTap: _saving ? null : _saveCurrent,
-                    scale: 0.97,
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Center(
-                        child: _saving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                  if (_saveFormVisible)
+                    _TemplateSaveForm(
+                      controller: _saveTitleCtrl,
+                      focusNode: _saveTitleFocusNode,
+                      busy: _saving,
+                      onSubmit: _saveCurrent,
+                      onCancel: _cancelSaveForm,
+                    )
+                  else
+                    Pressable(
+                      onTap: _saving ? null : _showSaveForm,
+                      scale: 0.97,
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.darkSurface,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                PhosphorIcons.floppyDisk(),
+                                size: 18,
+                                color: AppColors.canvas,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                '現在のタイムラインを保存',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                   color: AppColors.canvas,
                                 ),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    PhosphorIcons.floppyDisk(),
-                                    size: 18,
-                                    color: AppColors.canvas,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    '現在のタイムラインを保存',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.canvas,
-                                    ),
-                                  ),
-                                ],
                               ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 16),
                   // Template list
                   ConstrainedBox(
@@ -495,6 +543,135 @@ class _TemplateSheetState extends ConsumerState<TemplateSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TemplateSaveForm extends StatelessWidget {
+  const _TemplateSaveForm({
+    required this.controller,
+    required this.focusNode,
+    required this.busy,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool busy;
+  final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.accentOlive, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'テンプレート名',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.mutedInk,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: AppColors.softGray),
+            ),
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: !busy,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => onSubmit(),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                hintText: '例: 朝の準備テンプレート',
+                hintStyle: TextStyle(color: AppColors.mutedInk),
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Pressable(
+                  onTap: busy ? null : onCancel,
+                  scale: 0.97,
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.softGray,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'キャンセル',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.mutedInk,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Pressable(
+                  onTap: busy ? null : onSubmit,
+                  scale: 0.97,
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.darkSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Center(
+                      child: busy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.canvas,
+                              ),
+                            )
+                          : const Text(
+                              '保存',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.canvas,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

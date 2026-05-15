@@ -3,7 +3,7 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-14"
+updated_at: "2026-05-15"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -66,8 +66,8 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
   - `planId (String)`: 所属プラン ID
   - `type (String)`: `action` または `actionPoint`
   - `title (String)`: ブロック名
-  - `duration (int)`: 分単位の所要時間
-  - `bufferMinutes (int)`: 分単位の余裕時間。`action` のみ有効で、既定値は 0
+  - `duration (int)`: 分単位の raw action 所要時間。`actionPoint` でもブロック復帰用に保持され得る
+  - `bufferMinutes (int)`: 分単位の raw desired 余裕時間。`actionPoint` では effective 0 だが、ブロック復帰用に保持され得る。既定値は 0
   - `colorIndex (int)`: ブロック色インデックス
   - `position (int)`: `TimelineState.blocks` 上の順序
 - **Returns**: なし
@@ -113,8 +113,8 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
   - `templateId (String)`: 所属テンプレート ID
   - `type (String)`: `action` または `actionPoint`
   - `title (String)`: ブロック名
-  - `duration (int)`: 分単位の所要時間
-  - `bufferMinutes (int)`: 分単位の余裕時間。`action` のみ有効で、既定値は 0
+  - `duration (int)`: 分単位の raw action 所要時間。`actionPoint` でもブロック復帰用に保持され得る
+  - `bufferMinutes (int)`: 分単位の raw desired 余裕時間。`actionPoint` では effective 0 だが、ブロック復帰用に保持され得る。既定値は 0
   - `colorIndex (int)`: ブロック色インデックス
   - `position (int)`: `TimelineState.blocks` 上の順序
 - **Returns**: なし
@@ -422,7 +422,7 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
 - `TimelineState` の一時 UI 状態は snapshot へ含めない
 - `plan_blocks.position` は `TimelineState.blocks` の順序を保持するための列
 - `timeline_template_blocks.position` も同様に `TimelineState.blocks` の順序を保持する
-- `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` は読み込み時に `normalizeActionBufferMinutes` で正規化する
+- `plan_blocks.bufferMinutes` と `timeline_template_blocks.bufferMinutes` は raw desired 値として保存し、読み込み時に `normalizeRawActionBufferMinutes` で 0〜60 分の 5 分刻みへ正規化する。`actionPoint` でも raw 値は保持し、表示・計算時の effective buffer だけを 0 とする
 - `restoreTemplateState` は適用先 timeline との block ID 衝突を避けるため、必ず fresh block IDs を採番する
 - `TimelineTemplateApplyService.applyTemplate` は snapshot → apply → save の順序を保証し、適用前の状態を復元可能にする
 - `TimelineNotifier.applyTemplateState` は `loadState` と異なり、`selectedBlockId` / `preciseDraggingId` / `activeInlineEditorId` を自動的にクリアする

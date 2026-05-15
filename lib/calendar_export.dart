@@ -12,6 +12,7 @@ class CalendarExportRequest {
     required this.startDateTime,
     required this.blocks,
     required this.anchor,
+    this.exportGroup,
     this.generatedAt,
     this.productId = _defaultProductId,
     this.calendarName = _defaultCalendarName,
@@ -21,6 +22,7 @@ class CalendarExportRequest {
   final DateTime startDateTime;
   final List<CalendarExportBlock> blocks;
   final CalendarExportAnchor anchor;
+  final CalendarExportGroup? exportGroup;
 
   /// Optional creation timestamp for deterministic exports.
   ///
@@ -29,6 +31,29 @@ class CalendarExportRequest {
   final DateTime? generatedAt;
   final String productId;
   final String calendarName;
+}
+
+@immutable
+class CalendarExportGroup {
+  const CalendarExportGroup({required this.planId, required this.targetDate});
+
+  final String planId;
+  final DateTime targetDate;
+
+  String get targetDateKey {
+    final date = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Map<String, Object?> toNativePayload() {
+    return <String, Object?>{
+      'version': 1,
+      'planId': planId,
+      'targetDate': targetDateKey,
+    };
+  }
 }
 
 @immutable
@@ -197,6 +222,15 @@ List<String> _eventLines({
 }
 
 void _validateRequest(CalendarExportRequest request) {
+  final exportGroup = request.exportGroup;
+  if (exportGroup != null && exportGroup.planId.trim().isEmpty) {
+    throw ArgumentError.value(
+      exportGroup.planId,
+      'planId',
+      'Calendar export group planId cannot be blank.',
+    );
+  }
+
   for (final block in request.blocks) {
     if (block.duration.isNegative) {
       throw ArgumentError.value(

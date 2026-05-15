@@ -435,6 +435,16 @@ class _EditSheetState extends ConsumerState<EditSheet>
                               }
                             },
                           ),
+                          if (!isTarget && selected != null) ...[
+                            const SizedBox(height: 10),
+                            _BlockTypeToggle(
+                              selectedType: selected.type,
+                              onSelect: (type) {
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                notifier.setBlockType(selected.id, type);
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -637,6 +647,98 @@ class _LayerPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: child,
+    );
+  }
+}
+
+class _BlockTypeToggle extends StatelessWidget {
+  const _BlockTypeToggle({required this.selectedType, required this.onSelect});
+
+  final BlockType selectedType;
+  final void Function(BlockType type) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _BlockTypeToggleItem(
+              label: 'ブロック',
+              icon: PhosphorIcons.square(),
+              selected: selectedType == BlockType.action,
+              onTap: () => onSelect(BlockType.action),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _BlockTypeToggleItem(
+              label: 'ピン',
+              icon: PhosphorIcons.mapPin(),
+              selected: selectedType == BlockType.actionPoint,
+              onTap: () => onSelect(BlockType.actionPoint),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlockTypeToggleItem extends StatelessWidget {
+  const _BlockTypeToggleItem({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      behavior: HitTestBehavior.opaque,
+      onTap: selected ? null : onTap,
+      scale: 0.96,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentOlive : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.xs),
+        ),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? Colors.white : AppColors.mutedInk,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : AppColors.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

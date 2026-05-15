@@ -10,7 +10,11 @@ void main() {
       () async {
         var nativeCalls = 0;
         late CalendarExportRequest capturedRequest;
-        const result = CalendarExportResult(savedCount: 2, calendarName: 'Test');
+        const result = CalendarExportResult(
+          savedCount: 2,
+          deletedCount: 1,
+          calendarName: 'Test',
+        );
 
         final delivery = CalendarExportDelivery(
           nativeOpener: (request, {calendarId}) async {
@@ -40,6 +44,7 @@ void main() {
         expect(capturedRequest.blocks, request.blocks);
         expect(capturedRequest.anchor.title, '会議開始');
         expect(output.savedCount, 2);
+        expect(output.deletedCount, 1);
         expect(output.calendarName, 'Test');
       },
     );
@@ -78,10 +83,7 @@ void main() {
     test('maps native permission_denied to domain error', () async {
       final delivery = CalendarExportDelivery(
         nativeOpener: (request, {calendarId}) async {
-          throw PlatformException(
-            code: 'permission_denied',
-            message: 'denied',
-          );
+          throw PlatformException(code: 'permission_denied', message: 'denied');
         },
         isNativePlatform: () => true,
       );
@@ -136,10 +138,7 @@ void main() {
     test('maps native invalid_payload to domain error', () async {
       final delivery = CalendarExportDelivery(
         nativeOpener: (request, {calendarId}) async {
-          throw PlatformException(
-            code: 'invalid_payload',
-            message: 'bad',
-          );
+          throw PlatformException(code: 'invalid_payload', message: 'bad');
         },
         isNativePlatform: () => true,
       );
@@ -165,10 +164,7 @@ void main() {
     test('maps unknown native errors to saveFailed', () async {
       final delivery = CalendarExportDelivery(
         nativeOpener: (request, {calendarId}) async {
-          throw PlatformException(
-            code: 'unknown',
-            message: 'oops',
-          );
+          throw PlatformException(code: 'unknown', message: 'oops');
         },
         isNativePlatform: () => true,
       );

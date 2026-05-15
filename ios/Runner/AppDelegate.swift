@@ -26,7 +26,7 @@ import UIKit
     }
 
     let channel = FlutterMethodChannel(
-      name: "ato/calendar_export",
+      name: "medo/calendar_export",
       binaryMessenger: controller.binaryMessenger
     )
     channel.setMethodCallHandler { [weak self] call, result in
@@ -43,17 +43,15 @@ import UIKit
     do {
       let events = try parseEvents(arguments: call.arguments)
       let args = call.arguments as? [String: Any]
+      let exportGroup = try parseExportGroup(raw: args?["exportGroup"])
       let calendarId = args?["calendarId"] as? String
 
-      let isWriteOnly: Bool
       let requestAccess: (@escaping (Bool, Error?) -> Void) -> Void
       if #available(iOS 17.0, *) {
-        isWriteOnly = true
         requestAccess = { [weak self] completion in
-          self?.eventStore.requestWriteOnlyAccessToEvents(completion: completion)
+          self?.eventStore.requestFullAccessToEvents(completion: completion)
         }
       } else {
-        isWriteOnly = false
         requestAccess = { [weak self] completion in
           self?.eventStore.requestAccess(to: .event, completion: completion)
         }
@@ -79,9 +77,14 @@ import UIKit
           }
 
           do {
-            let (savedCount, calendarName) = try self.save(events: events, calendarId: calendarId, writeOnly: isWriteOnly)
+            let (savedCount, deletedCount, calendarName) = try self.save(
+              events: events,
+              exportGroup: exportGroup,
+              calendarId: calendarId
+            )
             result([
               "savedCount": savedCount,
+              "deletedCount": deletedCount,
               "calendarName": calendarName ?? NSNull(),
             ])
           } catch let saveError as NSError where saveError.domain == "Medo.CalendarExport" && saveError.code == 1 {
@@ -96,7 +99,11 @@ import UIKit
     }
   }
 
-  private func save(events: [CalendarExportEventPayload], calendarId: String?, writeOnly: Bool) throws -> (Int, String?) {
+  private func save(
+    events: [CalendarExportEventPayload],
+    exportGroup: CalendarExportGroupPayload?,
+    calendarId: String?
+  ) throws -> (Int, Int, String?) {
     let calendar: EKCalendar
     if let calendarId = calendarId,
        let found = eventStore.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarId }),
@@ -116,6 +123,15 @@ import UIKit
     }
 
     do {
+      var deletedCount = 0
+      if let exportGroup = exportGroup {
+        let existingEvents = existingEventsForExportGroup(exportGroup, events: events, calendar: calendar)
+        for event in existingEvents {
+          try eventStore.remove(event, span: .thisEvent, commit: false)
+          deletedCount += 1
+        }
+      }
+
       for eventPayload in events {
         let event = EKEvent(eventStore: eventStore)
         event.calendar = calendar
@@ -123,15 +139,49 @@ import UIKit
         event.startDate = Date(timeIntervalSince1970: TimeInterval(eventPayload.startAtMillis) / 1000.0)
         event.endDate = Date(timeIntervalSince1970: TimeInterval(eventPayload.endAtMillis) / 1000.0)
         event.timeZone = .current
+        event.notes = buildEventNotes(exportGroup: exportGroup, event: eventPayload)
         try eventStore.save(event, span: .thisEvent, commit: false)
       }
 
       try eventStore.commit()
-      return (events.count, writeOnly ? nil : calendar.title)
+      return (events.count, deletedCount, calendar.title)
     } catch {
       eventStore.reset()
       throw error
     }
+  }
+
+  private func existingEventsForExportGroup(
+    _ exportGroup: CalendarExportGroupPayload,
+    events: [CalendarExportEventPayload],
+    calendar: EKCalendar
+  ) -> [EKEvent] {
+    let minStart = events.map { $0.startAtMillis }.min() ?? 0
+    let maxEnd = events.map { $0.endAtMillis }.max() ?? minStart
+    let dayMillis: Int64 = 24 * 60 * 60 * 1000
+    let start = Date(timeIntervalSince1970: TimeInterval(minStart - dayMillis) / 1000.0)
+    let end = Date(timeIntervalSince1970: TimeInterval(maxEnd + dayMillis) / 1000.0)
+    let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: [calendar])
+    return eventStore.events(matching: predicate).filter { event in
+      guard let notes = event.notes else { return false }
+      return notes.contains("MEDO_EXPORT_VERSION=\(exportGroup.version)") &&
+        notes.contains("MEDO_EXPORT_PLAN_ID=\(exportGroup.planId)") &&
+        notes.contains("MEDO_EXPORT_DATE=\(exportGroup.targetDate)")
+    }
+  }
+
+  private func buildEventNotes(
+    exportGroup: CalendarExportGroupPayload?,
+    event: CalendarExportEventPayload
+  ) -> String? {
+    guard let exportGroup = exportGroup else { return nil }
+    return [
+      "Created by Medo.",
+      "MEDO_EXPORT_VERSION=\(exportGroup.version)",
+      "MEDO_EXPORT_PLAN_ID=\(exportGroup.planId)",
+      "MEDO_EXPORT_DATE=\(exportGroup.targetDate)",
+      "MEDO_EXPORT_EVENT_ID=\(event.id)",
+    ].joined(separator: "\n")
   }
 
   private func parseEvents(arguments: Any?) throws -> [CalendarExportEventPayload] {
@@ -173,6 +223,35 @@ import UIKit
     }
   }
 
+  private func parseExportGroup(raw: Any?) throws -> CalendarExportGroupPayload? {
+    guard let raw = raw else { return nil }
+    guard let map = raw as? [String: Any] else {
+      throw NSError(
+        domain: "Medo.CalendarExport",
+        code: 5,
+        userInfo: [NSLocalizedDescriptionKey: "Invalid export group payload."]
+      )
+    }
+
+    guard let version = Self.numberValue(map["version"]),
+          let planId = map["planId"] as? String,
+          let targetDate = map["targetDate"] as? String,
+          !planId.isEmpty,
+          !targetDate.isEmpty else {
+      throw NSError(
+        domain: "Medo.CalendarExport",
+        code: 6,
+        userInfo: [NSLocalizedDescriptionKey: "Missing export group fields."]
+      )
+    }
+
+    return CalendarExportGroupPayload(
+      version: Int(version),
+      planId: planId,
+      targetDate: targetDate
+    )
+  }
+
   private static func numberValue(_ value: Any?) -> Int64? {
     switch value {
     case let number as Int64:
@@ -191,5 +270,11 @@ import UIKit
     let title: String
     let startAtMillis: Int64
     let endAtMillis: Int64
+  }
+
+  private struct CalendarExportGroupPayload {
+    let version: Int
+    let planId: String
+    let targetDate: String
   }
 }

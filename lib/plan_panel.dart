@@ -9,6 +9,7 @@ import 'calendar_export.dart';
 import 'calendar_export_delivery.dart';
 import 'calendar_export_request_builder.dart';
 import 'image_export_delivery.dart';
+import 'persistence/persistence_providers.dart';
 import 'text_export_delivery.dart';
 import 'timeline_image_export.dart';
 import 'timeline_image_share_card.dart';
@@ -50,6 +51,7 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
       state: state,
       baseDate: base,
       clock: DateTime.now,
+      planId: ref.read(currentPlanIdProvider),
     );
     final preview = CalendarExportPreview.fromRequest(request);
     await ref
@@ -94,7 +96,12 @@ class _ExportPanelState extends ConsumerState<ExportPanel> {
       final calendarLabel = result.calendarName != null
           ? '（${result.calendarName}）'
           : '';
-      _showResultSnackBar('${result.savedCount}件をカレンダーに登録しました$calendarLabel');
+      final replaceLabel = result.deletedCount > 0
+          ? '、前回の${result.deletedCount}件を置き換えました'
+          : '';
+      _showResultSnackBar(
+        '${result.savedCount}件をカレンダーに登録しました$calendarLabel$replaceLabel',
+      );
     } on CalendarExportException catch (e) {
       await ref
           .read(usageAnalyticsServiceProvider)
@@ -573,6 +580,34 @@ class _CalendarExportPreviewDialog extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _PreviewRow(label: '件数', value: '${preview.eventCount}件'),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.softGray,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    PhosphorIcons.arrowsClockwise(),
+                    size: 16,
+                    color: AppColors.accentOlive,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '同じタイムラインを同じ日に登録済みの場合、前回分を置き換えます。',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.ink,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (preview.spansMultipleDays) ...[
               const SizedBox(height: 10),
               Container(

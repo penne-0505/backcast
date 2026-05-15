@@ -3,7 +3,7 @@ title: Medo Calendar Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-10"
+updated_at: "2026-05-15"
 references:
   - README.md
   - _docs/reference/medo/timeline_domain_reference.md
@@ -33,6 +33,7 @@ related_prs: []
   - `startDateTime (DateTime)`: 先頭ブロックの絶対開始日時
   - `blocks (List<CalendarExportBlock>)`: 開始日時から前向きに並べるイベント列
   - `anchor (CalendarExportAnchor)`: すべてのブロック後に 0 分イベントとして出力するアンカー
+  - `exportGroup (CalendarExportGroup?)`: native 登録時に重複制御するための同一 export group metadata。未指定時は削除前処理を行わない
   - `generatedAt (DateTime?)`: `DTSTAMP` に使う生成日時。未指定時は `startDateTime`
   - `productId (String)`: `PRODID`。既定値は `-//Medo//Calendar Export//EN`
   - `calendarName (String)`: `X-WR-CALNAME`。既定値は `Medo`
@@ -40,6 +41,20 @@ related_prs: []
 - **Errors**: なし
 - **Examples**:
   - `CalendarExportRequest(startDateTime: DateTime.utc(2026, 4, 23, 8), blocks: blocks, anchor: anchor)`
+
+### `class CalendarExportGroup`
+
+- **Summary**: native カレンダー登録で「同じ plan / 同じ対象日」の前回登録を置き換えるための metadata
+- **Parameters**:
+  - `planId (String)`: 現在の timeline plan id。空白のみは不正
+  - `targetDate (DateTime)`: export UI で選んだ対象日。時刻成分は無視され、`yyyy-mm-dd` の `targetDateKey` として native に渡される
+- **Returns**: なし
+- **Errors**: `planId` が空白のみの場合、`projectCalendarExportEvents` / `generateCalendarIcs` の request validation で `ArgumentError`
+- **Examples**:
+  - `CalendarExportGroup(planId: currentPlanId, targetDate: DateTime(2026, 5, 15))`
+- **Notes**:
+  - `planId` 単独ではなく `planId + targetDate` を削除単位にする。これにより、同じ timeline を別日に登録した event を巻き込まない
+  - `.ics` 文字列には出力せず、Android / iOS の native delivery payload に含める
 
 ### `class CalendarExportBlock`
 
@@ -99,13 +114,14 @@ final ics = generateCalendarIcs(
 );
 ```
 
-### `CalendarExportRequest buildCalendarExportRequest({required TimelineState state, required DateTime baseDate, required DateTime Function() clock})`
+### `CalendarExportRequest buildCalendarExportRequest({required TimelineState state, required DateTime baseDate, required DateTime Function() clock, String? planId})`
 
 - **Summary**: `TimelineState` とユーザーが選んだ基準日から `CalendarExportRequest` を組み立てる純粋関数
 - **Parameters**:
   - `state (TimelineState)`: 現在のタイムライン状態
   - `baseDate (DateTime)`: ユーザーが選択した日付（時刻成分は無視される）
   - `clock (DateTime Function())`: `generatedAt` に注入する現在時刻。テストでは固定値を渡す
+  - `planId (String?)`: 現在の timeline plan id。指定時は `CalendarExportGroup(planId, baseDate)` を request に含める
 - **Returns**: `CalendarExportRequest`
 - **Errors**: なし
 - **Notes**:
@@ -147,6 +163,7 @@ final ics = generateCalendarIcs(
 - **Summary**: native 登録成功時の戻り値
 - **Parameters**:
   - `savedCount (int)`: 実際に登録されたイベント件数
+  - `deletedCount (int)`: 同一 export group として削除された既存イベント件数。未指定または未検出時は `0`
   - `calendarName (String?)`: 登録先カレンダー名（取得できない、または保証できない場合は `null`）
 
 ## Native Integration
@@ -155,7 +172,9 @@ final ics = generateCalendarIcs(
 
 - `MainActivity.kt` の `MethodChannel("medo/calendar_export")` で `saveCalendarExport` を処理する
 - `CalendarContract.Events` へ `ContentProviderOperation` の batch insert を行う
+- `exportGroup` がある場合は、同じ calendar id かつ Medo marker / plan id / target date が一致する既存 event を batch delete してから insert する
 - 書き込み先カレンダーは `calendarId` 引数、または `resolveWritableCalendarId()` で決定する
+- `CalendarContract.Events.DESCRIPTION` に `MEDO_EXPORT_VERSION`、`MEDO_EXPORT_PLAN_ID`、`MEDO_EXPORT_DATE`、`MEDO_EXPORT_EVENT_ID` を保存する
 - 権限がない場合は `ActivityCompat.requestPermissions` で READ/WRITE_CALENDAR を要求する
 - 成功時は `{savedCount, calendarName}` を返す
 - 失敗時は以下の code を返す:
@@ -167,17 +186,17 @@ final ics = generateCalendarIcs(
 ### iOS
 
 - `AppDelegate.swift` の `FlutterMethodChannel` で `saveCalendarExport` を処理する
-- iOS 17+ では `EKEventStore.requestWriteOnlyAccessToEvents` を優先し、それ以前では `requestAccess(to: .event)` にフォールバックする
+- iOS 17+ では `EKEventStore.requestFullAccessToEvents` を使い、それ以前では `requestAccess(to: .event)` にフォールバックする
 - 書き込み先カレンダーは `calendarId` 引数、または `defaultCalendarForNewEvents` / 最初の writable calendar で決定する
-- 成功時は `{savedCount, calendarName}` を返す
-  - iOS 17+ の write-only access では `calendarName` は `null` を返す（実際の書き込み先を保証できないため）
-  - iOS 17 未満の full access では、書き込み先カレンダーのタイトルを返す
+- `exportGroup` がある場合は、同じ calendar 上で `EKEvent.notes` の Medo marker / plan id / target date が一致する既存 event を remove してから save する
+- `EKEvent.notes` に `MEDO_EXPORT_VERSION`、`MEDO_EXPORT_PLAN_ID`、`MEDO_EXPORT_DATE`、`MEDO_EXPORT_EVENT_ID` を保存する
+- 成功時は `{savedCount, deletedCount, calendarName}` を返す
 - 失敗時は以下の code を返す:
   - `permission_denied`
   - `no_writable_calendar`
   - `invalid_payload`
   - `save_failed`
-- `Info.plist` には `NSCalendarsUsageDescription` と `NSCalendarsWriteOnlyAccessUsageDescription` の両方が必要
+- `Info.plist` には `NSCalendarsUsageDescription`、`NSCalendarsFullAccessUsageDescription`、`NSCalendarsWriteOnlyAccessUsageDescription` が必要
 
 ## Notes
 
@@ -190,4 +209,5 @@ final ics = generateCalendarIcs(
 - `DTSTAMP` は `generatedAt` があればそれを使い、未指定時は `startDateTime` を使うため、`DateTime.now()` には依存しない
 - `.ics` 生成、request 組み立て、プレビュー導出は Flutter 純粋ロジック層の責務
 - 端末カレンダーへの直接登録、権限処理、OS 固有のカレンダー選択は native 層の責務
+- native 登録は、同じ `CalendarExportGroup` の Medo marker 付き event を削除してから再登録する。marker がない event や別日の event は削除しない
 - UI 層は `buildCalendarExportRequest` で request を組み立て、`CalendarExportPreview` でプレビューを表示し、確認後に `CalendarExportDelivery.deliver` を呼び出す

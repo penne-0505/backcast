@@ -3,10 +3,11 @@ title: Calendar Export via iCalendar
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-02"
+updated_at: "2026-05-15"
 references:
   - README.md
   - _docs/archives/plan/Core/calendar-registration-enhancement.md
+  - _docs/plan/Core/calendar-export-rebuild-deduplication.md
   - _docs/reference/medo/calendar_export_reference.md
   - _docs/reference/medo/timeline_domain_reference.md
 related_issues: []
@@ -34,8 +35,11 @@ related_prs: []
 - native カレンダー登録は `CalendarExportDelivery` で統一し、戻り値に登録件数と登録先カレンダー名を含める
 - 失敗時は `PlatformException` の code を UI に直接漏らさず、`CalendarExportError` として domain error に変換する
 - Android は `CalendarContract` へ直接書き込み、iOS は `EventKit` を使う
-- iOS 17+ では `requestWriteOnlyAccessToEvents` を優先し、それ以前では `requestAccess(to: .event)` にフォールバックする
-  - write-only access では `CalendarExportResult.calendarName` を `null` とし、Flutter UI では汎用の成功メッセージを表示する
+- native 登録では、`CalendarExportGroup(planId, targetDate)` が指定された場合、同じ plan / 同じ対象日の Medo marker 付き event を削除してから現在の timeline を再登録する
+  - field-by-field merge は行わない
+  - `planId` 単独ではなく `planId + targetDate` を削除単位にし、別日に登録した同じ timeline を巻き込まない
+  - marker がない event は、タイトルや時刻が一致していても削除しない
+- iOS 17+ では、前回登録 event の検索・削除が必要なため `requestFullAccessToEvents` を使い、それ以前では `requestAccess(to: .event)` にフォールバックする
 - Android / iOS の両方で、明示的な `calendarId` 未指定時は既定の書き込み可能カレンダーを自動選択する
 
 ## Alternatives
@@ -48,6 +52,10 @@ related_prs: []
   利用者が意図した日付とずれる可能性があり、テストも非決定的になるため不採用
 - Google Calendar API などのクラウド同期を使う:
   初回スコープでは権限とセットアップコストが大きすぎるため不採用
+- 登録済み event を merge 更新する:
+  block 削除、順序変更、duration 変更、anchor 変更を個別差分として扱うと実装と失敗時復旧が複雑になる。ユーザーの期待は「この timeline の最新版を反映する」ことであるため、同一 export group の完全再構築を採用する
+- `planId` だけで前回登録を削除する:
+  同じ timeline を別日に登録した予定まで削除するため不採用
 
 ## Rationale
 
@@ -58,7 +66,8 @@ related_prs: []
 - `buildCalendarExportRequest` を純粋関数にすることで、日跨ぎや 0 分ブロックの計算を unit test で担保できる
 - `CalendarExportPreview` を分離することで、UI は `.ics` 生成の詳細を知らずにプレビュー情報を表示できる
 - `CalendarExportDelivery` で domain result / error を導入することで、Android / iOS の違いを吸収し、UI では同じエラーハンドリングができる
-- iOS 17+ の write-only access を優先することで、最小限の権限でカレンダー登録を実現できる
+- 重複制御では既存 event の検索と削除が必要になるため、iOS 17+ でも write-only access ではなく full access を使う
+- Medo marker は native event の notes / description に保存するため、既存の marker なし重複 event は初回実装では自動削除しない
 
 ## Consequences / Impact
 
@@ -68,6 +77,7 @@ related_prs: []
 - UI 接続時は、画面の `targetTime` からではなく、ユーザーが選んだ書き出し開始日時を `CalendarExportRequest.startDateTime` に渡す必要がある
 - 登録前プレビューにより、ユーザーは日跨ぎや実際の開始時刻を確認してから登録できる
 - native 層のエラーハンドリングが統一されたことで、UI では `CalendarExportException` のみを扱えばよくなった
+- 同じ timeline / 同じ対象日を再登録した場合、前回の Medo marker 付き event は削除される。同期カレンダーでは削除と追加が段階的に表示される可能性は残る
 
 ## Rollback / Follow-ups
 
