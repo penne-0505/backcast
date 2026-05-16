@@ -964,7 +964,7 @@ class _SwipeDeleteBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.ink.withValues(alpha: 0.08),
+        color: const Color(0xFFB54A4A),
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Align(
@@ -976,7 +976,7 @@ class _SwipeDeleteBackground extends StatelessWidget {
             child: Icon(
               Icons.delete_outline,
               size: 22,
-              color: AppColors.ink.withValues(alpha: 0.58),
+              color: AppColors.canvas,
             ),
           ),
         ),
