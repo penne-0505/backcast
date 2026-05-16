@@ -3,7 +3,7 @@ title: Medo Persistence Repository Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-15"
+updated_at: "2026-05-18"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -326,11 +326,14 @@ Flutter Web では `drift_flutter` の Web executor を使い、`web/sqlite3.was
 - **Summary**: 現在の `TimelineState` をテンプレートとして保存する
 - **Parameters**:
   - `state (TimelineState)`: 保存するタイムライン状態
-  - `title (String?)`: テンプレート名。未指定時は `targetTimeTitle` から補完。空文字・空白のみは `Untitled template` に正規化される
+  - `title (String?)`: テンプレート名。未指定時は `targetTimeTitle` から補完。空文字・空白のみは `無題のテンプレート` に正規化される
 - **Returns**: 作成された `TimelineTemplate`
 - **Errors**: DB 書き込み失敗時は Drift / SQLite エラー
 - **Examples**:
   - `repository.createTemplate(state: state, title: "朝の準備テンプレート")`
+- **UI Boundary**:
+  - template popover から保存する場合、`TemplateSheet` は保存フォームで明示された title を渡す
+  - `TimelineScreen` は `TemplateSheet.onBeforeSaveCurrent` に `_saveCurrentPlanNow` を渡し、テンプレート作成前に current plan の pending autosave を flush する
 
 ### `TimelineTemplateRepository.listTemplates`
 

@@ -3,7 +3,7 @@ title: Medo Calendar Export Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-15"
+updated_at: "2026-05-18"
 references:
   - README.md
   - _docs/reference/medo/timeline_domain_reference.md
@@ -174,9 +174,10 @@ final ics = generateCalendarIcs(
 - `CalendarContract.Events` へ `ContentProviderOperation` の batch insert を行う
 - `exportGroup` がある場合は、同じ calendar id かつ Medo marker / plan id / target date が一致する既存 event を batch delete してから insert する
 - 書き込み先カレンダーは `calendarId` 引数、または `resolveWritableCalendarId()` で決定する
-- `CalendarContract.Events.DESCRIPTION` に `MEDO_EXPORT_VERSION`、`MEDO_EXPORT_PLAN_ID`、`MEDO_EXPORT_DATE`、`MEDO_EXPORT_EVENT_ID` を保存する
+- `CalendarContract.Events.DESCRIPTION` に `MEDO_EXPORT_BEGIN` / `MEDO_EXPORT_END` で囲んだ marker block を保存し、その中に `MEDO_EXPORT_VERSION`、`MEDO_EXPORT_PLAN_ID`、`MEDO_EXPORT_DATE`、`MEDO_EXPORT_EVENT_ID` を記録する
+- delete selection は marker 行・plan id 行・target date 行を条件にし、`LIKE` wildcard を escape して隣接する plan id を巻き込まない
 - 権限がない場合は `ActivityCompat.requestPermissions` で READ/WRITE_CALENDAR を要求する
-- 成功時は `{savedCount, calendarName}` を返す
+- 成功時は `{savedCount, deletedCount, calendarName}` を返す
 - 失敗時は以下の code を返す:
   - `permission_denied`
   - `no_writable_calendar`
@@ -189,7 +190,8 @@ final ics = generateCalendarIcs(
 - iOS 17+ では `EKEventStore.requestFullAccessToEvents` を使い、それ以前では `requestAccess(to: .event)` にフォールバックする
 - 書き込み先カレンダーは `calendarId` 引数、または `defaultCalendarForNewEvents` / 最初の writable calendar で決定する
 - `exportGroup` がある場合は、同じ calendar 上で `EKEvent.notes` の Medo marker / plan id / target date が一致する既存 event を remove してから save する
-- `EKEvent.notes` に `MEDO_EXPORT_VERSION`、`MEDO_EXPORT_PLAN_ID`、`MEDO_EXPORT_DATE`、`MEDO_EXPORT_EVENT_ID` を保存する
+- `EKEvent.notes` に `MEDO_EXPORT_BEGIN` / `MEDO_EXPORT_END` で囲んだ marker block を保存し、その中に `MEDO_EXPORT_VERSION`、`MEDO_EXPORT_PLAN_ID`、`MEDO_EXPORT_DATE`、`MEDO_EXPORT_EVENT_ID` を記録する
+- 既存 event の判定は `notes` を行単位に分解し、`plan-1` が `plan-10` に一致するような部分一致を避ける
 - 成功時は `{savedCount, deletedCount, calendarName}` を返す
 - 失敗時は以下の code を返す:
   - `permission_denied`

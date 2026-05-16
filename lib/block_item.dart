@@ -107,13 +107,13 @@ class BlockItem extends ConsumerStatefulWidget {
     this.isSearchHighlighted = false,
     required this.preciseDraggingId,
     required this.allBlocks,
-    required this.index,
     required this.sourceIndex,
     required this.pixelsPerMinute,
     this.currentTimelineMinute,
     this.sheetVisible = false,
     this.readOnly = false,
     this.onReorderIntentStart,
+    this.onReorderIntentMove,
     this.onReorderIntentEnd,
     this.onActionBufferDoubleTap,
     this.onSwipeDelete,
@@ -124,14 +124,17 @@ class BlockItem extends ConsumerStatefulWidget {
   final bool isSearchHighlighted;
   final String? preciseDraggingId;
   final List<Block> allBlocks;
-  final int index;
   final int sourceIndex;
   final double pixelsPerMinute;
   final int? currentTimelineMinute;
   final bool sheetVisible;
   final bool readOnly;
-  final Future<void> Function(String blockId)? onReorderIntentStart;
-  final void Function(String blockId)? onReorderIntentEnd;
+  final Future<void> Function(String blockId, Offset globalPosition)?
+  onReorderIntentStart;
+  final void Function(String blockId, Offset globalPosition)?
+  onReorderIntentMove;
+  final void Function(String blockId, {required bool commit})?
+  onReorderIntentEnd;
   final void Function(String blockId)? onActionBufferDoubleTap;
   final void Function(String blockId)? onSwipeDelete;
 
@@ -644,16 +647,19 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                           bottom: pillAndHandleBottomInset,
                           width: 52,
                           child: _QuickReorderListener(
-                            index: widget.index,
-                            onReorderIntentStart: () {
+                            onReorderIntentStart: (globalPosition) {
                               final onStart = widget.onReorderIntentStart;
                               if (onStart == null) {
                                 return Future<void>.value();
                               }
-                              return onStart(block.id);
+                              return onStart(block.id, globalPosition);
                             },
-                            onReorderIntentEnd: () =>
-                                widget.onReorderIntentEnd?.call(block.id),
+                            onReorderIntentMove: (globalPosition) => widget
+                                .onReorderIntentMove
+                                ?.call(block.id, globalPosition),
+                            onReorderIntentEnd: ({required commit}) => widget
+                                .onReorderIntentEnd
+                                ?.call(block.id, commit: commit),
                             child: Semantics(
                               key: ValueKey('reorder-handle:${block.id}'),
                               label: '並び替え',
@@ -809,16 +815,19 @@ class _BlockItemState extends ConsumerState<BlockItem> {
                         ),
                         if (!widget.readOnly)
                           _QuickReorderListener(
-                            index: widget.index,
-                            onReorderIntentStart: () {
+                            onReorderIntentStart: (globalPosition) {
                               final onStart = widget.onReorderIntentStart;
                               if (onStart == null) {
                                 return Future<void>.value();
                               }
-                              return onStart(block.id);
+                              return onStart(block.id, globalPosition);
                             },
-                            onReorderIntentEnd: () =>
-                                widget.onReorderIntentEnd?.call(block.id),
+                            onReorderIntentMove: (globalPosition) => widget
+                                .onReorderIntentMove
+                                ?.call(block.id, globalPosition),
+                            onReorderIntentEnd: ({required commit}) => widget
+                                .onReorderIntentEnd
+                                ?.call(block.id, commit: commit),
                             child: Semantics(
                               key: ValueKey('reorder-handle:${block.id}'),
                               label: '並び替え',
@@ -1414,80 +1423,78 @@ class _DragHandleState extends State<_DragHandle> {
 // Quick Reorder Listener (200ms delay)
 // ---------------------------------------------------------------------------
 
+const _quickReorderHoldDelay = Duration(milliseconds: 200);
+
 class _QuickReorderListener extends StatefulWidget {
   const _QuickReorderListener({
-    required this.index,
     required this.child,
     this.onReorderIntentStart,
+    this.onReorderIntentMove,
     this.onReorderIntentEnd,
   });
 
-  final int index;
   final Widget child;
-  final Future<void> Function()? onReorderIntentStart;
-  final VoidCallback? onReorderIntentEnd;
+  final Future<void> Function(Offset globalPosition)? onReorderIntentStart;
+  final void Function(Offset globalPosition)? onReorderIntentMove;
+  final void Function({required bool commit})? onReorderIntentEnd;
 
   @override
   State<_QuickReorderListener> createState() => _QuickReorderListenerState();
 }
 
 class _QuickReorderListenerState extends State<_QuickReorderListener> {
-  int? _activePointer;
-  Timer? _holdTimer;
+  bool _intentStarted = false;
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
+    return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (PointerDownEvent event) =>
-          _handlePointerDown(context, event),
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerCancel,
+      gestures: <Type, GestureRecognizerFactory>{
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+              () => LongPressGestureRecognizer(
+                duration: _quickReorderHoldDelay,
+                debugOwner: this,
+              ),
+              (recognizer) {
+                recognizer
+                  ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context)
+                  ..onLongPressStart = _handleLongPressStart
+                  ..onLongPressMoveUpdate = _handleLongPressMoveUpdate
+                  ..onLongPressEnd = _handleLongPressEnd
+                  ..onLongPressCancel = _handleLongPressCancel;
+              },
+            ),
+      },
       child: widget.child,
     );
   }
 
   @override
   void dispose() {
-    _holdTimer?.cancel();
+    if (_intentStarted) {
+      widget.onReorderIntentEnd?.call(commit: false);
+    }
     super.dispose();
   }
 
-  MultiDragGestureRecognizer createRecognizer() {
-    return DelayedMultiDragGestureRecognizer(
-      delay: const Duration(milliseconds: 380),
-      debugOwner: this,
-    );
+  void _handleLongPressStart(LongPressStartDetails details) {
+    _intentStarted = true;
+    unawaited(widget.onReorderIntentStart?.call(details.globalPosition));
   }
 
-  void _handlePointerDown(BuildContext context, PointerDownEvent event) {
-    _activePointer = event.pointer;
-    _holdTimer?.cancel();
-    _holdTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted || _activePointer != event.pointer) return;
-      unawaited(widget.onReorderIntentStart?.call());
-    });
-
-    final gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
-    final list = SliverReorderableList.maybeOf(context);
-    if (list == null) return;
-    list.startItemDragReorder(
-      index: widget.index,
-      event: event,
-      recognizer: createRecognizer()..gestureSettings = gestureSettings,
-    );
+  void _handleLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+    if (!_intentStarted) return;
+    widget.onReorderIntentMove?.call(details.globalPosition);
   }
 
-  void _handlePointerUp(PointerUpEvent event) {
-    if (_activePointer != event.pointer) return;
-    _holdTimer?.cancel();
-    _activePointer = null;
-    widget.onReorderIntentEnd?.call();
+  void _handleLongPressEnd(LongPressEndDetails details) {
+    if (_intentStarted) widget.onReorderIntentEnd?.call(commit: true);
+    _intentStarted = false;
   }
 
-  void _handlePointerCancel(PointerCancelEvent event) {
-    if (_activePointer != event.pointer) return;
-    _holdTimer?.cancel();
-    _activePointer = null;
+  void _handleLongPressCancel() {
+    if (_intentStarted) widget.onReorderIntentEnd?.call(commit: false);
+    _intentStarted = false;
   }
 }

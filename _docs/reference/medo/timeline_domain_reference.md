@@ -3,13 +3,14 @@ title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-15"
+updated_at: "2026-05-16"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
   - _docs/intent/medo/reverse_timeline_interaction_model.md
   - _docs/intent/medo/calendar_export_ics.md
   - _docs/intent/medo/local_reminder_notifications.md
+  - _docs/intent/medo/reorder_placement_preview.md
   - _docs/reference/medo/calendar_export_reference.md
   - _docs/reference/medo/reminder_notification_reference.md
   - _docs/reference/medo/persistence_repository_reference.md
@@ -32,7 +33,7 @@ related_prs: []
 - **Errors**: なし
 - **Examples**:
   - `kPixelsPerMinute = 5.5`: 詳細編集時の 1 分あたり px。旧 zoom slider の `0.9x` 相当を標準密度とする
-  - `kOverviewPixelsPerMinute = 3.0`: 俯瞰時、および移動ハンドルから始めた並び替え中の一時俯瞰で使う 1 分あたり px
+  - `kOverviewPixelsPerMinute = 3.0`: 俯瞰時に使う 1 分あたり px。移動ハンドルから始めた並び替え中は timeline 本体の密度変更には使わない
   - `kSnapMinutes = 5`: 通常ドラッグ時のスナップ粒度
   - `kBufferStepMinutes = 5`: 行動ごとの余裕時間の編集粒度
   - `kMaxActionBufferMinutes = 60`: `action.bufferMinutes` の絶対上限
@@ -195,7 +196,7 @@ related_prs: []
   - インライン編集中は `activeInlineEditorId != null` になる
   - 俯瞰表示中は `viewMode == TimelineViewMode.compact` になる
   - 検索 UI state は plan persistence に保存されない
-  - 移動ハンドルから始めた並び替え中の一時俯瞰は `TimelineScreen` の local state で扱い、`TimelineState.viewMode` や永続化対象の `pixelsPerMinute` は変更しない
+  - 移動ハンドルから始めた並び替え中の dragged block preview、pointer position、挿入線位置は `TimelineScreen` の local state で扱い、`TimelineState.viewMode` や永続化対象の `pixelsPerMinute` は変更しない
 
 ### `class TimelineNotifier`
 
@@ -423,10 +424,10 @@ related_prs: []
 - **Returns**: なし
 - **Errors**: `fromIndex` 範囲外は無視
 - **Examples**:
-  - `SliverReorderableList` の `onReorder` から呼ばれる
+  - 編集ビューの移動ハンドルを pointer up したとき、推定した挿入先 index へ反映するために呼ばれる
 - **Notes**:
-  - 編集ビューの移動ハンドルを短く hold すると、UI は local state で一時的に overview density を使う
-  - 実際の順序変更は従来通り `SliverReorderableList.onReorder` からこのメソッドへ渡される
+  - 編集ビューの移動ハンドルを短く hold すると、UI は local state で小さい dragged block preview と timeline 上の挿入線を表示する
+  - 移動中の source block は通常リストの表示・挿入判定から外れ、pointer up 時だけこのメソッドで state に戻される
 
 ### `TimelineNotifier.reorderBlock(String id, int insertBefore)`
 
@@ -477,8 +478,8 @@ related_prs: []
 - **Notes**:
   - `pixelsPerMinute` は一時 UI 状態であり、plan persistence には保存しない
   - 主導線では `setViewMode` による詳細編集 / 俯瞰の二段階切り替えを使う
-  - 移動ハンドルから始まる一時俯瞰では `TimelineState.viewMode` と永続化対象の `pixelsPerMinute` は変更せず、`TimelineScreen` が `BlockItem` へ渡す effective density だけを一時的に `kOverviewPixelsPerMinute` 相当にする
-  - 一時俯瞰の reorder gesture は、縮小 layout が drag gap / dragged proxy / 挿入判定に反映されるよう、overview hold 成立と高さアニメーション完了後に成立する
+  - 移動ハンドルから始まる並び替え preview では `TimelineState.viewMode` と永続化対象の `pixelsPerMinute` は変更せず、`TimelineScreen` の local overlay として dragged block preview / insertion line を描画する
+  - reorder gesture は 200ms の long press 成立後に `TimelineScreen` の local state で扱う。移動中の source block は通常リストの表示・挿入判定から外れ、shadow 付き preview と挿入線が操作中の feedback を担う
 
 ### `TimelineNotifier.applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise)`
 

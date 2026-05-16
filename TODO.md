@@ -189,31 +189,13 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 4. ローカライズ方針: 海外展開を見据えた i18n / ローカライズ方針を立てる
 5. アンカーブロックの表示改善。グレーにして文字サイズとウェイト上げるか？
 6. Android Live Action指定: 最近 Android に組み込まれた status bar chip 指定を試す。
+7. `test/template_sheet_test.dart` の保存フォーム系テストでは、focus 後の settle 待ちに依存せず固定時間 pump で完了条件を確認する。
 
 
 
 ---
 
 ## Backlog
-
-- **Title**: [Enhance] Rebuild calendar export for duplicate control
-- **ID**: Core-Enhance-55
-- **Priority**: P1
-- **Size**: M
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: 同じ current plan と同じ対象日のカレンダー登録を再実行したとき、過去に Medo が作成した同一 export group の event を削除してから現在の timeline を再登録し、重複が増えない。
-- **Steps**:
-  1. [ ] Plan の "Export Group" に従い、current plan id と対象日を含む export group metadata を request 境界へ追加する
-  2. [ ] Plan の "Marker Storage" に従い、Android / iOS の native event に Medo marker と export group key を保存する
-  3. [ ] Plan の "Rebuild Flow" に従い、同一 export group の delete-before-insert を native delivery に実装する
-  4. [ ] Plan の "Test Plan" に従い、同一 group 再 export、別日 export、marker なし event 非削除の検証を追加する
-  5. [ ] calendar export reference と関連 docs を、置き換え登録の仕様へ同期する
-  6. [ ] Android 実機または emulator で、同じ timeline / 同じ対象日を 2 回登録しても重複が増えないことを確認する
-- **Description**: カレンダー登録の重複制御は field-by-field merge ではなく、Medo が過去に作成した同じ plan / 同じ対象日の event group を削除してから完全再構築する。`timelineId` 単独削除は別日の予定を巻き込むため避ける。
-- **Plan**: `_docs/plan/Core/calendar-export-rebuild-deduplication.md`
-
----
 
 - **Title**: [Feat] Add timeline alternative comparison
 - **ID**: UI-Feat-38
@@ -246,12 +228,12 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Dependencies**: []
 - **Goal**: 移動ハンドルで block を並び替える間、timeline 全体を縮小せず、押下位置近くの小さい preview と timeline 上の挿入線で「何を持っているか」と「どこへ入るか」を確認できる。
 - **Steps**:
-  1. [ ] Plan の "Implementation Notes" に従い、既存の `_reorderOverviewBlockId` / `effectivePixelsPerMinute` による縮小依存を preview state へ置き換える
-  2. [ ] `_QuickReorderListener` から pointer position を親へ通知し、hold 成立後だけ dragged block preview を表示する
-  3. [ ] Plan の "Interaction Model" に従い、candidate insert index から timeline 上の insertion line を描画する
-  4. [ ] `proxyDecorator` を調整し、長時間 block の dragged proxy が preview と挿入線の読み取りを妨げないようにする
-  5. [ ] Plan の "Test Plan" に従い、preview 表示/解除、reorder 後の順序、duration drag / swipe delete / inline edit の回帰を確認する
-  6. [ ] timeline editor guide と timeline domain reference を、移動中の preview / insertion line 仕様へ同期する
+  1. [x] Plan の "Implementation Notes" に従い、既存の `_reorderOverviewBlockId` / `effectivePixelsPerMinute` による縮小依存を preview state へ置き換える
+  2. [x] `_QuickReorderListener` から pointer position を親へ通知し、hold 成立後だけ dragged block preview を表示する
+  3. [x] Plan の "Interaction Model" に従い、candidate insert index から timeline 上の insertion line を描画する
+  4. [x] 移動中の source block を通常リストの表示・挿入判定から外し、shadow 付き preview と insertion line が主表示になるようにする
+  5. [x] Plan の "Test Plan" に従い、preview 表示/解除、reorder 後の順序、duration drag / swipe delete / inline edit の回帰を確認する
+  6. [x] timeline editor guide と timeline domain reference を、移動中の preview / insertion line 仕様へ同期する
 - **Description**: 現行 plan は移動中に timeline を一時縮小し、その縮小を drag gap / proxy / 挿入判定へ同期させる方針だった。しかし Flutter reorder internals への依存が強く、見た目と判定の同期が複雑になる。今回は block 本体を変形せず、持っている block は小さい overlay preview、挿入先は line で示す interaction へ置き換える。
 - **Plan**: `_docs/plan/UI/reorder-overview-scaling.md`
 
@@ -265,11 +247,11 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Dependencies**: []
 - **Goal**: テンプレート保存時に、timeline list island modal の新規タイムライン作成と同じく、保存前に名前を入力し、現在の未保存編集を確定・保存したうえでテンプレートを作成できる。
 - **Steps**:
-  1. [ ] Plan の "Current Flow Gap" に従い、既存の `TemplateSheet._saveCurrent` と `TimelineScreen._createTimelineFromList` の責務差分を実装前に再確認する
-  2. [ ] Plan の "UI Flow" に従い、template popover 上部に保存フォームを追加し、既定名・空欄正規化・キャンセルを timeline 作成フォームと同じ操作感に揃える
-  3. [ ] Plan の "Persistence Boundary" に従い、テンプレート作成前に current plan の pending autosave を flush できる境界を `TimelineScreen` 側から渡す
-  4. [ ] Plan の "Tests" に従い、template sheet widget test と repository / save boundary の targeted test を追加・更新する
-  5. [ ] Plan の "Documentation" に従い、timeline editor guide と persistence reference を実装結果へ同期する
+  1. [x] Plan の "Current Flow Gap" に従い、既存の `TemplateSheet._saveCurrent` と `TimelineScreen._createTimelineFromList` の責務差分を実装前に再確認する
+  2. [x] Plan の "UI Flow" に従い、template popover 上部に保存フォームを追加し、既定名・空欄正規化・キャンセルを timeline 作成フォームと同じ操作感に揃える
+  3. [x] Plan の "Persistence Boundary" に従い、テンプレート作成前に current plan の pending autosave を flush できる境界を `TimelineScreen` 側から渡す
+  4. [x] Plan の "Tests" に従い、template sheet widget test と repository / save boundary の targeted test を追加・更新する
+  5. [x] Plan の "Documentation" に従い、timeline editor guide と persistence reference を実装結果へ同期する
 - **Description**: 現在のテンプレート保存は即時保存ボタンだけで、timeline 作成時の「先に命名して保存する」流れと揃っていない。保存対象が現在 timeline の snapshot である以上、名前入力と保存前 flush を同じ操作モデルに寄せる。
 - **Plan**: `_docs/plan/UI/template-save-flow-alignment.md`
 

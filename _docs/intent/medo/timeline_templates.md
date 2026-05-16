@@ -3,7 +3,7 @@ title: Timeline Templates
 status: active
 draft_status: n/a
 created_at: "2026-05-11"
-updated_at: "2026-05-11"
+updated_at: "2026-05-18"
 references:
   - README.md
   - _docs/archives/plan/Core/timeline-templates.md
@@ -29,18 +29,22 @@ related_prs: []
 - テンプレート UI は Pro 機能として gate する
 - テンプレート入口はヘッダーではなく、Pro の編集ビュー下部ツールバーに置く
 - Free ではテンプレート入口ボタン自体を表示しない
+- テンプレート保存は即時保存ボタンではなく、template popover 上部の命名フォームを通す
+- テンプレート作成前に current plan の pending autosave を flush し、保存対象を確定する
 
 ## Alternatives
 
 - `TimelineState` JSON snapshot だけで保存する案は、一覧表示や rename、将来 migration に弱いため不採用
 - テンプレート適用で既存 block ID を再利用する案は、選択状態や比較・履歴との衝突を招くため不採用
 - Free ユーザーにもテンプレートボタンを表示して Paywall へ遷移させる案は、編集ツールバー上の利用可能 action と実際に使える action がずれるため不採用
+- 保存ボタン押下だけで即時にテンプレート化する案は、timeline list の新規作成と操作モデルがずれ、保存対象の名前と未保存編集の境界が曖昧になるため不採用
 
 ## Rationale
 
 テンプレートは「現在 plan のコピー」ではなく、再利用可能な型です。
 fresh ID と snapshot を組み合わせることで、適用後の編集と復元を安全に扱えます。
 入口を下部ツールバーへ寄せることで、テンプレートを全体設定ではなく現在 timeline の編集操作として扱えます。
+保存時に命名フォームと autosave flush を挟むことで、「どの名前で、どの時点の timeline を型として残したか」が UI と永続化境界の両方で明確になります。
 
 ## Consequences / Impact
 

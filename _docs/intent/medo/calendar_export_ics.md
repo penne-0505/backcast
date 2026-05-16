@@ -3,7 +3,7 @@ title: Calendar Export via iCalendar
 status: active
 draft_status: n/a
 created_at: "2026-04-23"
-updated_at: "2026-05-15"
+updated_at: "2026-05-18"
 references:
   - README.md
   - _docs/archives/plan/Core/calendar-registration-enhancement.md
@@ -39,6 +39,7 @@ related_prs: []
   - field-by-field merge は行わない
   - `planId` 単独ではなく `planId + targetDate` を削除単位にし、別日に登録した同じ timeline を巻き込まない
   - marker がない event は、タイトルや時刻が一致していても削除しない
+  - marker は `MEDO_EXPORT_BEGIN` / `MEDO_EXPORT_END` を持つ行単位の block として保存し、plan id の部分一致や SQL `LIKE` wildcard による過剰削除を避ける
 - iOS 17+ では、前回登録 event の検索・削除が必要なため `requestFullAccessToEvents` を使い、それ以前では `requestAccess(to: .event)` にフォールバックする
 - Android / iOS の両方で、明示的な `calendarId` 未指定時は既定の書き込み可能カレンダーを自動選択する
 

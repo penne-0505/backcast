@@ -127,12 +127,14 @@ class MainActivity : FlutterActivity() {
 						"${CalendarContract.Events.CALENDAR_ID} = ? AND " +
 							"${CalendarContract.Events.DESCRIPTION} LIKE ? AND " +
 							"${CalendarContract.Events.DESCRIPTION} LIKE ? AND " +
-							"${CalendarContract.Events.DESCRIPTION} LIKE ?",
+							"${CalendarContract.Events.DESCRIPTION} LIKE ? ESCAPE '\\' AND " +
+							"${CalendarContract.Events.DESCRIPTION} LIKE ? ESCAPE '\\'",
 						arrayOf(
 							resolvedCalendarId.toString(),
-							"%MEDO_EXPORT_VERSION=${exportGroup.version}%",
-							"%MEDO_EXPORT_PLAN_ID=${exportGroup.planId}%",
-							"%MEDO_EXPORT_DATE=${exportGroup.targetDate}%",
+							"%MEDO_EXPORT_BEGIN%",
+							"%\nMEDO_EXPORT_VERSION=${exportGroup.version}\n%",
+							"%\nMEDO_EXPORT_PLAN_ID=${escapeSqlLike(exportGroup.planId)}\n%",
+							"%\nMEDO_EXPORT_DATE=${escapeSqlLike(exportGroup.targetDate)}\n%",
 						),
 					)
 					.build(),
@@ -213,11 +215,20 @@ class MainActivity : FlutterActivity() {
 		if (exportGroup == null) return null
 		return listOf(
 			"Created by Medo.",
+			"MEDO_EXPORT_BEGIN",
 			"MEDO_EXPORT_VERSION=${exportGroup.version}",
 			"MEDO_EXPORT_PLAN_ID=${exportGroup.planId}",
 			"MEDO_EXPORT_DATE=${exportGroup.targetDate}",
 			"MEDO_EXPORT_EVENT_ID=${event.id}",
+			"MEDO_EXPORT_END",
 		).joinToString("\n")
+	}
+
+	private fun escapeSqlLike(value: String): String {
+		return value
+			.replace("\\", "\\\\")
+			.replace("%", "\\%")
+			.replace("_", "\\_")
 	}
 
 	private fun hasCalendarPermissions(): Boolean {

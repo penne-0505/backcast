@@ -49,6 +49,36 @@ void main() {
       },
     );
 
+    test('keeps export group metadata on the delivered request', () async {
+      late CalendarExportRequest capturedRequest;
+      final delivery = CalendarExportDelivery(
+        nativeOpener: (request, {calendarId}) async {
+          capturedRequest = request;
+          return const CalendarExportResult(savedCount: 1, deletedCount: 2);
+        },
+        isNativePlatform: () => true,
+      );
+
+      final request = CalendarExportRequest(
+        startDateTime: DateTime.utc(2026, 5, 10, 8),
+        exportGroup: CalendarExportGroup(
+          planId: 'plan-1',
+          targetDate: DateTime(2026, 5, 10, 23, 30),
+        ),
+        blocks: const [],
+        anchor: const CalendarExportAnchor(id: 'target', title: '会議開始'),
+      );
+
+      final output = await delivery.deliver(request: request);
+
+      expect(capturedRequest.exportGroup?.toNativePayload(), {
+        'version': 1,
+        'planId': 'plan-1',
+        'targetDate': '2026-05-10',
+      });
+      expect(output.deletedCount, 2);
+    });
+
     test('rejects non-native platforms without sharing', () async {
       var nativeCalls = 0;
 

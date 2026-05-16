@@ -384,6 +384,49 @@ void main() {
     });
   });
 
+  group('TimelineNotifier block ordering', () {
+    test('moveBlockByIndex reorders blocks and clamps the target index', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(timelineProvider.notifier);
+      notifier.loadState(
+        const TimelineState(
+          blocks: [
+            Block(
+              id: 'first',
+              type: BlockType.action,
+              title: '最初',
+              duration: 10,
+              colorIndex: 0,
+            ),
+            Block(
+              id: 'second',
+              type: BlockType.action,
+              title: '次',
+              duration: 10,
+              colorIndex: 1,
+            ),
+            Block(
+              id: 'third',
+              type: BlockType.action,
+              title: '最後',
+              duration: 10,
+              colorIndex: 2,
+            ),
+          ],
+        ),
+      );
+
+      notifier.moveBlockByIndex(0, 99);
+
+      expect(container.read(timelineProvider).blocks.map((block) => block.id), [
+        'second',
+        'third',
+        'first',
+      ]);
+    });
+  });
+
   group('current time rail marker positioning', () {
     test('places marker inside the current action block', () {
       const blocks = [
@@ -663,7 +706,7 @@ void main() {
     );
   });
 
-  testWidgets('reorder handle waits for hold before overview density', (
+  testWidgets('reorder handle waits for hold before drag preview', (
     tester,
   ) async {
     await pumpMedoApp(tester);
@@ -673,10 +716,17 @@ void main() {
           const TimelineState(
             blocks: [
               Block(
+                id: 'other-action',
+                type: BlockType.action,
+                title: '別の作業',
+                duration: 5,
+                colorIndex: 1,
+              ),
+              Block(
                 id: 'long-action',
                 type: BlockType.action,
                 title: '長い作業',
-                duration: 60,
+                duration: 5,
                 colorIndex: 0,
               ),
             ],
@@ -685,8 +735,10 @@ void main() {
     await tester.pump();
 
     final blockItemFinder = find.byType(BlockItem);
+    expect(blockItemFinder, findsNWidgets(2));
     final initialPpm = tester
-        .widget<BlockItem>(blockItemFinder)
+        .widgetList<BlockItem>(blockItemFinder)
+        .first
         .pixelsPerMinute;
     final handlePosition = tester.getCenter(
       find.byKey(const ValueKey('reorder-handle:long-action')),
@@ -696,14 +748,24 @@ void main() {
     await tester.pump();
 
     expect(
-      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      find.byKey(const ValueKey('reorder-drag-preview:long-action')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('reorder-insertion-line')), findsNothing);
+    expect(
+      tester.widgetList<BlockItem>(blockItemFinder).first.pixelsPerMinute,
       initialPpm,
     );
 
     await tester.pump(const Duration(milliseconds: 170));
 
     expect(
-      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      find.byKey(const ValueKey('reorder-drag-preview:long-action')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('reorder-insertion-line')), findsNothing);
+    expect(
+      tester.widgetList<BlockItem>(blockItemFinder).first.pixelsPerMinute,
       initialPpm,
     );
 
@@ -711,8 +773,18 @@ void main() {
     await tester.pump();
 
     expect(
+      find.byKey(const ValueKey('reorder-drag-preview:long-action')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('reorder-insertion-line')),
+      findsOneWidget,
+    );
+    expect(find.byType(BlockItem), findsOneWidget);
+    expect(find.byType(BlockItem, skipOffstage: false), findsNWidgets(2));
+    expect(
       tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
-      kOverviewPixelsPerMinute,
+      initialPpm,
     );
     expect(
       containerFor(tester).read(timelineProvider).pixelsPerMinute,
@@ -727,9 +799,210 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<BlockItem>(blockItemFinder).pixelsPerMinute,
+      find.byKey(const ValueKey('reorder-drag-preview:long-action')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('reorder-insertion-line')), findsNothing);
+    expect(find.byType(BlockItem), findsNWidgets(2));
+    expect(
+      tester.widgetList<BlockItem>(blockItemFinder).first.pixelsPerMinute,
       initialPpm,
     );
+  });
+
+  testWidgets('reorder preview commits the stashed block on pointer up', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+    final container = containerFor(tester);
+    container
+        .read(timelineProvider.notifier)
+        .loadState(
+          const TimelineState(
+            blocks: [
+              Block(
+                id: 'first-action',
+                type: BlockType.action,
+                title: '最初の作業',
+                duration: 5,
+                colorIndex: 0,
+              ),
+              Block(
+                id: 'middle-action',
+                type: BlockType.action,
+                title: '真ん中の作業',
+                duration: 5,
+                colorIndex: 1,
+              ),
+              Block(
+                id: 'last-action',
+                type: BlockType.action,
+                title: '最後の作業',
+                duration: 5,
+                colorIndex: 2,
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    final handlePosition = tester.getCenter(
+      find.byKey(const ValueKey('reorder-handle:last-action')),
+    );
+    final firstHandlePosition = tester.getCenter(
+      find.byKey(const ValueKey('reorder-handle:first-action')),
+    );
+
+    final gesture = await tester.startGesture(handlePosition);
+    await tester.pump(const Duration(milliseconds: 210));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('reorder-drag-preview:last-action')),
+      findsOneWidget,
+    );
+    expect(find.byType(BlockItem), findsNWidgets(2));
+
+    await gesture.moveTo(
+      Offset(handlePosition.dx, firstHandlePosition.dy - 80),
+    );
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(container.read(timelineProvider).blocks.map((block) => block.id), [
+      'last-action',
+      'first-action',
+      'middle-action',
+    ]);
+    expect(
+      find.byKey(const ValueKey('reorder-drag-preview:last-action')),
+      findsNothing,
+    );
+    expect(find.byType(BlockItem), findsNWidgets(3));
+  });
+
+  testWidgets('reorder preview keeps order when released in the original slot', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+    final container = containerFor(tester);
+    container
+        .read(timelineProvider.notifier)
+        .loadState(
+          const TimelineState(
+            blocks: [
+              Block(
+                id: 'early-action',
+                type: BlockType.action,
+                title: '早い作業',
+                duration: 5,
+                colorIndex: 0,
+              ),
+              Block(
+                id: 'late-action',
+                type: BlockType.action,
+                title: '遅い作業',
+                duration: 5,
+                colorIndex: 1,
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    final handlePosition = tester.getCenter(
+      find.byKey(const ValueKey('reorder-handle:late-action')),
+    );
+
+    final gesture = await tester.startGesture(handlePosition);
+    await tester.pump(const Duration(milliseconds: 210));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('reorder-drag-preview:late-action')),
+      findsOneWidget,
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(container.read(timelineProvider).blocks.map((block) => block.id), [
+      'early-action',
+      'late-action',
+    ]);
+    expect(
+      find.byKey(const ValueKey('reorder-drag-preview:late-action')),
+      findsNothing,
+    );
+    expect(find.byType(BlockItem), findsNWidgets(2));
+  });
+
+  testWidgets('reorder handle drag after hold does not scroll the timeline', (
+    tester,
+  ) async {
+    await pumpMedoApp(tester);
+    containerFor(tester)
+        .read(timelineProvider.notifier)
+        .loadState(
+          const TimelineState(
+            blocks: [
+              Block(
+                id: 'first-action',
+                type: BlockType.action,
+                title: '最初の作業',
+                duration: 60,
+                colorIndex: 0,
+              ),
+              Block(
+                id: 'middle-action',
+                type: BlockType.action,
+                title: '真ん中の作業',
+                duration: 60,
+                colorIndex: 1,
+              ),
+              Block(
+                id: 'last-action',
+                type: BlockType.action,
+                title: '最後の作業',
+                duration: 60,
+                colorIndex: 2,
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    final scrollView = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    final scrollController = scrollView.controller!;
+    final handlePosition = tester.getCenter(
+      find.byKey(const ValueKey('reorder-handle:last-action')),
+    );
+
+    final gesture = await tester.startGesture(handlePosition);
+    await tester.pump(const Duration(milliseconds: 210));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('reorder-drag-preview:last-action')),
+      findsOneWidget,
+    );
+    final offsetBeforeMove = scrollController.offset;
+
+    await gesture.moveBy(const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(scrollController.offset, moreOrLessEquals(offsetBeforeMove));
+
+    await gesture.moveBy(const Offset(0, 1200));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(scrollController.offset, moreOrLessEquals(offsetBeforeMove));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('header search closes when timeline focus moves elsewhere', (
@@ -1097,6 +1370,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 450));
       await gesture.moveBy(const Offset(0, -6));
       await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('reorder-insertion-line')),
+        findsNothing,
+      );
+
       await gesture.up();
       await tester.pumpAndSettle();
 

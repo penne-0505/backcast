@@ -1,9 +1,9 @@
 ---
 title: Template Save Flow Alignment
-status: proposed
+status: active
 draft_status: n/a
 created_at: "2026-05-15"
-updated_at: "2026-05-15"
+updated_at: "2026-05-18"
 references:
   - _docs/intent/medo/timeline_templates.md
   - _docs/intent/medo/timeline_list_management.md
@@ -128,3 +128,11 @@ UI 依存を小さくするため、推奨は `TemplateSheet` に `initialTempla
 - schema migration は不要。
 - 保存導線に問題が出た場合は、保存フォーム入口を非表示または旧即時保存ボタンへ戻すことで既存テンプレート一覧・適用・rename・delete は維持できる。
 - 保存済みテンプレートデータは変更しない。
+
+## Implementation Result
+
+2026-05-18 に、template popover の「現在のタイムラインを保存」を即時保存ではなく保存フォームの入口へ変更した。保存フォームは現在 timeline title を優先して既定名に使い、空欄保存は `無題のテンプレート` として `TimelineTemplateRepository.createTemplate` へ渡す。
+
+保存前境界は `TemplateSheet.onBeforeSaveCurrent` として受け取り、`TimelineScreen` から `_saveCurrentPlanNow` を渡す。これにより、テンプレート作成前に current plan の pending autosave を flush し、保存対象を確定してから template repository に渡す。
+
+同日に `_docs/intent/medo/timeline_templates.md`、timeline editor guide、persistence reference を、命名フォーム経由の保存仕様へ同期した。

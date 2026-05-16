@@ -4,7 +4,7 @@ import 'package:medo/billing/gate_helper.dart';
 import 'package:medo/billing/paywall_screen.dart';
 import 'package:medo/main.dart';
 import 'package:medo/models.dart';
-import 'package:medo/persistence/app_database.dart';
+import 'package:medo/persistence/app_database.dart' hide TimelineTemplate;
 import 'package:medo/persistence/persistence_providers.dart';
 import 'package:medo/persistence/plan_repository.dart';
 import 'package:medo/persistence/timeline_template_repository.dart';
@@ -52,6 +52,47 @@ class _RecordingTemplateRepository extends TimelineTemplateRepository {
     createCalls++;
     events.add('create:$title');
     return super.createTemplate(state: state, title: title);
+  }
+}
+
+class _MemoryTemplateRepository extends TimelineTemplateRepository {
+  _MemoryTemplateRepository(super.db);
+
+  final _templates = <TimelineTemplateSummary>[];
+
+  @override
+  Future<TimelineTemplate> createTemplate({
+    required TimelineState state,
+    String? title,
+  }) async {
+    final now = DateTime.utc(2026, 5, 18);
+    final normalizedTitle = title == null || title.trim().isEmpty
+        ? '無題のテンプレート'
+        : title.trim();
+    final template = TimelineTemplate(
+      id: 'memory-template-${_templates.length + 1}',
+      title: normalizedTitle,
+      createdAt: now,
+      updatedAt: now,
+      state: state,
+    );
+    _templates.add(
+      TimelineTemplateSummary(
+        id: template.id,
+        title: template.title,
+        targetTime: state.targetTime,
+        targetTimeTitle: state.targetTimeTitle,
+        blockCount: state.blocks.length,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    return template;
+  }
+
+  @override
+  Future<List<TimelineTemplateSummary>> listTemplates() async {
+    return List<TimelineTemplateSummary>.unmodifiable(_templates);
   }
 }
 
@@ -536,69 +577,67 @@ void main() {
     });
 
     testWidgets('blank save title becomes untitled template', (tester) async {
-      await pumpSheet(tester);
+      final repo = _MemoryTemplateRepository(db);
+      await pumpSheet(tester, templateRepository: repo);
 
       await tester.tap(find.text('現在のタイムラインを保存'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 250));
       await tester.enterText(find.byType(TextField).last, '   ');
-      await tester.tap(find.text('保存'));
-      await tester.pumpAndSettle();
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 250));
 
-      final repo = TimelineTemplateRepository(db);
       final templates = await repo.listTemplates();
       expect(templates.single.title, '無題のテンプレート');
       expect(find.text('無題のテンプレート'), findsOneWidget);
     });
 
-    testWidgets(
-      'runs before-save callback before creating a template',
-      (tester) async {
-        final events = <String>[];
-        final repo = _RecordingTemplateRepository(db, events);
+    testWidgets('runs before-save callback before creating a template', (
+      tester,
+    ) async {
+      final events = <String>[];
+      final repo = _RecordingTemplateRepository(db, events);
 
-        await pumpSheet(
-          tester,
-          templateRepository: repo,
-          onBeforeSaveCurrent: () async {
-            events.add('before');
-          },
-        );
+      await pumpSheet(
+        tester,
+        templateRepository: repo,
+        onBeforeSaveCurrent: () async {
+          events.add('before');
+        },
+      );
 
-        await tester.tap(find.text('現在のタイムラインを保存'));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).last, '保存境界');
-        await tester.tap(find.text('保存'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('現在のタイムラインを保存'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, '保存境界');
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
 
-        expect(events, ['before', 'create:保存境界']);
-      },
-    );
+      expect(events, ['before', 'create:保存境界']);
+    });
 
-    testWidgets(
-      'does not create a template when before-save callback fails',
-      (tester) async {
-        final events = <String>[];
-        final repo = _RecordingTemplateRepository(db, events);
+    testWidgets('does not create a template when before-save callback fails', (
+      tester,
+    ) async {
+      final events = <String>[];
+      final repo = _RecordingTemplateRepository(db, events);
 
-        await pumpSheet(
-          tester,
-          templateRepository: repo,
-          onBeforeSaveCurrent: () async {
-            events.add('before');
-            throw StateError('flush failed');
-          },
-        );
+      await pumpSheet(
+        tester,
+        templateRepository: repo,
+        onBeforeSaveCurrent: () async {
+          events.add('before');
+          throw StateError('flush failed');
+        },
+      );
 
-        await tester.tap(find.text('現在のタイムラインを保存'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('保存'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('現在のタイムラインを保存'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
 
-        expect(events, ['before']);
-        expect(repo.createCalls, 0);
-        expect(find.text('テンプレート名'), findsOneWidget);
-      },
-    );
+      expect(events, ['before']);
+      expect(repo.createCalls, 0);
+      expect(find.text('テンプレート名'), findsOneWidget);
+    });
 
     testWidgets(
       'Free user is blocked from applying template and navigates to paywall',

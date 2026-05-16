@@ -164,9 +164,11 @@ import UIKit
     let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: [calendar])
     return eventStore.events(matching: predicate).filter { event in
       guard let notes = event.notes else { return false }
-      return notes.contains("MEDO_EXPORT_VERSION=\(exportGroup.version)") &&
-        notes.contains("MEDO_EXPORT_PLAN_ID=\(exportGroup.planId)") &&
-        notes.contains("MEDO_EXPORT_DATE=\(exportGroup.targetDate)")
+      let markerLines = Set(notes.components(separatedBy: .newlines))
+      return markerLines.contains("MEDO_EXPORT_BEGIN") &&
+        markerLines.contains("MEDO_EXPORT_VERSION=\(exportGroup.version)") &&
+        markerLines.contains("MEDO_EXPORT_PLAN_ID=\(exportGroup.planId)") &&
+        markerLines.contains("MEDO_EXPORT_DATE=\(exportGroup.targetDate)")
     }
   }
 
@@ -177,10 +179,12 @@ import UIKit
     guard let exportGroup = exportGroup else { return nil }
     return [
       "Created by Medo.",
+      "MEDO_EXPORT_BEGIN",
       "MEDO_EXPORT_VERSION=\(exportGroup.version)",
       "MEDO_EXPORT_PLAN_ID=\(exportGroup.planId)",
       "MEDO_EXPORT_DATE=\(exportGroup.targetDate)",
       "MEDO_EXPORT_EVENT_ID=\(event.id)",
+      "MEDO_EXPORT_END",
     ].joined(separator: "\n")
   }
 
