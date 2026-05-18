@@ -1420,10 +1420,10 @@ class _DragHandleState extends State<_DragHandle> {
 }
 
 // ---------------------------------------------------------------------------
-// Quick Reorder Listener (200ms delay)
+// Quick Reorder Listener (160ms delay)
 // ---------------------------------------------------------------------------
 
-const _quickReorderHoldDelay = Duration(milliseconds: 200);
+const _quickReorderHoldDelay = Duration(milliseconds: 160);
 
 class _QuickReorderListener extends StatefulWidget {
   const _QuickReorderListener({

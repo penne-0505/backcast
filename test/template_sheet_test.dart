@@ -123,6 +123,21 @@ ProviderContainer _containerFor(WidgetTester tester) {
   return ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
 }
 
+Future<void> pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 3),
+  Duration step = const Duration(milliseconds: 16),
+}) async {
+  final end = tester.binding.clock.fromNowBy(timeout);
+  while (finder.evaluate().isEmpty) {
+    if (tester.binding.clock.now().isAfter(end)) {
+      throw TestFailure('Timed out waiting for $finder');
+    }
+    await tester.pump(step);
+  }
+}
+
 void main() {
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
@@ -581,10 +596,10 @@ void main() {
       await pumpSheet(tester, templateRepository: repo);
 
       await tester.tap(find.text('現在のタイムラインを保存'));
-      await tester.pump(const Duration(milliseconds: 250));
+      await pumpUntilFound(tester, find.text('テンプレート名'));
       await tester.enterText(find.byType(TextField).last, '   ');
       await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pump(const Duration(milliseconds: 250));
+      await pumpUntilFound(tester, find.text('無題のテンプレート'));
 
       final templates = await repo.listTemplates();
       expect(templates.single.title, '無題のテンプレート');
