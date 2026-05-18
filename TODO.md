@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 59` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 60` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -219,6 +219,26 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 ---
 
 ## Ready
+
+- **Title**: [Perf] Stabilize timeline interaction performance
+- **ID**: UI-Perf-59
+- **Priority**: P0
+- **Size**: L
+- **Area**: UI
+- **Dependencies**: []
+- **Goal**: Pixel 7a の profile mode で、reorder 中の pointer move が `TimelineScreen` / `SliverList` / visible `BlockItem` 全体 rebuild を誘発せず、通常 trace の reorder `uiBeginFrame` p90 が 8ms 未満、16ms 超え frame が 30 秒 trace で 1 件以下になる。
+- **Steps**:
+  1. [ ] Plan の "Current implementation audit" に従い、reorder preview state と timeline renderer の rebuild 境界を棚卸しする
+  2. [ ] Plan の "Controller extraction" に従い、reorder session state を local controller / listenable へ分離する
+  3. [ ] Plan の "Overlay isolation" に従い、drag preview / insertion line の pointer move 更新で main timeline list が rebuild されないようにする
+  4. [ ] Plan の "Geometry cache" に従い、visible item geometry を session 単位で snapshot し、scroll delta 補正と structural change cancel を実装する
+  5. [ ] Plan の "Frame pacing" に従い、pointer move を最大 1 frame 1 update に coalesce し、candidate no-op update を捨てる
+  6. [ ] Plan の "Test Plan" に従い、reorder correctness / cancel / original slot no-op / gesture regression / Pixel 7a profile trace を検証する
+  7. [ ] Before / after の計測結果を `_docs/survey/UI/timeline-interaction-performance-profile.md` に追記し、残る scroll / raster spike を第二フェーズへ分離するか判断する
+- **Description**: 実機 profile では reorder 中に UI thread / build 側の jank が出ており、widget build profile で `TimelineScreen` から `SliverList` / `BlockItem` までが pointer move に巻き込まれている。長期安定性を優先し、transient interaction state を timeline 本体の rebuild 境界から切り離す。
+- **Plan**: `_docs/plan/UI/timeline-interaction-performance.md`
+
+---
 
 - **Title**: [Enhance] Replace reorder shrink with placement preview
 - **ID**: UI-Enhance-56
