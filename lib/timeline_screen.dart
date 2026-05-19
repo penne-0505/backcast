@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,6 +109,190 @@ class _ReorderInsertionEstimate {
   final double globalY;
 }
 
+class _ReorderGeometrySnapshot {
+  const _ReorderGeometrySnapshot({
+    required this.sourceLength,
+    required this.scrollOffset,
+    required this.geometries,
+  });
+
+  final int sourceLength;
+  final double scrollOffset;
+  final List<_ReorderItemGeometry> geometries;
+
+  _ReorderInsertionEstimate? estimate(
+    Offset globalPosition, {
+    required double currentScrollOffset,
+  }) {
+    if (geometries.isEmpty) return null;
+
+    // The timeline uses reverse:true, where increasing offset moves content
+    // down on screen. Keep the cached global geometry aligned with scrolling.
+    final scrollDelta = currentScrollOffset - scrollOffset;
+    for (final geometry in geometries) {
+      final globalTop = geometry.globalTop + scrollDelta;
+      final globalBottom = geometry.globalBottom + scrollDelta;
+      final centerY = (globalTop + globalBottom) / 2;
+      if (globalPosition.dy < centerY) {
+        return _ReorderInsertionEstimate(
+          sourceInsertIndex: geometry.sourceIndex,
+          globalY: globalTop,
+        );
+      }
+    }
+
+    return _ReorderInsertionEstimate(
+      sourceInsertIndex: sourceLength,
+      globalY: geometries.last.globalBottom + scrollDelta,
+    );
+  }
+}
+
+class _ReorderPreviewFrame {
+  const _ReorderPreviewFrame({
+    required this.block,
+    required this.globalPosition,
+  });
+
+  final Block block;
+  final Offset globalPosition;
+}
+
+class _ReorderInsertionFrame {
+  const _ReorderInsertionFrame({
+    required this.sourceInsertIndex,
+    required this.globalY,
+  });
+
+  final int sourceInsertIndex;
+  final double globalY;
+}
+
+typedef _ReorderInsertionEstimator =
+    _ReorderInsertionEstimate? Function(Offset globalPosition);
+
+class _ReorderInteractionController {
+  final preview = ValueNotifier<_ReorderPreviewFrame?>(null);
+  final insertion = ValueNotifier<_ReorderInsertionFrame?>(null);
+
+  Offset? _pendingGlobalPosition;
+  _ReorderInsertionEstimator? _pendingEstimator;
+  bool _frameScheduled = false;
+  int _scheduledFrameGeneration = 0;
+  bool _disposed = false;
+
+  bool get isActive => preview.value != null;
+
+  Offset? get latestGlobalPosition =>
+      _pendingGlobalPosition ?? preview.value?.globalPosition;
+
+  int? get candidateSourceIndex => insertion.value?.sourceInsertIndex;
+
+  void start({
+    required Block block,
+    required Offset globalPosition,
+    required _ReorderInsertionEstimate? insertionEstimate,
+  }) {
+    _clearPending(invalidateScheduledFrame: true);
+    preview.value = _ReorderPreviewFrame(
+      block: block,
+      globalPosition: globalPosition,
+    );
+    _setInsertionEstimate(insertionEstimate);
+  }
+
+  void queueMove(Offset globalPosition, _ReorderInsertionEstimator estimator) {
+    if (_disposed || !isActive) return;
+    _pendingGlobalPosition = globalPosition;
+    _pendingEstimator = estimator;
+    if (_frameScheduled) return;
+
+    _frameScheduled = true;
+    final generation = ++_scheduledFrameGeneration;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      if (_disposed || generation != _scheduledFrameGeneration) return;
+      _flushScheduledMove();
+    });
+  }
+
+  void updateImmediately(
+    Offset globalPosition,
+    _ReorderInsertionEstimate? insertionEstimate,
+  ) {
+    if (_disposed || !isActive) return;
+    _publishFrame(globalPosition, insertionEstimate);
+  }
+
+  void flushPendingMove() {
+    if (_pendingGlobalPosition == null && !_frameScheduled) return;
+    _scheduledFrameGeneration++;
+    _flushScheduledMove();
+  }
+
+  void end() {
+    _clearPending(invalidateScheduledFrame: true);
+    if (preview.value != null) preview.value = null;
+    if (insertion.value != null) insertion.value = null;
+  }
+
+  void dispose() {
+    _disposed = true;
+    preview.dispose();
+    insertion.dispose();
+  }
+
+  void _flushScheduledMove() {
+    final position = _pendingGlobalPosition;
+    final estimator = _pendingEstimator;
+    _clearPending(invalidateScheduledFrame: false);
+    if (_disposed || !isActive || position == null || estimator == null) {
+      return;
+    }
+    _publishFrame(position, estimator(position));
+  }
+
+  void _publishFrame(
+    Offset globalPosition,
+    _ReorderInsertionEstimate? insertionEstimate,
+  ) {
+    final currentPreview = preview.value;
+    if (currentPreview == null) return;
+    if (currentPreview.globalPosition != globalPosition) {
+      preview.value = _ReorderPreviewFrame(
+        block: currentPreview.block,
+        globalPosition: globalPosition,
+      );
+    }
+    _setInsertionEstimate(insertionEstimate);
+  }
+
+  void _setInsertionEstimate(_ReorderInsertionEstimate? estimate) {
+    if (estimate == null) {
+      if (insertion.value != null) insertion.value = null;
+      return;
+    }
+
+    final current = insertion.value;
+    if (current != null &&
+        current.sourceInsertIndex == estimate.sourceInsertIndex &&
+        current.globalY == estimate.globalY) {
+      return;
+    }
+
+    insertion.value = _ReorderInsertionFrame(
+      sourceInsertIndex: estimate.sourceInsertIndex,
+      globalY: estimate.globalY,
+    );
+  }
+
+  void _clearPending({required bool invalidateScheduledFrame}) {
+    if (invalidateScheduledFrame) _scheduledFrameGeneration++;
+    _frameScheduled = false;
+    _pendingGlobalPosition = null;
+    _pendingEstimator = null;
+  }
+}
+
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
 
@@ -118,6 +303,7 @@ class TimelineScreen extends ConsumerStatefulWidget {
 class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   final _scrollController = ScrollController();
   final _timelineStackKey = GlobalKey();
+  final _reorderController = _ReorderInteractionController();
   final Map<String, GlobalKey> _reorderItemKeys = {};
   bool _sheetVisible = false;
   bool _templateSheetVisible = false;
@@ -129,9 +315,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   bool _suppressAutoSave = false;
   String? _currentTimelineTitle;
   String? _reorderPreviewBlockId;
-  Offset? _reorderPreviewGlobalPosition;
-  double? _reorderInsertionLineGlobalY;
-  int? _reorderCandidateSourceIndex;
+  _ReorderGeometrySnapshot? _reorderGeometrySnapshot;
   final Map<int, Offset> _activePointers = {};
   double _basePixelsPerMinute = kPixelsPerMinute;
   double _initialPinchDistance = 0;
@@ -205,6 +389,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     return _reorderItemKeys.putIfAbsent(blockId, GlobalKey.new);
   }
 
+  double get _currentReorderScrollOffset =>
+      _scrollController.hasClients ? _scrollController.offset : 0.0;
+
   Future<void> _prepareReorderPreview(
     String blockId,
     Offset globalPosition,
@@ -212,48 +399,63 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (ref.read(timelineProvider).viewMode != TimelineViewMode.edit) {
       return;
     }
+    if (_isReorderPreviewActive) _cancelReorderPreview();
     _dismissInlineEditorIfNeeded();
     if (_sheetVisible) _dismissSheet();
     if (_templateSheetVisible) _dismissTemplateSheet();
     if (_timelineListVisible) _closeTimelineList();
     if (_isSearchActive || _exportPanelVisible) _closeHeaderPopovers();
     if (!mounted) return;
-    final estimate = _estimateReorderInsertion(
+    final block = ref
+        .read(timelineProvider)
+        .blocks
+        .where((block) => block.id == blockId)
+        .firstOrNull;
+    if (block == null) return;
+    final estimate = _estimateReorderInsertionFromLive(
       globalPosition,
       excludedBlockId: blockId,
     );
+    _reorderGeometrySnapshot = null;
+    _reorderController.start(
+      block: block,
+      globalPosition: globalPosition,
+      insertionEstimate: estimate,
+    );
     setState(() {
       _reorderPreviewBlockId = blockId;
-      _reorderPreviewGlobalPosition = globalPosition;
-      _reorderInsertionLineGlobalY = estimate?.globalY;
-      _reorderCandidateSourceIndex = estimate?.sourceInsertIndex;
     });
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted || _reorderPreviewBlockId != blockId) return;
-    _updateReorderPreview(blockId, globalPosition);
+    _reorderGeometrySnapshot = _captureReorderGeometrySnapshot(
+      excludedBlockId: blockId,
+    );
+    final latestPosition =
+        _reorderController.latestGlobalPosition ?? globalPosition;
+    _reorderController.updateImmediately(
+      latestPosition,
+      _estimateReorderInsertionFromSession(latestPosition),
+    );
   }
 
   void _updateReorderPreview(String blockId, Offset globalPosition) {
     if (_reorderPreviewBlockId != blockId) return;
-    final estimate = _estimateReorderInsertion(globalPosition);
-    if (!mounted) return;
-    setState(() {
-      _reorderPreviewGlobalPosition = globalPosition;
-      _reorderInsertionLineGlobalY = estimate?.globalY;
-      _reorderCandidateSourceIndex = estimate?.sourceInsertIndex;
-    });
+    _reorderController.queueMove(
+      globalPosition,
+      _estimateReorderInsertionFromSession,
+    );
   }
 
   void _endReorderPreview(String blockId, {required bool commit}) {
     if (_reorderPreviewBlockId == null) return;
     if (_reorderPreviewBlockId != blockId) return;
-    final sourceInsertIndex = _reorderCandidateSourceIndex;
+    _reorderController.flushPendingMove();
+    final sourceInsertIndex = _reorderController.candidateSourceIndex;
     if (!mounted) return;
+    _reorderController.end();
+    _reorderGeometrySnapshot = null;
     setState(() {
       _reorderPreviewBlockId = null;
-      _reorderPreviewGlobalPosition = null;
-      _reorderInsertionLineGlobalY = null;
-      _reorderCandidateSourceIndex = null;
     });
     if (!commit || sourceInsertIndex == null) return;
     _commitReorderPreview(blockId, sourceInsertIndex);
@@ -290,39 +492,73 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     );
   }
 
-  _ReorderInsertionEstimate? _estimateReorderInsertion(
+  bool _reorderSessionInvalidated(TimelineState previous, TimelineState next) {
+    if (previous.viewMode != next.viewMode) return true;
+    if (previous.pixelsPerMinute != next.pixelsPerMinute) return true;
+    if (previous.blocks.length != next.blocks.length) return true;
+
+    for (var i = 0; i < previous.blocks.length; i++) {
+      final previousBlock = previous.blocks[i];
+      final nextBlock = next.blocks[i];
+      if (previousBlock.id != nextBlock.id) return true;
+      if (previousBlock.type != nextBlock.type) return true;
+      if (previousBlock.effectiveDuration != nextBlock.effectiveDuration) {
+        return true;
+      }
+      if (previousBlock.normalizedBufferMinutes !=
+          nextBlock.normalizedBufferMinutes) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  _ReorderInsertionEstimate? _estimateReorderInsertionFromSession(
+    Offset globalPosition,
+  ) {
+    final snapshot = _reorderGeometrySnapshot;
+    if (snapshot == null) {
+      return _estimateReorderInsertionFromLive(globalPosition);
+    }
+    return snapshot.estimate(
+      globalPosition,
+      currentScrollOffset: _currentReorderScrollOffset,
+    );
+  }
+
+  _ReorderGeometrySnapshot? _captureReorderGeometrySnapshot({
+    required String excludedBlockId,
+  }) {
+    final computed = ref.read(computedBlocksProvider);
+    if (computed.isEmpty) return null;
+    final geometries = _collectReorderItemGeometries(
+      computed: computed,
+      excludedBlockId: excludedBlockId,
+    );
+    if (geometries.isEmpty) return null;
+
+    return _ReorderGeometrySnapshot(
+      sourceLength: computed.length,
+      scrollOffset: _currentReorderScrollOffset,
+      geometries: geometries,
+    );
+  }
+
+  _ReorderInsertionEstimate? _estimateReorderInsertionFromLive(
     Offset globalPosition, {
     String? excludedBlockId,
   }) {
     final computed = ref.read(computedBlocksProvider);
     if (computed.isEmpty) return null;
     final activeBlockId = excludedBlockId ?? _reorderPreviewBlockId;
-
-    final geometries = <_ReorderItemGeometry>[];
-    for (var displayIndex = 0; displayIndex < computed.length; displayIndex++) {
-      final sourceIndex = computed.length - 1 - displayIndex;
-      final blockId = computed[sourceIndex].block.id;
-      if (blockId == activeBlockId) continue;
-      final context = _reorderItemKeys[blockId]?.currentContext;
-      final renderObject = context?.findRenderObject();
-      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
-      final topLeft = renderObject.localToGlobal(Offset.zero);
-      geometries.add(
-        _ReorderItemGeometry(
-          sourceIndex: sourceIndex,
-          globalTop: topLeft.dy,
-          globalBottom: topLeft.dy + renderObject.size.height,
-        ),
-      );
-    }
+    final geometries = _collectReorderItemGeometries(
+      computed: computed,
+      excludedBlockId: activeBlockId,
+    );
     if (geometries.isEmpty) return null;
 
-    // CustomScrollView(reverse: true) means builder order and screen order are
-    // not the same; RenderBox positions are the source of truth here. Once
-    // sorted by globalTop, the visual insertion line maps back to source order.
-    geometries.sort((a, b) => a.globalTop.compareTo(b.globalTop));
-    for (var i = 0; i < geometries.length; i++) {
-      final geometry = geometries[i];
+    for (final geometry in geometries) {
       if (globalPosition.dy < geometry.centerY) {
         return _ReorderInsertionEstimate(
           sourceInsertIndex: geometry.sourceIndex,
@@ -337,13 +573,32 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     );
   }
 
-  Block? _reorderPreviewBlock(List<ComputedBlock> computed) {
-    final blockId = _reorderPreviewBlockId;
-    if (blockId == null) return null;
-    for (final computedBlock in computed) {
-      if (computedBlock.block.id == blockId) return computedBlock.block;
+  List<_ReorderItemGeometry> _collectReorderItemGeometries({
+    required List<ComputedBlock> computed,
+    required String? excludedBlockId,
+  }) {
+    final geometries = <_ReorderItemGeometry>[];
+    for (var displayIndex = 0; displayIndex < computed.length; displayIndex++) {
+      final sourceIndex = computed.length - 1 - displayIndex;
+      final blockId = computed[sourceIndex].block.id;
+      if (blockId == excludedBlockId) continue;
+      final context = _reorderItemKeys[blockId]?.currentContext;
+      final renderObject = context?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      geometries.add(
+        _ReorderItemGeometry(
+          sourceIndex: sourceIndex,
+          globalTop: topLeft.dy,
+          globalBottom: topLeft.dy + renderObject.size.height,
+        ),
+      );
     }
-    return null;
+    // CustomScrollView(reverse: true) means builder order and screen order are
+    // not the same; RenderBox positions are the source of truth here. Once
+    // sorted by globalTop, the visual insertion line maps back to source order.
+    geometries.sort((a, b) => a.globalTop.compareTo(b.globalTop));
+    return geometries;
   }
 
   Future<void> _saveCurrentPlanNow({TimelineState? state}) async {
@@ -392,6 +647,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     });
 
     ref.listenManual(timelineProvider, (prev, next) {
+      if (prev != null &&
+          _isReorderPreviewActive &&
+          _reorderSessionInvalidated(prev, next)) {
+        _cancelReorderPreview();
+      }
       if (_isPinching || _suppressAutoSave) return;
       _saveDebounce?.cancel();
       _saveIndicatorTimer?.cancel();
@@ -952,6 +1212,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _searchHighlightTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _reorderController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -1241,18 +1502,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     ),
                   ),
 
-                  if (_isReorderPreviewActive) ...[
-                    _ReorderInsertionOverlay(
+                  if (_isReorderPreviewActive)
+                    _ReorderInteractionOverlay(
                       stackKey: _timelineStackKey,
-                      globalY: _reorderInsertionLineGlobalY,
-                      sourceInsertIndex: _reorderCandidateSourceIndex,
+                      controller: _reorderController,
                     ),
-                    _ReorderDragPreviewOverlay(
-                      stackKey: _timelineStackKey,
-                      globalPosition: _reorderPreviewGlobalPosition,
-                      block: _reorderPreviewBlock(computed),
-                    ),
-                  ],
 
                   // Backdrop (only when sheet is visible)
                   if (_sheetVisible)
@@ -1467,71 +1721,108 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 // Reorder Preview Overlay
 // ---------------------------------------------------------------------------
 
-class _ReorderInsertionOverlay extends StatelessWidget {
-  const _ReorderInsertionOverlay({
+class _ReorderInteractionOverlay extends StatelessWidget {
+  const _ReorderInteractionOverlay({
     required this.stackKey,
-    required this.globalY,
-    required this.sourceInsertIndex,
+    required this.controller,
   });
 
   final GlobalKey stackKey;
-  final double? globalY;
-  final int? sourceInsertIndex;
+  final _ReorderInteractionController controller;
 
   @override
   Widget build(BuildContext context) {
-    final y = globalY;
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ValueListenableBuilder<_ReorderInsertionFrame?>(
+              valueListenable: controller.insertion,
+              builder: (context, insertion, _) {
+                return _ReorderInsertionOverlay(
+                  stackKey: stackKey,
+                  insertion: insertion,
+                );
+              },
+            ),
+            ValueListenableBuilder<_ReorderPreviewFrame?>(
+              valueListenable: controller.preview,
+              builder: (context, preview, _) {
+                return _ReorderDragPreviewOverlay(
+                  stackKey: stackKey,
+                  preview: preview,
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReorderInsertionOverlay extends StatelessWidget {
+  const _ReorderInsertionOverlay({
+    required this.stackKey,
+    required this.insertion,
+  });
+
+  final GlobalKey stackKey;
+  final _ReorderInsertionFrame? insertion;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = insertion;
     final renderObject = stackKey.currentContext?.findRenderObject();
-    if (y == null || renderObject is! RenderBox || !renderObject.hasSize) {
+    if (frame == null || renderObject is! RenderBox || !renderObject.hasSize) {
       return const SizedBox.shrink();
     }
 
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final localY = renderObject.globalToLocal(Offset(0, y)).dy;
-            final maxTop = (constraints.maxHeight - 8).clamp(
-              8.0,
-              double.infinity,
-            );
-            final top = (localY - 1.5).clamp(8.0, maxTop).toDouble();
-            return Stack(
-              children: [
-                Positioned(
-                  key: const ValueKey('reorder-insertion-line'),
-                  left: 20,
-                  right: 28,
-                  top: top,
-                  child: Semantics(
-                    label: '並び替え挿入位置 ${sourceInsertIndex ?? 0}',
-                    child: Container(
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: AppColors.accentOlive,
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.canvas.withValues(alpha: 0.9),
-                            blurRadius: 0,
-                            spreadRadius: 2,
-                          ),
-                          BoxShadow(
-                            color: AppColors.accentOlive.withValues(
-                              alpha: 0.28,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
+    return SizedBox.expand(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final localY = renderObject
+              .globalToLocal(Offset(0, frame.globalY))
+              .dy;
+          final maxTop = (constraints.maxHeight - 8).clamp(
+            8.0,
+            double.infinity,
+          );
+          final top = (localY - 1.5).clamp(8.0, maxTop).toDouble();
+          return Stack(
+            children: [
+              Positioned(
+                key: const ValueKey('reorder-insertion-line'),
+                left: 20,
+                right: 28,
+                top: top,
+                child: Semantics(
+                  label: '並び替え挿入位置 ${frame.sourceInsertIndex}',
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentOlive,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.canvas.withValues(alpha: 0.9),
+                          blurRadius: 0,
+                          spreadRadius: 2,
+                        ),
+                        BoxShadow(
+                          color: AppColors.accentOlive.withValues(alpha: 0.28),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1540,65 +1831,59 @@ class _ReorderInsertionOverlay extends StatelessWidget {
 class _ReorderDragPreviewOverlay extends StatelessWidget {
   const _ReorderDragPreviewOverlay({
     required this.stackKey,
-    required this.globalPosition,
-    required this.block,
+    required this.preview,
   });
 
   final GlobalKey stackKey;
-  final Offset? globalPosition;
-  final Block? block;
+  final _ReorderPreviewFrame? preview;
 
   @override
   Widget build(BuildContext context) {
-    final position = globalPosition;
-    final previewBlock = block;
+    final frame = preview;
     final renderObject = stackKey.currentContext?.findRenderObject();
-    if (position == null ||
-        previewBlock == null ||
-        renderObject is! RenderBox ||
-        !renderObject.hasSize) {
+    if (frame == null || renderObject is! RenderBox || !renderObject.hasSize) {
       return const SizedBox.shrink();
     }
 
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final localPosition = renderObject.globalToLocal(position);
-            final width = constraints.maxWidth < 230
-                ? (constraints.maxWidth - 32).clamp(136.0, 198.0).toDouble()
-                : 198.0;
-            final height = previewBlock.type == BlockType.actionPoint
-                ? 62.0
-                : 72.0;
-            final maxLeft = (constraints.maxWidth - width - 12).clamp(
-              12.0,
-              double.infinity,
-            );
-            final maxTop = (constraints.maxHeight - height - 12).clamp(
-              12.0,
-              double.infinity,
-            );
+    return SizedBox.expand(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final localPosition = renderObject.globalToLocal(
+            frame.globalPosition,
+          );
+          final width = constraints.maxWidth < 230
+              ? (constraints.maxWidth - 32).clamp(136.0, 198.0).toDouble()
+              : 198.0;
+          final height = frame.block.type == BlockType.actionPoint
+              ? 62.0
+              : 72.0;
+          final maxLeft = (constraints.maxWidth - width - 12).clamp(
+            12.0,
+            double.infinity,
+          );
+          final maxTop = (constraints.maxHeight - height - 12).clamp(
+            12.0,
+            double.infinity,
+          );
 
-            var left = localPosition.dx + 16;
-            if (left + width + 12 > constraints.maxWidth) {
-              left = localPosition.dx - width - 16;
-            }
-            var top = localPosition.dy - height - 16;
-            if (top < 12) top = localPosition.dy + 16;
+          var left = localPosition.dx + 16;
+          if (left + width + 12 > constraints.maxWidth) {
+            left = localPosition.dx - width - 16;
+          }
+          var top = localPosition.dy - height - 16;
+          if (top < 12) top = localPosition.dy + 16;
 
-            return Stack(
-              children: [
-                Positioned(
-                  left: left.clamp(12.0, maxLeft).toDouble(),
-                  top: top.clamp(12.0, maxTop).toDouble(),
-                  width: width,
-                  child: _ReorderDragPreview(block: previewBlock),
-                ),
-              ],
-            );
-          },
-        ),
+          return Stack(
+            children: [
+              Positioned(
+                left: left.clamp(12.0, maxLeft).toDouble(),
+                top: top.clamp(12.0, maxTop).toDouble(),
+                width: width,
+                child: _ReorderDragPreview(block: frame.block),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

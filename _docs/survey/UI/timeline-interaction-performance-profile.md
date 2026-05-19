@@ -98,6 +98,20 @@ scroll は reorder ほど恒常的ではないが、`BlockItem` の visual compl
 
 ただし `TimelineNotifier.applyDurationDrag` は move ごとに `TimelineState` を更新するため、block 数増加やより正確な drag 再現では再評価が必要である。
 
+### Implementation pass: UI-Perf-59
+
+2026-05-19 の実装 pass では、reorder の transient interaction state を `TimelineScreen.setState` から分離した。
+
+- `_ReorderInteractionController` を追加し、drag preview と insertion line を `ValueNotifier` で個別更新する。
+- session 開始/終了だけ `TimelineScreen` を rebuild し、pointer move は overlay controller の更新に閉じる。
+- session 開始後の frame で visible item geometry を snapshot し、pointer move 中は cache と reverse scroll offset delta から insertion candidate を推定する。
+- pointer move は `SchedulerBinding.scheduleFrameCallback` で最大 1 frame 1 update に coalesce し、insertion candidate / line が変わらない場合は insertion overlay へ通知しない。
+- block 構造、view mode、density、duration / buffer 由来の visual height が変わった場合は reorder session を cancel する。
+
+ローカル検証では `test/widget_test.dart` に、pointer move 後も visible `BlockItem` widget instance が差し替わらないこと、同一 insertion candidate の horizontal move で insertion line が rebuild されないこと、構造変化で preview が残留しないことを追加した。
+
+未完了の検証は Pixel 7a profile mode の after trace である。通常 profile trace で `uiBeginFrame` p90 と 16ms 超え frame を再取得し、目標未達の場合は残った top event を second pass に分離する。
+
 ## Discussion
 
 第一優先の原因推定は、reorder preview の transient state が `TimelineScreen` 本体の `setState` に置かれていること。操作 feedback と timeline renderer が同じ rebuild 境界を共有しているため、pointer move の頻度がそのまま `SliverList` / `BlockItem` build の頻度になる。
