@@ -3,10 +3,12 @@ title: Documentation Guide
 status: active
 draft_status: n/a
 created_at: "2026-04-16"
-updated_at: "2026-05-09"
+updated_at: "2026-06-15"
 references:
   - _docs/standards/documentation_guidelines.md
   - _docs/standards/documentation_operations.md
+  - _docs/standards/quality_assurance.md
+  - _docs/standards/security_for_agents.md
   - README.md
   - _docs/guide/medo/timeline_editor.md
   - _docs/guide/medo/privacy_policy_operations.md
@@ -18,7 +20,7 @@ related_prs: []
 
 # Documentation Guide
 
-**必読:** ドキュメントのアーカイブ運用フローに関する最新ルールは、常に `_docs/standards/documentation_operations.md` を参照して遵守してください。
+**必読:** ドキュメントのアーカイブ運用フローに関する最新ルールは、常に `_docs/standards/documentation_operations.md` を参照して遵守してください。QA / テスト設計の判断基準は `_docs/standards/quality_assurance.md`、agent 運用の安全基準は `_docs/standards/security_for_agents.md` を参照してください。
 
 ## このガイドの位置づけ
 - このプロジェクトでドキュメントを作成・更新する際のルールについて、よく使われる要点だけをまとめたクイックリファレンスです。
@@ -32,8 +34,12 @@ related_prs: []
 2. **`_docs/standards/documentation_guidelines.md`**
    - ドキュメント体系、各ディレクトリの役割、front-matter の必須項目をまとめた実務ガイドラインです。
    - 執筆時のテンプレートや確認観点を確認する際に参照してください。
-3. **テンプレート集 (`_docs/standards/templates/`)**
-  - 各ドキュメント種別（draft/plan/intent/guide/reference/survey）向けの作成用テンプレートを配置しています。
+3. **`_docs/standards/quality_assurance.md`**
+   - intent-derived invariant、Risk 分類、QA test-plan、verification verdict の基準を定義しています。
+4. **`_docs/standards/security_for_agents.md`**
+   - secret、外部入力、外部 skill / script、破壊的操作の扱いを定義しています。
+5. **テンプレート集 (`_docs/standards/templates/`)**
+  - 各ドキュメント種別（draft/plan/intent/guide/reference/survey/qa）向けの作成用テンプレートを配置しています。
   - front-matter の8必須項目を含んだ初期雛形を用意しているので、コピーして日付やステータスを実情に合わせて更新してください。
 
 ## 現在の主要プロジェクトドキュメント
@@ -50,9 +56,26 @@ related_prs: []
 - `intent` 作成後にアーカイブを行う場合は、対象ドキュメントと移行先の整合性を確認してください。
 - ガイドラインに改善点を見つけた場合は、`_docs/draft/` で議論を開始し、合意形成後に標準ドキュメントを更新してください。
 
+## QA Documents
+
+- `Size >= M` または `Risk >= Medium` のタスクでは、実装前または実装中に `_docs/qa/<Area>/<slug>/test-plan.md` を作成します。`Risk High / Critical` では完了前に `verification.md` も作成します。
+- `test-plan.md` は intent / plan / TODO から、`verification.md` は実装後の検証証跡として作ります。
+- QA docs は **archive しません**（永続記録）。obsolete 化は `status: superseded` / `status: obsolete` で表します。
+- `_docs/qa/` は計画・対応表・検証証跡の置き場で、実行可能なテストは `test/` 等に置きます。
+- front-matter は共通8項目に加えて `qa_status` / `risk` が必須です。`verification.md` の `qa_status` は本文の Verdict と一致させます。
+
+| Verdict | qa_status |
+| --- | --- |
+| `PASS` | `verified` |
+| `PARTIAL` | `partial` |
+| `FAIL` | `failed` |
+| `BLOCKED` | `blocked` |
+
+- 完了前に `qa-review` skill で verification verdict を確認します。基準の詳細は `_docs/standards/quality_assurance.md` を参照してください。
+
 ## 最終更新の扱い
 - 本ファイルを更新した場合は、`_docs/standards/documentation_operations.md` と `_docs/standards/documentation_guidelines.md` の整合性を確認してください。
-- CI では markdownlint と front-matter/stale チェック（Deno スクリプト）が自動実行されます。front-matter/stale チェックでは `archives` と `_docs/standards/` 配下を除外します。link-check は未導入であり、現時点では必須運用に含めません。
+- CI では markdownlint と Deno validator 群（front-matter/stale、TODO、doc-link、QA、fixture 自己テスト）が自動実行されます。front-matter/stale チェックでは `archives` と `_docs/standards/` 配下を除外します。手元では `./scripts/check-docs.sh` で一括実行できます。
 
 ## Front-matter クイックリファレンス
 
@@ -78,7 +101,6 @@ related_prs: []
 - `stale_exempt_until`: 延長の猶予期限 (`YYYY-MM-DD`)
 - `stale_exempt_reason`: 延長理由
 - `stale_extensions`: 延長回数（延長のたびに +1）
-
 
 ### よくある更新パターン
 
@@ -164,7 +186,7 @@ related_prs: []
 
 ### Status の遷移ルール
 
-```
+```text
 提案段階    実装段階     廃止段階
    ↓         ↓           ↓
 proposed → active → superseded

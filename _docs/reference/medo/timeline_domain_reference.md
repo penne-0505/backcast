@@ -3,7 +3,7 @@ title: Medo Timeline Domain Reference
 status: active
 draft_status: n/a
 created_at: "2026-04-20"
-updated_at: "2026-05-16"
+updated_at: "2026-05-23"
 references:
   - README.md
   - _docs/guide/medo/timeline_editor.md
@@ -480,6 +480,7 @@ related_prs: []
   - 主導線では `setViewMode` による詳細編集 / 俯瞰の二段階切り替えを使う
   - 移動ハンドルから始まる並び替え preview では `TimelineState.viewMode` と永続化対象の `pixelsPerMinute` は変更せず、`TimelineScreen` の local overlay として dragged block preview / insertion line を描画する
   - reorder gesture は 200ms の long press 成立後に `TimelineScreen` の local state で扱う。移動中の source block は通常リストの表示・挿入判定から外れ、shadow 付き preview と挿入線が操作中の feedback を担う
+  - long press 成立後に pointer が timeline viewport の上端/下端へ近づくと、`TimelineScreen` が `CustomScrollView(reverse: true)` の scroll offset を更新する。視覚上端では offset を増やし、視覚下端では offset を減らす。これは transient UI interaction であり、`TimelineState` や persistence には保存しない
 
 ### `TimelineNotifier.applyDurationDrag(String id, double deltaY, int startDuration, bool isPrecise)`
 

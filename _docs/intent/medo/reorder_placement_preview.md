@@ -3,7 +3,7 @@ title: Reorder Placement Preview
 status: active
 draft_status: n/a
 created_at: "2026-05-16"
-updated_at: "2026-05-16"
+updated_at: "2026-05-23"
 references:
   - _docs/plan/UI/reorder-overview-scaling.md
   - _docs/guide/medo/timeline_editor.md
@@ -27,6 +27,7 @@ related_prs: []
 - 挿入先は visible item の `RenderBox` 境界から推定し、timeline 上の insertion line として表示する
 - `_QuickReorderListener` は 200ms の `LongPressGestureRecognizer` が成立した後だけ preview 開始を通知し、その後の pointer position を親へ渡す
 - 移動中の source block は通常リストでは `Offstage` にし、挿入位置の geometry 判定からも除外する
+- pointer が timeline viewport の上端/下端へ近づいた場合は、`TimelineScreen` が端部自動スクロールを所有し、preview と insertion line を維持したまま未表示位置へ移動できるようにする
 - pointer up で candidate insert index を `TimelineNotifier.moveBlockByIndex` に渡し、pointer cancel では state を変更せず preview だけ解除する
 
 ## Alternatives
@@ -46,11 +47,11 @@ related_prs: []
 - preview / pointer position / insertion line は `TimelineScreen` の transient UI state に閉じる
 - 挿入線は moving block を除いた visible item の実測境界に基づく推定 feedback であり、pointer up 時の `moveBlockByIndex` が最終順序を決める
 - 移動ハンドル以外の duration drag、swipe delete、inline edit は preview を発火させない
-- preview が出ている間は long press gesture が成立済みであるため、移動ハンドル上の上下移動は通常スクロールとして処理されない
-- 遠い未表示位置へ直接移動する導線が不足する場合は、別の navigation / reorder 補助として扱う
+- preview が出ている間は long press gesture が成立済みであるため、移動ハンドル上の上下移動は通常スクロールとしては処理されない。ただし viewport 端部では `TimelineScreen` の reorder 専用 auto-scroll が scroll offset を更新する
+- 端部自動スクロールでも不足する遠距離移動の読み取りは、別の navigation / reorder 補助として扱う
 
 ## Rollback / Follow-ups
 
 - 問題が出た場合は overlay preview と insertion line を外し、通常リストの表示だけに戻せる
 - 線だけでは挿入意図が弱い場合は、line 横に小さい補助 pill を追加する
-- 自動スクロールや遠距離移動の読み取りが不足する場合は、preview ではなく reorder navigation の別 task として扱う
+- 端部自動スクロールの速度や遠距離移動の読み取りが不足する場合は、preview 本体ではなく reorder navigation の別 task として扱う

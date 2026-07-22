@@ -1,6 +1,6 @@
 # プライバシーポリシー
 
-**最終更新日：2026年5月14日**
+最終更新日：2026年5月14日
 
 otibo（以下「当方」）は、アプリケーション「Medo」（以下「本アプリ」）における情報の取扱いを、本プライバシーポリシーで説明します。
 
@@ -14,8 +14,8 @@ Medoは、今日の予定の目処を立てるためのアプリです。タイ�
 |---|---|
 | 屋号 | otibo |
 | 運営者氏名 | 富永真琴 |
-| 連絡先 | dev@otibo.dev |
-| お問い合わせフォーム | https://otibo.dev/contact |
+| 連絡先 | <dev@otibo.dev> |
+| お問い合わせフォーム | <https://otibo.dev/contact> |
 
 ---
 
@@ -125,10 +125,10 @@ Google Playでの購入、解約、返金、支払い方法などの決済処理
 
 | サービス | 運営 | 用途 | プライバシーポリシー |
 |---|---|---|---|
-| Supabase | Supabase, Inc. | 認証、Pro権限状態、課金イベント履歴、審査用allowlistの管理 | https://supabase.com/privacy |
-| Google OAuth | Google LLC | Googleログインによる認証 | https://policies.google.com/privacy |
-| RevenueCat | RevenueCat, Inc. | サブスクリプション管理、購入検証、Pro権限確認 | https://www.revenuecat.com/privacy |
-| Google Play | Google LLC | アプリ配信、アプリ内課金、サブスクリプション管理 | https://policies.google.com/privacy |
+| Supabase | Supabase, Inc. | 認証、Pro権限状態、課金イベント履歴、審査用allowlistの管理 | <https://supabase.com/privacy> |
+| Google OAuth | Google LLC | Googleログインによる認証 | <https://policies.google.com/privacy> |
+| RevenueCat | RevenueCat, Inc. | サブスクリプション管理、購入検証、Pro権限確認 | <https://www.revenuecat.com/privacy> |
+| Google Play | Google LLC | アプリ配信、アプリ内課金、サブスクリプション管理 | <https://policies.google.com/privacy> |
 
 Googleログインは、主にPro機能の購入、復元、権限管理のために使用します。Googleアカウントから取得した情報を、予定データのクラウド同期や広告目的には使用しません。
 
@@ -164,7 +164,7 @@ Webサイトの配信にあたり、ホスティング基盤、CDN、セキュ�
 
 アカウント削除は、Google Playのサブスクリプション解約とは別の手続きです。購読の停止、解約、返金、支払い方法の変更は、Google Playの管理画面で行ってください。Google PlayやRevenueCat側で、法令、不正防止、決済管理、監査などのために保持される情報がある場合は、各社のポリシーと保存期間に従って処理されます。
 
-削除申請ページは https://otibo.dev/medo/account-deletion/ です。アカウント削除機能が利用できない場合や、保存データの確認・削除を希望する場合は、`dev@otibo.dev` またはお問い合わせフォームよりご連絡ください。
+削除申請ページは <https://otibo.dev/medo/account-deletion/> です。アカウント削除機能が利用できない場合や、保存データの確認・削除を希望する場合は、`dev@otibo.dev` またはお問い合わせフォームよりご連絡ください。
 
 ---
 
@@ -186,8 +186,8 @@ Supabase、Google、RevenueCatなどの第三者サービスは、日本国外�
 
 ご自身の個人情報について、アクセス、開示、訂正、削除、利用停止、処理の制限、異議申立てなどを希望する場合は、以下の窓口にご連絡ください。本人確認を行ったうえで、適用される法令に従い、合理的な期間内に対応します。
 
-- **メール**：dev@otibo.dev
-- **フォーム**：https://otibo.dev/contact
+- **メール**：<dev@otibo.dev>
+- **フォーム**：<https://otibo.dev/contact>
 
 EUなど、居住地域によっては、データポータビリティや監督機関への申立てなど、追加の権利が認められる場合があります。当方は、将来的にEUユーザーが利用する可能性も踏まえ、適用される範囲でこれらの権利に対応します。
 
@@ -217,4 +217,4 @@ EUなど、居住地域によっては、データポータビリティや監督
 
 ---
 
-本ポリシーに関するお問い合わせは、`dev@otibo.dev` または https://otibo.dev/contact までご連絡ください。
+本ポリシーに関するお問い合わせは、`dev@otibo.dev` または <https://otibo.dev/contact> までご連絡ください。

@@ -32,6 +32,9 @@ const _timelineBottomSpacer =
     _floatingControlStackGap +
     _floatingControlSize +
     _timelineBottomExtraSpacer;
+const _reorderAutoScrollEdgeExtent = 72.0;
+const _reorderAutoScrollTick = Duration(milliseconds: 16);
+const _reorderAutoScrollMaxDelta = 18.0;
 
 @visibleForTesting
 const kTimelineTargetAnchorVisualHeight = 72.0;
@@ -316,6 +319,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   String? _currentTimelineTitle;
   String? _reorderPreviewBlockId;
   _ReorderGeometrySnapshot? _reorderGeometrySnapshot;
+  Timer? _reorderAutoScrollTimer;
+  Offset? _reorderAutoScrollGlobalPosition;
+  bool _reorderAutoScrollGeometryRefreshScheduled = false;
   final Map<int, Offset> _activePointers = {};
   double _basePixelsPerMinute = kPixelsPerMinute;
   double _initialPinchDistance = 0;
@@ -425,6 +431,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     setState(() {
       _reorderPreviewBlockId = blockId;
     });
+    _updateReorderAutoScroll(globalPosition);
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted || _reorderPreviewBlockId != blockId) return;
     _reorderGeometrySnapshot = _captureReorderGeometrySnapshot(
@@ -444,11 +451,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       globalPosition,
       _estimateReorderInsertionFromSession,
     );
+    _updateReorderAutoScroll(globalPosition);
   }
 
   void _endReorderPreview(String blockId, {required bool commit}) {
     if (_reorderPreviewBlockId == null) return;
     if (_reorderPreviewBlockId != blockId) return;
+    _stopReorderAutoScroll(clearPosition: true);
     _reorderController.flushPendingMove();
     final sourceInsertIndex = _reorderController.candidateSourceIndex;
     if (!mounted) return;
@@ -465,6 +474,124 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final blockId = _reorderPreviewBlockId;
     if (blockId == null) return;
     _endReorderPreview(blockId, commit: false);
+  }
+
+  void _updateReorderAutoScroll(Offset globalPosition) {
+    _reorderAutoScrollGlobalPosition = globalPosition;
+    _syncReorderAutoScrollTimer();
+  }
+
+  void _syncReorderAutoScrollTimer() {
+    if (!_isReorderPreviewActive ||
+        _reorderAutoScrollDeltaForLatestPosition() == 0.0) {
+      _stopReorderAutoScroll();
+      return;
+    }
+
+    _reorderAutoScrollTimer ??= Timer.periodic(
+      _reorderAutoScrollTick,
+      (_) => _tickReorderAutoScroll(),
+    );
+  }
+
+  double _reorderAutoScrollDeltaForLatestPosition() {
+    final globalPosition = _reorderAutoScrollGlobalPosition;
+    if (globalPosition == null) return 0.0;
+    return _reorderAutoScrollDeltaFor(globalPosition);
+  }
+
+  double _reorderAutoScrollDeltaFor(Offset globalPosition) {
+    if (!_scrollController.hasClients) return 0.0;
+    final renderObject = _timelineStackKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return 0.0;
+
+    final localY = renderObject.globalToLocal(globalPosition).dy;
+    final height = renderObject.size.height;
+    if (height <= 0) return 0.0;
+
+    if (localY < _reorderAutoScrollEdgeExtent) {
+      final strength =
+          ((_reorderAutoScrollEdgeExtent - localY) /
+                  _reorderAutoScrollEdgeExtent)
+              .clamp(0.0, 1.0);
+      return _reorderAutoScrollMaxDelta * strength;
+    }
+
+    if (localY > height - _reorderAutoScrollEdgeExtent) {
+      final strength =
+          ((localY - (height - _reorderAutoScrollEdgeExtent)) /
+                  _reorderAutoScrollEdgeExtent)
+              .clamp(0.0, 1.0);
+      return -_reorderAutoScrollMaxDelta * strength;
+    }
+
+    return 0.0;
+  }
+
+  void _tickReorderAutoScroll() {
+    if (!_isReorderPreviewActive || !_scrollController.hasClients) {
+      _stopReorderAutoScroll(clearPosition: !_isReorderPreviewActive);
+      return;
+    }
+
+    final globalPosition = _reorderAutoScrollGlobalPosition;
+    if (globalPosition == null) {
+      _stopReorderAutoScroll();
+      return;
+    }
+
+    final delta = _reorderAutoScrollDeltaFor(globalPosition);
+    if (delta == 0.0) {
+      _stopReorderAutoScroll();
+      return;
+    }
+
+    final scrollPosition = _scrollController.position;
+    final currentOffset = _scrollController.offset;
+    final nextOffset = (currentOffset + delta)
+        .clamp(scrollPosition.minScrollExtent, scrollPosition.maxScrollExtent)
+        .toDouble();
+    if (nextOffset == currentOffset) {
+      _stopReorderAutoScroll();
+      return;
+    }
+
+    _scrollController.jumpTo(nextOffset);
+    _reorderController.updateImmediately(
+      globalPosition,
+      _estimateReorderInsertionFromSession(globalPosition),
+    );
+    _scheduleReorderGeometryRefreshAfterAutoScroll();
+  }
+
+  void _scheduleReorderGeometryRefreshAfterAutoScroll() {
+    if (_reorderAutoScrollGeometryRefreshScheduled) return;
+    _reorderAutoScrollGeometryRefreshScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _reorderAutoScrollGeometryRefreshScheduled = false;
+      if (!mounted || !_isReorderPreviewActive) return;
+      final blockId = _reorderPreviewBlockId;
+      if (blockId == null) return;
+      _reorderGeometrySnapshot = _captureReorderGeometrySnapshot(
+        excludedBlockId: blockId,
+      );
+      final latestPosition =
+          _reorderAutoScrollGlobalPosition ??
+          _reorderController.latestGlobalPosition;
+      if (latestPosition == null) return;
+      _reorderController.updateImmediately(
+        latestPosition,
+        _estimateReorderInsertionFromSession(latestPosition),
+      );
+      _syncReorderAutoScrollTimer();
+    });
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  void _stopReorderAutoScroll({bool clearPosition = false}) {
+    _reorderAutoScrollTimer?.cancel();
+    _reorderAutoScrollTimer = null;
+    if (clearPosition) _reorderAutoScrollGlobalPosition = null;
   }
 
   void _commitReorderPreview(String blockId, int sourceInsertIndex) {
@@ -1208,6 +1335,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _saveDebounce?.cancel();
     _saveIndicatorTimer?.cancel();
     _swipeDeleteSnackBarTimer?.cancel();
+    _stopReorderAutoScroll(clearPosition: true);
     _clockTimer.cancel();
     _searchHighlightTimer?.cancel();
     _searchController.dispose();

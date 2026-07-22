@@ -3,7 +3,7 @@ title: "Reorder Placement Preview"
 status: active
 draft_status: n/a
 created_at: "2026-05-11"
-updated_at: "2026-05-16"
+updated_at: "2026-05-23"
 references:
   - _docs/plan/UI/two-step-timeline-density.md
   - _docs/intent/medo/timeline_compact_overview.md
@@ -133,3 +133,5 @@ preview サイズと insertion line の太さは実機確認で調整する。�
 2026-05-16 に、詳細編集ビューの一時縮小依存を撤去し、`TimelineScreen` の local overlay として dragged block preview / insertion line を実装した。移動中の source block は通常リストの表示・geometry 判定から外し、pointer up で `TimelineNotifier.moveBlockByIndex` に反映する。overlay は操作 feedback のみを担う。
 
 同日に `_docs/intent/medo/reorder_placement_preview.md` を作成し、縮小方式を撤回して preview / insertion line へ寄せた判断を記録した。guide / reference は実装済み仕様に同期済み。
+
+2026-05-23 の follow-up で、long press reorder 中の端部自動スクロールを追加した。pointer が timeline viewport の上端/下端に近づいた場合のみ `TimelineScreen` が `CustomScrollView(reverse: true)` の offset を更新し、scroll tick 後に visible geometry を取り直して preview / insertion line を継続する。domain state、persistence、analytics の仕様は変更しない。

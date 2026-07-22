@@ -110,7 +110,44 @@ scroll は reorder ほど恒常的ではないが、`BlockItem` の visual compl
 
 ローカル検証では `test/widget_test.dart` に、pointer move 後も visible `BlockItem` widget instance が差し替わらないこと、同一 insertion candidate の horizontal move で insertion line が rebuild されないこと、構造変化で preview が残留しないことを追加した。
 
-未完了の検証は Pixel 7a profile mode の after trace である。通常 profile trace で `uiBeginFrame` p90 と 16ms 超え frame を再取得し、目標未達の場合は残った top event を second pass に分離する。
+### After trace: UI-Perf-59
+
+2026-05-19 20:33 JST に Pixel 7a 実機で after trace を取得した。実行は `fvm flutter run --profile -d 38231JEHN03177`、入力は visible reorder handle 上の水平 small move として `/home/penne/Android/Sdk/platform-tools/adb -s 38231JEHN03177 shell input touchscreen swipe 940 1058 960 1058 30000` を使った。
+
+VM Service の ring buffer は高密度 pointer trace では約 3 秒分に切れるため、after trace は Timeline stream を購読して集計した。生 trace では DevTools 表示上の `uiBeginFrame` に相当する UI thread frame boundary を `Animator::BeginFrame` として集計している。widget build profiling は通常 trace では無効にし、構造確認用の別 trace でのみ有効化した。
+
+通常 profile trace では、reorder 中の UI frame と build cost は大きく下がった。
+
+| Metric | count | p50 | p90 | max | over 11ms | over 16ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Animator::BeginFrame` | 2689 | 1.970ms | 2.863ms | 29.791ms | 3 | 3 |
+| `BUILD` | 5399 | 0.145ms | 0.303ms | 15.229ms | 2 | 0 |
+| `LAYOUT` | 2689 | 0.267ms | 0.444ms | 5.830ms | 0 | 0 |
+| `PAINT` | 2689 | 0.931ms | 1.265ms | 6.097ms | 0 | 0 |
+| `GPURasterizer::Draw` | 2689 | 4.079ms | 5.430ms | 8.134ms | 0 | 0 |
+
+before の `uiBeginFrame` p90 10.911ms に対して after の UI frame p90 は 2.863ms で、目標の 8ms 未満を満たした。`BUILD` p90 も 2.853ms から 0.303ms へ下がり、build の 16ms 超えは 2 件から 0 件になった。16ms 超え UI frame は 8 件から 3 件へ減ったが、目標の 1 件以下にはまだ届いていない。
+
+widget build profile では、pointer move の主更新先は drag preview overlay に寄っており、`TimelineScreen` / `SliverList` / visible `BlockItem` の連続 rebuild は残っていない。
+
+| Event / Widget | Count | Total | Max |
+| --- | ---: | ---: | ---: |
+| `BUILD` | 1771 | 662.733ms | 72.081ms |
+| `TimelineScreen` | 2 | 95.314ms | 71.817ms |
+| `SliverPadding` | 2 | 74.441ms | 54.845ms |
+| `SliverList` | 2 | 74.418ms | 54.828ms |
+| `BlockItem` | 14 | 69.912ms | 13.648ms |
+| `_ReorderDragPreviewOverlay` | 878 | 54.278ms | 0.504ms |
+| `_ReorderInsertionOverlay` | 1 | 0.025ms | 0.025ms |
+
+構造上の主因だった pointer move から main timeline list への rebuild 伝搬は解消している。残った 16ms 超えは通常 trace の top event では `Animator::BeginFrame` / `VsyncProcessCallback` 側の散発 spike で、raster は max 8.134ms、`BUILD` も max 15.229ms に収まっている。推論として、次に扱うなら連続的な list rebuild ではなく、まれな UI thread spike と GC / scheduler 周辺の切り分けが対象になる。
+
+Raw artifacts:
+
+- `/tmp/backcast-perf-20260519/after-reorder-hold-small-move-normal-stream.timeline.json`
+- `/tmp/backcast-perf-20260519/after-reorder-hold-small-move-normal-stream.summary.json`
+- `/tmp/backcast-perf-20260519/after-reorder-widget-build-stream.timeline.json`
+- `/tmp/backcast-perf-20260519/after-reorder-widget-build-stream.summary.json`
 
 ## Discussion
 

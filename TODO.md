@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 60` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 63` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -15,7 +15,7 @@
 ### Phase 1: Backlog (Structured)
 - **Location**: `# Backlog` セクション
 - **Status**: タスクとして認識済みだが、着手準備未完了。
-- **Entry Criteria**: 
+- **Entry Criteria**:
   - IDが一意に採番されている。
   - 必須フィールド（Title, ID, Priority, Size, Area, Description）が埋まっている。
 - **Exit Condition**: `Ready` の要件を満たす。
@@ -55,6 +55,17 @@
 | **Steps** | `Markdown` | 進行管理用のチェックリスト（詳細は後述）。 |
 | **Description** | `String` | タスクの詳細。 |
 | **Plan** | `Path` | `Size >= M` の場合必須。`_docs/plan/` へのパス。`Size < M` は `None` 可。 |
+| **Risk** | `Enum` | （任意）`Low` \| `Medium` \| `High` \| `Critical`。未記載は `Low` 相当。失敗時の影響と検証難度で判断する。 |
+| **QA** | `Path` | （任意）`Size >= M` または `Risk >= Medium` で必須。`_docs/qa/<Area>/<slug>/test-plan.md`。それ以外は `None` 可。 |
+| **Verification** | `Path` | （任意）`Risk High/Critical` で完了前必須。`_docs/qa/<Area>/<slug>/verification.md`。それ以外は `None` 可。 |
+
+### QA Requirement (今後のタスクに適用)
+
+- `Size >= M` または `Risk >= Medium` のタスクは、実装前または実装中に QA test-plan を作成し、`QA` フィールドに `_docs/qa/<Area>/<slug>/test-plan.md` を記載する。
+- `Risk High / Critical` のタスクは、完了前に verification を作成し、`Verification` フィールドに `_docs/qa/<Area>/<slug>/verification.md` を記載する。rollback / recovery / security / data safety の観点を含める。
+- Bug は regression test または no-test rationale、Refactor は behavior-preservation checks を残す。
+- 基準の詳細は `_docs/standards/quality_assurance.md`、運用は `_docs/standards/documentation_operations.md` を参照。
+- **本ルールは今後作成するタスクに適用し、既存タスク・過去ドキュメントへ遡及しない。**
 
 ## 3. Field Usage Guidelines
 
@@ -91,7 +102,17 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - `Test` (Testing)
 - `Chore` (Maintenance/Misc)
 
+### Risk (任意)
+
+失敗時の影響と検証難度で判断する（作業量ではない）。
+
+- `Low`: 局所的で、失敗しても影響が小さい変更
+- `Medium`: 機能挙動・ワークフロー・ドキュメント規約・skill に影響する変更
+- `High`: 互換性・データ・認証・権限・課金・外部 API・CI/CD・migration に関わる変更
+- `Critical`: 本番障害・secret 漏洩・重大なデータ破壊につながり得る変更
+
 ### Areas (Examples)
+
 **※`Area` は論理的な分類ラベルであり、`Plan` がある場合に原則 `_docs/plan/<Area>/...` と対応する。**
 - `Core`: 基盤ロジック
 - `UI`: プレゼンテーション層
@@ -180,7 +201,7 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Plan**: None
 ```
 
---- 
+---
 
 ## Inbox
 1. ホーム画面ウィジェット: 現在のプランの次の行動・残り時間を表示
@@ -190,8 +211,6 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 5. アンカーブロックの表示改善。グレーにして文字サイズとウェイト上げるか？
 6. Android Live Action指定: 最近 Android に組み込まれた status bar chip 指定を試す。
 7. `test/template_sheet_test.dart` の保存フォーム系テストでは、focus 後の settle 待ちに依存せず固定時間 pump で完了条件を確認する。
-
-
 
 ---
 
@@ -216,61 +235,44 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Description**: 既存の timeline list は別々の予定を保存・切り替える棚として維持し、comparison は同じ予定の候補案を作って比較・採用する Pro 機能として分離する。
 - **Plan**: `_docs/plan/UI/timeline-alternative-comparison.md`
 
+- **Title**: [Feat] Paywall に年額プランを追加し 2 プラン選択式にする
+- **ID**: UI-Feat-61
+- **Priority**: P1
+- **Size**: M
+- **Area**: UI
+- **Dependencies**: []
+- **Goal**: RevenueCat offering の月額 480 円 / 年額 3,000 円（税込）の 2 パッケージが paywall にプラン選択カードとして表示され、選択したプランで購入が完了する。offering に片方しか無い場合は単一表示に degrade する。
+- **Steps**:
+  1. [ ] `_docs/plan/UI/paywall-annual-plan.md` を作成する（provider のリスト化、選択 UI、degrade 挙動、テスト方針）
+  2. [ ] QA test-plan を `_docs/qa/UI/paywall-annual-plan/test-plan.md` に作成する
+  3. [ ] Google Play Console に年額 3,000 円の商品を作成し、RevenueCat current offering に `$rc_annual` としてアタッチする（コンソール作業）
+  4. [ ] `proPackageProvider` を単一パッケージからパッケージリスト返却に変更する
+  5. [ ] `PaywallScreen` にプラン選択カード（2 枚・選択状態付き）を実装し、購入ボタンに選択中パッケージを渡す
+  6. [ ] paywall の identity 分岐の重複（同一処理の if/else）と汎用 catch による BillingState 消失を整理する
+  7. [ ] `test/billing/purchase_flow_test.dart` 等のテストを追随させ、verification を残す
+- **Description**: 現状の `proPackageProvider` は `offering.monthly ?? offering.annual ?? availablePackages.first` で 1 パッケージに絞るため、月額が存在する限り年額はアプリ内から購入できない。販売意図（月額 480 円 / 年額 3,000 円の 2 プラン、買い切りなし）に合わせて選択式にする。課金導線のため Risk High。
+- **Plan**: None（Ready 昇格前に `_docs/plan/UI/paywall-annual-plan.md` を作成する）
+- **Risk**: High
+- **QA**: `_docs/qa/UI/paywall-annual-plan/test-plan.md`（未作成・実装前に作成）
+- **Verification**: `_docs/qa/UI/paywall-annual-plan/verification.md`（完了前に作成）
+
+- **Title**: [Doc] 法務文書と実際の販売プラン表記の整合を確認する
+- **ID**: Docs-Doc-62
+- **Priority**: P1
+- **Size**: XS
+- **Area**: Docs
+- **Dependencies**: []
+- **Goal**: 特商法表記・プライバシーポリシー等の法務文書に記載するプラン内容が、アプリで実際に購入可能なプランと一致している（年額対応リリース前は「月額 480 円のみ」が事実である点を反映）。
+- **Steps**:
+  1. [ ] 法務文書のプラン・価格記載箇所を洗い出す
+  2. [ ] UI-Feat-61 のリリース時期と照らし、記載内容（月額のみ / 2 プラン）を決定・修正する
+- **Description**: paywall 調査（2026-07-03）で、アプリは現状月額のみ購入可能と判明。法務文書が「2 プラン販売」と記載する場合、年額対応リリースまで実態と乖離するため整合を取る。
+- **Plan**: None
+
 ---
 
 ## Ready
 
-- **Title**: [Enhance] Replace reorder shrink with placement preview
-- **ID**: UI-Enhance-56
-- **Priority**: P1
-- **Size**: M
-- **Area**: UI
-- **Dependencies**: []
-- **Goal**: 移動ハンドルで block を並び替える間、timeline 全体を縮小せず、押下位置近くの小さい preview と timeline 上の挿入線で「何を持っているか」と「どこへ入るか」を確認できる。
-- **Steps**:
-  1. [x] Plan の "Implementation Notes" に従い、既存の `_reorderOverviewBlockId` / `effectivePixelsPerMinute` による縮小依存を preview state へ置き換える
-  2. [x] `_QuickReorderListener` から pointer position を親へ通知し、hold 成立後だけ dragged block preview を表示する
-  3. [x] Plan の "Interaction Model" に従い、candidate insert index から timeline 上の insertion line を描画する
-  4. [x] 移動中の source block を通常リストの表示・挿入判定から外し、shadow 付き preview と insertion line が主表示になるようにする
-  5. [x] Plan の "Test Plan" に従い、preview 表示/解除、reorder 後の順序、duration drag / swipe delete / inline edit の回帰を確認する
-  6. [x] timeline editor guide と timeline domain reference を、移動中の preview / insertion line 仕様へ同期する
-- **Description**: 現行 plan は移動中に timeline を一時縮小し、その縮小を drag gap / proxy / 挿入判定へ同期させる方針だった。しかし Flutter reorder internals への依存が強く、見た目と判定の同期が複雑になる。今回は block 本体を変形せず、持っている block は小さい overlay preview、挿入先は line で示す interaction へ置き換える。
-- **Plan**: `_docs/plan/UI/reorder-overview-scaling.md`
-
 ---
 
-- **Title**: [Enhance] Align template save flow with timeline creation
-- **ID**: UI-Enhance-54
-- **Priority**: P1
-- **Size**: M
-- **Area**: UI
-- **Dependencies**: []
-- **Goal**: テンプレート保存時に、timeline list island modal の新規タイムライン作成と同じく、保存前に名前を入力し、現在の未保存編集を確定・保存したうえでテンプレートを作成できる。
-- **Steps**:
-  1. [x] Plan の "Current Flow Gap" に従い、既存の `TemplateSheet._saveCurrent` と `TimelineScreen._createTimelineFromList` の責務差分を実装前に再確認する
-  2. [x] Plan の "UI Flow" に従い、template popover 上部に保存フォームを追加し、既定名・空欄正規化・キャンセルを timeline 作成フォームと同じ操作感に揃える
-  3. [x] Plan の "Persistence Boundary" に従い、テンプレート作成前に current plan の pending autosave を flush できる境界を `TimelineScreen` 側から渡す
-  4. [x] Plan の "Tests" に従い、template sheet widget test と repository / save boundary の targeted test を追加・更新する
-  5. [x] Plan の "Documentation" に従い、timeline editor guide と persistence reference を実装結果へ同期する
-- **Description**: 現在のテンプレート保存は即時保存ボタンだけで、timeline 作成時の「先に命名して保存する」流れと揃っていない。保存対象が現在 timeline の snapshot である以上、名前入力と保存前 flush を同じ操作モデルに寄せる。
-- **Plan**: `_docs/plan/UI/template-save-flow-alignment.md`
-
 ## In Progress
-
-- **Title**: [Perf] Stabilize timeline interaction performance
-- **ID**: UI-Perf-59
-- **Priority**: P0
-- **Size**: L
-- **Area**: UI
-- **Dependencies**: []
-- **Goal**: Pixel 7a の profile mode で、reorder 中の pointer move が `TimelineScreen` / `SliverList` / visible `BlockItem` 全体 rebuild を誘発せず、通常 trace の reorder `uiBeginFrame` p90 が 8ms 未満、16ms 超え frame が 30 秒 trace で 1 件以下になる。
-- **Steps**:
-  1. [x] Plan の "Current implementation audit" に従い、reorder preview state と timeline renderer の rebuild 境界を棚卸しする
-  2. [x] Plan の "Controller extraction" に従い、reorder session state を local controller / listenable へ分離する
-  3. [x] Plan の "Overlay isolation" に従い、drag preview / insertion line の pointer move 更新で main timeline list が rebuild されないようにする
-  4. [x] Plan の "Geometry cache" に従い、visible item geometry を session 単位で snapshot し、scroll delta 補正と structural change cancel を実装する
-  5. [x] Plan の "Frame pacing" に従い、pointer move を最大 1 frame 1 update に coalesce し、candidate no-op update を捨てる
-  6. [ ] Plan の "Test Plan" に従い、reorder correctness / cancel / original slot no-op / gesture regression / Pixel 7a profile trace を検証する（local widget/analyze は実施済み、Pixel 7a profile trace は未取得）
-  7. [ ] Before / after の計測結果を `_docs/survey/UI/timeline-interaction-performance-profile.md` に追記し、残る scroll / raster spike を第二フェーズへ分離するか判断する（実装状況は追記済み、after trace は未取得）
-- **Description**: 実機 profile では reorder 中に UI thread / build 側の jank が出ており、widget build profile で `TimelineScreen` から `SliverList` / `BlockItem` までが pointer move に巻き込まれている。長期安定性を優先し、transient interaction state を timeline 本体の rebuild 境界から切り離す。
-- **Plan**: `_docs/plan/UI/timeline-interaction-performance.md`

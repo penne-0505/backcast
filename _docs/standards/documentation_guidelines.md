@@ -10,6 +10,8 @@
 
 ## 関連ドキュメント
 - `_docs/standards/documentation_operations.md`: draft/plan を中心とした運用ルールと自動化ロードマップ
+- `_docs/standards/quality_assurance.md`: QA test-plan / verification、Risk 分類、intent-derived invariant の基準
+- `_docs/standards/security_for_agents.md`: secret・外部入力・破壊的操作など agent 運用の安全基準
 - `_docs/standards/ui_layering.md`: Medo UI の layer model と入力イベント所有権の標準
 - `_docs/documentation_guide.md`: ドキュメント執筆者向けの実務ガイドライン
 
@@ -21,12 +23,13 @@
 
 ## ディレクトリ構造と役割
 
-```
+```text
 \_docs/
 ├── guide/(対象)/          \# 使用方法・運用指針・ベストプラクティス・トラブルシューティング
 ├── reference/(対象)/      \# API仕様・詳細リファレンス・簡易的内部実装説明
 ├── plan/(対象)/          \# 実装計画・仕様書（intentに昇華する原典）
 ├── intent/(対象)/        \# 実装意図・背景・判断理由（ADR的な用途）
+├── qa/(対象)/            \# QA test-plan / verification（品質計画・検証証跡。archive しない）
 ├── survey/(対象)/         \# 機能調査・技術比較・検証レポート
 ├── draft/(対象)/           \# メモ・草案置き場（正式化前の作業用）
 ├── standards/              \# 開発ガイドライン・プロジェクト標準（本ファイル含む）
@@ -38,7 +41,7 @@
 
 - **目的**: 実際の開発シナリオでの使い方を学ぶ
 - **読者**: 新メンバー・対象領域外の人（仕様・用法理解が目的）
-- **内容**: 
+- **内容**:
   - 基本的な使用方法・操作手順
   - 運用・開発上の指針
   - チュートリアル
@@ -95,11 +98,23 @@
 
 > **補足**: 一時的・未整理のメモは引き続き `_docs/draft/` に置き、調査が完了したら `_docs/survey/` へ昇格させる。
 
+### `_docs/qa/(対象)/` - QA test-plan / verification
+
+- **目的**: 設計判断（intent）と plan の約束を「検証可能な条件」へ変換し、その検証証跡を残す
+- **読者**: 実装者・レビュアー
+- **内容**:
+  - `test-plan.md`: intent / plan / TODO から導いた QA 計画（acceptance criteria、intent-derived invariant、test matrix、risk assessment）
+  - `verification.md`: 実装後の検証証跡（実行コマンド、手動 QA、未確認リスク、最終判定 Verdict）
+- **必須条件**: `Size >= M` または `Risk >= Medium` のタスクで test-plan が必須。`Risk High / Critical` では verification も必須。基準の詳細は `_docs/standards/quality_assurance.md`。
+- **front-matter**: 共通8項目に加えて `qa_status` / `risk` が必須（`_docs/standards/documentation_operations.md` 参照）。
+- **ライフサイクル**: **archive しない**永続記録。obsolete 化は `status: superseded` / `status: obsolete` で表す。
+- **テストコードとの分離**: `_docs/qa/` は計画・対応表・検証証跡の置き場であり、実行可能なテストは `test/` 等の標準テストディレクトリに置く。
+
 ### `_docs/draft/(対象)/` - メモ・草案置き場
 
 - **目的**: メモ・草案の統一管理（正式ドキュメント化前の作業用）
 - **読者**: 開発者・ドキュメント作成者
-- **内容**: 
+- **内容**:
   - コミット時に残す実装意図メモ
   - 正式化前の草案
   - 作業中の一時的な資料
@@ -254,6 +269,7 @@ Front-matterを簡素化する代わりに、ドキュメント種別ごとに�
 | reference/       | ✅記載   | ❌記載しない | ❌記載しない |
 | plan/            | ✅記載   | ✅記載   | ✅記載 |
 | intent/          | ✅記載   | ✅記載   | ✅記載 |
+| qa/              | ✅記載   | ✅記載   | ✅記載（test-plan は実装前/中に作成） |
 
 ## メンテナンス方針
 
@@ -278,8 +294,8 @@ Front-matterを簡素化する代わりに、ドキュメント種別ごとに�
 
 ### 整合性チェック & 自動化
 
-  - **手法**: markdownlint と front-matter 検証を CI で実行する。
-  - **現状**: markdownlint と front-matter/stale チェックは CI（GitHub Actions: markdownlint-cli2-action + Deno スクリプト）で自動実行。front-matter/stale チェックでは `archives` と `_docs/standards/` 配下を除外。link-check は未導入であり、現時点では必須運用に含めない。
+  - **手法**: markdownlint と Deno validator 群（front-matter / TODO / doc-link / QA）を CI で実行する。
+  - **現状**: CI（GitHub Actions: markdownlint-cli2-action + Deno スクリプト）で自動実行。実行内容は `scripts/check-docs.sh` と等価で、`scripts/validate-frontmatter.mjs`（front-matter/stale、`archives` と `_docs/standards/` 配下を除外）、`scripts/validate-todo.mjs`、`scripts/validate-doc-links.mjs`（ローカルリンク/参照解決）、`scripts/validate-qa.mjs`（QA docs と TODO 整合）、`scripts/test-validators.mjs`（fixture 自己テスト）を含む。手元では `./scripts/check-docs.sh` で一括実行できる。
   - **対応ルール**:
     1.  **発見時対応**: 問題を見つけた人が修正または Issue 作成。Issue 番号は該当ドキュメントの `front-matter` の `related_issues` に追記。
     2.  **優先度**: 実害のある不整合 > 表記の不統一 > 軽微な古い情報。

@@ -12,12 +12,14 @@
 - 非対象: アプリケーションコードや API の実装規約（別 standards を参照）。
 
 ## ディレクトリの役割
+
 | パス | 目的 | 主な利用者 | 備考 |
 | --- | --- | --- | --- |
 | `_docs/draft/` | アイデア、検討メモ、仮説、代替案等の一時保管 | 設計者・実装者・調査担当 | `updated_at` 基準で stale 管理。決定事項はここに残さない。 |
 | `_docs/plan/` | 合意済み仕様・実施計画の単一参照点 | 施策オーナー・実装担当 | `plan/<domain>/<slug>/plan.md` を基本。 |
 | `_docs/intent/` | 設計判断・意思決定ログ | 設計判断を参照する開発者 | plan 更新時の根拠を格納。 |
 | `_docs/survey/` | 調査・検証レポート | 調査担当・意思決定者 | plan/intent から根拠として参照。 |
+| `_docs/qa/` | QA test-plan / verification（品質計画・検証証跡） | 実装者・レビュアー | `qa/<Area>/<slug>/{test-plan,verification}.md`。**archive しない**永続記録。詳細は `quality_assurance.md`。 |
 | `_docs/guide/` / `_docs/reference/` | 実装済み機能の運用ガイド・リファレンス | 全メンバー | plan の結果を反映。議論や検討は含めない。 |
 | `_docs/archives/` | intent 作成済みドキュメントの保管庫 | 後から経緯を参照する開発者 | intent 作成後に移送。front-matter を保持したまま履歴保存。 |
 
@@ -25,7 +27,7 @@
 
 1. **標準フロー**: `draft/survey → (survey) → plan → intent → (guide/reference) → archives`
    - 大規模な変更（`Size >= M`）や、設計判断が必要な機能追加に適用。
-   
+
 2. **軽量フロー (Fast Track)**: `TODO定義(Steps) → intent (事後) → (guide/reference)`
    - 小規模な修正（`Size < M`）に適用。
    - `TODO.md` 上でタスク定義と手順（Steps）が明確である場合、`draft` および `plan` の作成を省略できる。
@@ -51,6 +53,7 @@
    - 関連 Issue / PR が front-matter で紐付いている。(存在する場合)
 
 ## 一時ドキュメントのアーカイブルール
+- アーカイブ対象は `draft` / `plan` / `survey` のみ。`intent` と **QA docs（`_docs/qa/`）は archive しない**永続記録として扱う。obsolete 化する場合は `status: superseded` / `status: obsolete` にする。
 - `draft`、`plan`、`survey` は「開発過程専用の一時ドキュメント」であり、対応する `intent` を作成していない状態でのアーカイブを禁止する。
 - 一時ドキュメントの移行フロー:
   1. 一時ドキュメントを `intent` テンプレートへ再構成する。
@@ -86,6 +89,18 @@
 - `stale_exempt_until: YYYY-MM-DD`
 - `stale_exempt_reason: <string>`
 - `stale_extensions: <number>`（延長ごとに+1）
+
+### QA ドキュメント追加フィールド（`_docs/qa/**/*.md` 必須）
+QA test-plan / verification では、共通8項目に加えて以下を必須とする。
+
+| フィールド | 説明 |
+| --- | --- |
+| `qa_status` | `planned` \| `in-progress` \| `verified` \| `partial` \| `failed` \| `blocked` |
+| `risk` | `Low` \| `Medium` \| `High` \| `Critical` |
+
+- `test-plan.md` の `qa_status` は `planned` / `in-progress` のいずれか。
+- `verification.md` の `qa_status` は本文の Verdict と一致させる（`PASS→verified` / `PARTIAL→partial` / `FAIL→failed` / `BLOCKED→blocked`）。
+- 詳細な作成基準・必須条件は `_docs/standards/quality_assurance.md` を参照。
 
 ## ドキュメント構造とテンプレート
 
