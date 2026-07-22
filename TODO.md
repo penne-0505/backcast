@@ -1,7 +1,7 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 63` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 64` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -59,13 +59,13 @@
 | **QA** | `Path` | （任意）`Size >= M` または `Risk >= Medium` で必須。`_docs/qa/<Area>/<slug>/test-plan.md`。それ以外は `None` 可。 |
 | **Verification** | `Path` | （任意）`Risk High/Critical` で完了前必須。`_docs/qa/<Area>/<slug>/verification.md`。それ以外は `None` 可。 |
 
-### QA Requirement (今後のタスクに適用)
+### QA Requirement (新規または semantic edit するタスクに適用)
 
 - `Size >= M` または `Risk >= Medium` のタスクは、実装前または実装中に QA test-plan を作成し、`QA` フィールドに `_docs/qa/<Area>/<slug>/test-plan.md` を記載する。
 - `Risk High / Critical` のタスクは、完了前に verification を作成し、`Verification` フィールドに `_docs/qa/<Area>/<slug>/verification.md` を記載する。rollback / recovery / security / data safety の観点を含める。
 - Bug は regression test または no-test rationale、Refactor は behavior-preservation checks を残す。
 - 基準の詳細は `_docs/standards/quality_assurance.md`、運用は `_docs/standards/documentation_operations.md` を参照。
-- **本ルールは今後作成するタスクに適用し、既存タスク・過去ドキュメントへ遡及しない。**
+- 既存の legacy task は compatibility のためただちに一括 rewrite しない。Ready への昇格、semantic edit、または owner-approved strict schema migration 時に canonical heading と必須フィールドへ移行する。新規 task は `### <ID>: [<Category>] <Title>` 形式で作成する。
 
 ## 3. Field Usage Guidelines
 
@@ -253,8 +253,8 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Description**: 現状の `proPackageProvider` は `offering.monthly ?? offering.annual ?? availablePackages.first` で 1 パッケージに絞るため、月額が存在する限り年額はアプリ内から購入できない。販売意図（月額 480 円 / 年額 3,000 円の 2 プラン、買い切りなし）に合わせて選択式にする。課金導線のため Risk High。
 - **Plan**: None（Ready 昇格前に `_docs/plan/UI/paywall-annual-plan.md` を作成する）
 - **Risk**: High
-- **QA**: `_docs/qa/UI/paywall-annual-plan/test-plan.md`（未作成・実装前に作成）
-- **Verification**: `_docs/qa/UI/paywall-annual-plan/verification.md`（完了前に作成）
+- **QA**: `_docs/qa/UI/paywall-annual-plan/test-plan.md`
+- **Verification**: `_docs/qa/UI/paywall-annual-plan/verification.md`
 
 - **Title**: [Doc] 法務文書と実際の販売プラン表記の整合を確認する
 - **ID**: Docs-Doc-62

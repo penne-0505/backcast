@@ -1,5 +1,7 @@
 // Deno版バリデータ: npm / remote import 依存なしで front-matter と stale ロジックを検証
 
+import { loadScope, makeInScope } from "./scope.mjs";
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const STALE_DAYS = 30;
@@ -22,8 +24,17 @@ const REQUIRED_KEYS = [
   "related_issues",
   "related_prs",
 ];
+const REQUIRED_SCALARS = [
+  "title",
+  "status",
+  "draft_status",
+  "created_at",
+  "updated_at",
+];
 const STATUS_VALUES = ["proposed", "active", "superseded", "obsolete"];
 const DRAFT_STATUS_VALUES = ["idea", "exploring", "paused", "n/a"];
+const INTENT_SCHEMA = 2;
+const QA_SCHEMA = 2;
 
 const isStringArray = (val) =>
   Array.isArray(val) && val.every((v) => typeof v === "string");
@@ -51,6 +62,8 @@ const normalizePath = (path) => path.replaceAll("\\", "/");
 const isInArchives = (path) =>
   normalizePath(path).split("/").includes("archives");
 const isDraftPath = (path) => normalizePath(path).split("/").includes("draft");
+const isIntentPath = (path) =>
+  normalizePath(path).split("/").includes("intent");
 const isQaPath = (path) => normalizePath(path).split("/").includes("qa");
 const isInStandards = (path) =>
   normalizePath(path).split("/").includes("standards");
@@ -129,6 +142,20 @@ const parseFrontMatter = (src) => {
     return { attrs: null, error: "front matter is not closed" };
   }
 
+  const nextContent = lines.findIndex(
+    (line, index) => index > end && line.trim() !== "",
+  );
+  const duplicateEnd = lines.findIndex(
+    (line, index) => index > nextContent && line === "---",
+  );
+  const duplicateLooksLikeYaml = duplicateEnd > nextContent &&
+    lines.slice(nextContent + 1, duplicateEnd).some((line) =>
+      /^[A-Za-z0-9_]+:/.test(line)
+    );
+  if (lines[nextContent] === "---" && duplicateLooksLikeYaml) {
+    return { attrs: null, error: "consecutive duplicate front matter blocks" };
+  }
+
   const attrs = {};
   for (let i = 1; i < end; i += 1) {
     const line = lines[i];
@@ -181,10 +208,12 @@ const report = (prefix, file, messages, logger) => {
 const run = async () => {
   const errors = [];
   const warnings = [];
+  const inScope = makeInScope(await loadScope());
 
   for await (const file of walkMarkdown("_docs")) {
     if (isInArchives(file)) continue;
     if (isInStandards(file)) continue;
+    if (!inScope(file)) continue;
 
     const { attrs: data, error } = await loadFrontMatter(file);
     const fileErrors = [];
@@ -199,13 +228,21 @@ const run = async () => {
         fileErrors.push(`missing required field: ${key}`);
       }
     }
+    for (const key of REQUIRED_SCALARS) {
+      if (
+        key in data &&
+        (typeof data[key] !== "string" || data[key].trim() === "")
+      ) {
+        fileErrors.push(`required field must be a non-empty string: ${key}`);
+      }
+    }
 
     const status = data.status;
     const draftStatus = data.draft_status;
-    if (status && !STATUS_VALUES.includes(status)) {
+    if ("status" in data && !STATUS_VALUES.includes(status)) {
       fileErrors.push(`status must be one of ${STATUS_VALUES.join(", ")}`);
     }
-    if (draftStatus && !DRAFT_STATUS_VALUES.includes(draftStatus)) {
+    if ("draft_status" in data && !DRAFT_STATUS_VALUES.includes(draftStatus)) {
       fileErrors.push(
         `draft_status must be one of ${DRAFT_STATUS_VALUES.join(", ")}`,
       );
@@ -244,6 +281,18 @@ const run = async () => {
       fileErrors.push(
         "related_prs must be an array of integers (can be empty)",
       );
+    }
+
+    if (
+      isIntentPath(file) && "intent_schema" in data &&
+      data.intent_schema !== INTENT_SCHEMA
+    ) {
+      fileErrors.push(`intent_schema must be the integer ${INTENT_SCHEMA}`);
+    }
+    if (
+      isQaPath(file) && "qa_schema" in data && data.qa_schema !== QA_SCHEMA
+    ) {
+      fileErrors.push(`qa_schema must be the integer ${QA_SCHEMA}`);
     }
 
     const staleExemptUntilRaw = optionalValue(data.stale_exempt_until);
@@ -309,6 +358,8 @@ const run = async () => {
       if (
         !REQUIRED_KEYS.includes(key) &&
         !(isQaPath(file) && ["qa_status", "risk"].includes(key)) &&
+        !(isIntentPath(file) && key === "intent_schema") &&
+        !(isQaPath(file) && key === "qa_schema") &&
         !key.startsWith("stale_exempt") &&
         key !== "stale_extensions"
       ) {

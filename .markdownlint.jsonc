@@ -10,8 +10,5 @@
   "MD032": false,
   "MD035": false,
   "MD041": false,
-  "MD060": false,
-  "ignores": [
-    "_docs/archives/**"
-  ]
+  "MD060": false
 }

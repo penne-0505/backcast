@@ -2,67 +2,168 @@
 title: Documentation Guide
 status: active
 draft_status: n/a
-created_at: "2026-04-16"
-updated_at: "2026-06-15"
+created_at: 2026-04-16
+updated_at: 2026-07-22
 references:
-  - _docs/standards/documentation_guidelines.md
-  - _docs/standards/documentation_operations.md
-  - _docs/standards/quality_assurance.md
-  - _docs/standards/security_for_agents.md
-  - README.md
-  - _docs/guide/medo/timeline_editor.md
-  - _docs/guide/medo/privacy_policy_operations.md
-  - _docs/reference/medo/timeline_domain_reference.md
-  - _docs/intent/medo/reverse_timeline_interaction_model.md
+  - "_docs/standards/documentation_guidelines.md"
+  - "_docs/standards/documentation_operations.md"
+  - "_docs/standards/quality_assurance.md"
+  - "_docs/standards/security_for_agents.md"
+  - "_docs/standards/ui_layering.md"
+  - "README.md"
+  - "_docs/guide/medo/timeline_editor.md"
+  - "_docs/guide/medo/privacy_policy_operations.md"
+  - "_docs/reference/medo/timeline_domain_reference.md"
+  - "_docs/intent/medo/reverse_timeline_interaction_model.md"
 related_issues: []
 related_prs: []
 ---
 
 # Documentation Guide
 
-**必読:** ドキュメントのアーカイブ運用フローに関する最新ルールは、常に `_docs/standards/documentation_operations.md` を参照して遵守してください。QA / テスト設計の判断基準は `_docs/standards/quality_assurance.md`、agent 運用の安全基準は `_docs/standards/security_for_agents.md` を参照してください。
+**必読:** ドキュメントのアーカイブ運用フローに関する最新ルールは、常に `_docs/standards/documentation_operations.md` を参照して遵守してください。QA / テスト設計の詳細は `_docs/standards/quality_assurance.md` を参照してください。
 
 ## このガイドの位置づけ
-- このプロジェクトでドキュメントを作成・更新する際のルールについて、よく使われる要点だけをまとめたクイックリファレンスです。
-- 迷ったときは、まず本ファイルから関連ドキュメントを辿り、必須ポリシーを確認してください。
-- 詳細な執筆手順は `_docs/standards/documentation_guidelines.md`、アーカイブ運用プロセスは `_docs/standards/documentation_operations.md` を必ず確認します。
+
+- このプロジェクトでドキュメントを作成・更新する際の要点をまとめたクイックリファレンスです。
+- 詳細な執筆手順は `_docs/standards/documentation_guidelines.md`、運用プロセスは `_docs/standards/documentation_operations.md`、QA の判断基準は `_docs/standards/quality_assurance.md` を確認してください。
+- coding agent は `TODO.md`、Plan、Intent、QA test-plan、Verification をつなぎ、変更が decision の Why / Why not / Change freedom に沿っているかを検証します。
 
 ## 参照すべき中核ドキュメント
+
 1. **`_docs/standards/documentation_operations.md`**
-   - 一時ドキュメント (`draft`/`plan`/`survey`) から `intent` への移行、`_docs/archives/` へのアーカイブ手順、違反時の対処までを規定しています。
-   - `intent` 作成前のアーカイブ禁止など、運用上の必須ルールが整理されています。
+   - draft / plan / survey から intent への移行、archive 手順、TODO 完了処理、front-matter schema を規定しています。
 2. **`_docs/standards/documentation_guidelines.md`**
-   - ドキュメント体系、各ディレクトリの役割、front-matter の必須項目をまとめた実務ガイドラインです。
-   - 執筆時のテンプレートや確認観点を確認する際に参照してください。
+   - ドキュメント体系、各ディレクトリの役割、テンプレート、更新フローをまとめています。
 3. **`_docs/standards/quality_assurance.md`**
-   - intent-derived invariant、Risk 分類、QA test-plan、verification verdict の基準を定義しています。
+   - why-first の decision record、任意の intent-derived invariant、Risk 分類、QA test-plan、verification verdict を定義しています。
 4. **`_docs/standards/security_for_agents.md`**
    - secret、外部入力、外部 skill / script、破壊的操作の扱いを定義しています。
 5. **テンプレート集 (`_docs/standards/templates/`)**
-  - 各ドキュメント種別（draft/plan/intent/guide/reference/survey/qa）向けの作成用テンプレートを配置しています。
-  - front-matter の8必須項目を含んだ初期雛形を用意しているので、コピーして日付やステータスを実情に合わせて更新してください。
+   - draft / survey / plan / intent / QA / guide / reference の雛形を配置しています。
+6. **`_docs/standards/ui_layering.md`**
+   - Medo UI の layer model と入力イベント所有権を定義しています。
 
 ## 現在の主要プロジェクトドキュメント
 
-- `README.md`: プロジェクト概要、実行コマンド、主要ドキュメントへの入口
-- `_docs/guide/medo/timeline_editor.md`: 現在の UI 操作手順と運用上のコツ
-- `_docs/guide/medo/privacy_policy_operations.md`: ユーザーデータ、課金状態、アカウント削除、第三者サービス連携を変える際の privacy policy 更新条件
-- `_docs/reference/medo/timeline_domain_reference.md`: モデル、定数、状態管理 API の事実ベースの仕様
-- `_docs/intent/medo/reverse_timeline_interaction_model.md`: 逆算 UI と状態設計の判断理由
-- `_docs/guide/flutter/environment_setup.md`: Flutter 実行環境のセットアップ補足
+- `README.md`: Medo の現在機能、setup、runtime 概要。
+- `_docs/guide/medo/timeline_editor.md`: 現在の UI 操作と運用上のコツ。
+- `_docs/guide/medo/privacy_policy_operations.md`: data / billing / account deletion 変更時の privacy policy 更新条件。
+- `_docs/reference/medo/timeline_domain_reference.md`: timeline domain と state API の仕様。
+- `_docs/intent/medo/reverse_timeline_interaction_model.md`: 逆算 UI と state design の判断理由。
+- `_docs/guide/flutter/environment_setup.md`: Flutter 実行環境の setup 補足。
 
-## 利用者へのお願い
-- 新しいドキュメントを追加するときは、上記 2 文書を読み、運用前提に矛盾がないかを確認してください。
-- `intent` 作成後にアーカイブを行う場合は、対象ドキュメントと移行先の整合性を確認してください。
-- ガイドラインに改善点を見つけた場合は、`_docs/draft/` で議論を開始し、合意形成後に標準ドキュメントを更新してください。
+## Canonical Paths
+
+```text
+_docs/draft/<Area>/<slug>/notes.md
+_docs/survey/<Area>/<slug>/survey.md
+_docs/plan/<Area>/<slug>/plan.md
+_docs/intent/<Area>/<slug>/decision.md
+_docs/qa/<Area>/<slug>/test-plan.md
+_docs/qa/<Area>/<slug>/verification.md
+_docs/guide/<Area>/<slug>/usage.md
+_docs/reference/<Area>/<slug>/reference.md
+_docs/archives/{draft,plan,survey}/<Area>/<slug>/...
+```
+
+`<Area>` は `TODO.md` の `Area` と一致させ、`<slug>` は機能・変更単位の kebab-case 名にします。references は root-relative canonical path を推奨します。
+
+```yaml
+references:
+  - "_docs/intent/Core/feature-x/decision.md"
+  - "_docs/plan/Core/feature-x/plan.md"
+  - "_docs/qa/Core/feature-x/test-plan.md"
+```
 
 ## QA Documents
 
-- `Size >= M` または `Risk >= Medium` のタスクでは、実装前または実装中に `_docs/qa/<Area>/<slug>/test-plan.md` を作成します。`Risk High / Critical` では完了前に `verification.md` も作成します。
-- `test-plan.md` は intent / plan / TODO から、`verification.md` は実装後の検証証跡として作ります。
-- QA docs は **archive しません**（永続記録）。obsolete 化は `status: superseded` / `status: obsolete` で表します。
-- `_docs/qa/` は計画・対応表・検証証跡の置き場で、実行可能なテストは `test/` 等に置きます。
-- front-matter は共通8項目に加えて `qa_status` / `risk` が必須です。`verification.md` の `qa_status` は本文の Verdict と一致させます。
+- `test-plan.md` は intent / plan / TODO から作ります。
+- `verification.md` は実装後の検証証跡です。
+- QA docs は archive しません。
+- `_docs/qa/` はテストコードの置き場ではなく、計画・対応表・検証証跡の置き場です。
+- 実行可能なテストは、コードベース側の標準的なテストディレクトリに置きます。
+- `verification.md` の `qa_status` は本文の `Verdict` と一致させます。
+
+## intent ↔ code traceability
+
+- 設計判断を体現した非自明なコード（とくに why not・意図的な省略）には、intent への参照コメントを残します。全コード義務ではなくターゲット型です。
+- 理由へ辿る基本アンカーは `DEC-xxx` です: `// intent: DEC-003 (Workflow/<slug>) — <理由>`。
+- strict invariant を体現する場合だけ `// intent-invariant: INV-003 ...` を使います。
+- テストで落とせる acceptance criterion または任意の invariant はテスト（AC / INV 名）へ、テスト化しにくい why not は DEC を参照するコメントへ置きます。二重には書きません。
+- コメントは decision の What や exact 値を繰り返さず、因果を一行で要約します。
+- 参照の有無は validator で強制しません。skill と review で担保します。
+- 正典は `_docs/standards/quality_assurance.md` の intent ↔ code traceability です。
+
+## Front-matter クイックリファレンス
+
+全ての運用対象ドキュメントで以下の8項目が必須です。
+
+| フィールド | 説明 |
+| --- | --- |
+| `title` | ドキュメントのタイトル |
+| `status` | `proposed` \| `active` \| `superseded` \| `obsolete` |
+| `draft_status` | `idea` \| `exploring` \| `paused` \| `n/a` |
+| `created_at` | 作成日 (`YYYY-MM-DD`) |
+| `updated_at` | 更新日 (`YYYY-MM-DD`) |
+| `references` | 関連ドキュメントへのリンク配列 |
+| `related_issues` | 関連 Issue の番号配列。ない場合は `[]`。 |
+| `related_prs` | 関連 PR の番号配列。ない場合は `[]`。 |
+
+`_docs/qa/**/*.md` では追加で以下が必須です。
+
+| フィールド | 説明 |
+| --- | --- |
+| `qa_status` | `planned` \| `in-progress` \| `verified` \| `partial` \| `failed` \| `blocked` |
+| `risk` | `Low` \| `Medium` \| `High` \| `Critical` |
+
+新規の why-first 文書では、intent に `intent_schema: 2`、QA に `qa_schema: 2` を追加します。
+marker のない既存文書は legacy schema として受理されます。リンク・typo・metadata の修正だけなら
+legacy のままでよく、decision の意味または QA 契約を変更する編集から schema v2 へ移行します。
+
+## よくある更新パターン
+
+### 0. 小規模な修正 (`Size XS/S` かつ `Risk Low`)
+
+- Plan / Intent / QA は `None` にできます。
+- `TODO.md` の Acceptance Criteria と Steps に従って直接作業します。
+- Bug の場合は regression test または no-test rationale を残します。
+- 将来の作業者が未実装と誤認しそうな非対応・制限・省略がある場合は、TODO Description / PR / commit に理由を残し、後続変更に影響するなら Intent に昇格します。
+
+### 1. `Size >= M` の変更
+
+- `_docs/plan/<Area>/<slug>/plan.md` を作成します。
+- `_docs/intent/<Area>/<slug>/decision.md` を作成します。
+- `_docs/qa/<Area>/<slug>/test-plan.md` を実装前または実装中に作成します。
+- TODO の `Plan`, `Intent`, `QA` を root-relative canonical path で更新します。
+
+### 2. `Risk >= Medium` の変更
+
+- Intent と QA test-plan が必須です。
+- Risk High / Critical では完了前に verification が必須です。
+- rollback / recovery / security / data safety の観点を QA に含めます。
+
+### 3. 実装後の verification
+
+```yaml
+title: "QA Verification: Feature X"
+status: active
+draft_status: n/a
+qa_status: verified
+risk: Medium
+created_at: 2026-05-25
+updated_at: 2026-05-25
+references:
+  - "_docs/intent/Core/feature-x/decision.md"
+  - "_docs/plan/Core/feature-x/plan.md"
+  - "_docs/qa/Core/feature-x/test-plan.md"
+related_issues: []
+related_prs: []
+```
+
+schema v2 の verification には、実行したコマンド、手動 QA、Acceptance Criteria Coverage、影響した DEC の Decision Conformance、該当する場合の Invariant Coverage、Deferred / Not Covered、Residual Risks、Follow-up TODOs、Verification Verdict を残します。
+
+Verdict と `qa_status` は次の対応にします。
 
 | Verdict | qa_status |
 | --- | --- |
@@ -71,140 +172,53 @@ related_prs: []
 | `FAIL` | `failed` |
 | `BLOCKED` | `blocked` |
 
-- 完了前に `qa-review` skill で verification verdict を確認します。基準の詳細は `_docs/standards/quality_assurance.md` を参照してください。
+### 4. plan / draft / survey の archive
 
-## 最終更新の扱い
-- 本ファイルを更新した場合は、`_docs/standards/documentation_operations.md` と `_docs/standards/documentation_guidelines.md` の整合性を確認してください。
-- CI では markdownlint と Deno validator 群（front-matter/stale、TODO、doc-link、QA、fixture 自己テスト）が自動実行されます。front-matter/stale チェックでは `archives` と `_docs/standards/` 配下を除外します。手元では `./scripts/check-docs.sh` で一括実行できます。
+- archive 対象は `draft` / `plan` / `survey` のみです。
+- 対応 intent が存在し、archive checklist を満たす場合だけ移送できます。
+- `intent` と QA docs は archive しません。
 
-## Front-matter クイックリファレンス
+### 5. Template release の継続更新
 
-ドキュメントを作成・更新する際に必要な front-matter フィールドを素早く確認できるよう、本セクションにまとめました。
-詳細な定義や背景については、`_docs/standards/documentation_operations.md` の「Front-matter Schema」セクションを参照してください。
+- `docs-template.lock.json` は、最後に統合した upstream release tag と full SHA を記録します。
+- moving branch tip ではなく推奨 tag を `U` とし、`docs-template-migration` skill で `B` / `U` / project snapshot を比較します。
+- `U` の reconciliation と compatibility checks 後に lock を最後の migration write として更新し、closure verification で確認します。strict schema migration の延期状態は verification に残します。
+- pre-`v1.0.0` project は導入元 commit を一度だけ復元し、`v1.0.0` 以降の推奨 tag へ直接移行できます。
+- `DD_SCOPE_BASE` は導入先の validator scope であり、template provenance lock の代替にはなりません。
 
-### 必須フィールド一覧（全ドキュメント共通）
+## 検証コマンド
 
-全てのドキュメントで以下の8項目が必須です。
-
-| フィールド | 説明 |
-| --- | --- |
-| `title` | ドキュメントのタイトル |
-| `status` | `proposed` (提案段階) \| `active` (実装段階) \| `superseded` (廃止段階) |
-| `draft_status` | ドラフトの進行状態 (`idea` (機能や修正のアイデア) \| `exploring` (検討段階) \| `paused` (一時停止中) \| `n/a` (該当なし)) |
-| `created_at` | 作成日 (`YYYY-MM-DD`) |
-| `updated_at` | 更新日 (`YYYY-MM-DD`) |
-| `references` | 関連ドキュメントへのリンク配列（ない場合は空配列 `[]`） |
-| `related_issues` | 関連Issueの番号配列 (ない場合は空配列 `[]`) |
-| `related_prs` | 関連PRの番号配列 (ない場合は空配列 `[]`) |
-
-（draft のみ任意で使用可）stale 管理フィールド:
-- `stale_exempt_until`: 延長の猶予期限 (`YYYY-MM-DD`)
-- `stale_exempt_reason`: 延長理由
-- `stale_extensions`: 延長回数（延長のたびに +1）
-
-### よくある更新パターン
-
-#### 0. 小規模な修正 (Size < M)
-- **Draft/Plan 作成不要**。
-- `TODO.md` の Steps に手順を記載し、直接実装・PR作成へ進んでください。
-
-#### 1. draft を作成する (Size >= M)
-```yaml
-title: New Feature Idea
-status: proposed
-draft_status: idea
-created_at: 2023-11-23
-updated_at: 2023-11-23
-references: []
-related_issues: []
-related_prs: []
+```bash
+deno fmt --check scripts/*.mjs
+deno run --allow-read --allow-env --allow-run=git scripts/validate-frontmatter.mjs
+deno run --allow-read scripts/validate-todo.mjs
+deno run --allow-read --allow-env --allow-run=git scripts/validate-doc-links.mjs
+deno run --allow-read --allow-env --allow-run=git scripts/validate-intent.mjs
+deno run --allow-read --allow-env --allow-run=git scripts/validate-qa.mjs
+deno run --allow-read --allow-write --allow-env --allow-run scripts/test-validators.mjs
+deno run --allow-read --allow-run=git scripts/test-agent-workflow-hook.mjs
+deno run --allow-read scripts/test-agent-workflow-smoke.mjs
 ```
 
-#### 2. draft で検討を進める
+`--allow-env` / `--allow-run=git` は段階的導入スコープ（`DD_SCOPE_BASE`）向けの権限です。既存プロジェクトへ後付け導入し「導入以降に追加した docs だけ」を検証したい場合は、`_docs/standards/documentation_operations.md` の段階的導入スコープを参照してください。まとめて実行する場合:
 
-```yaml
-# draft_status を更新
-draft_status: exploring
-updated_at: 2023-11-25
+```bash
+./scripts/check-docs.sh
 ```
 
-(更新部分のみ記載)
+手元で Node.js / npx が使える場合は、markdownlint も実行できます。
 
-#### 3. draft から plan へ昇格
-
-  - `_docs/plan/` に移動
-  - `draft_status` を `n/a` に変更
-
-<!-- end list -->
-
-```yaml
-title: Feature Implementation Plan
-status: proposed
-draft_status: n/a
-created_at: 2023-11-23
-updated_at: 2023-11-30
-references: []
-related_issues: []
-related_prs: []
+```bash
+npx markdownlint-cli2 "_docs/**/*.md" "_evals/**/*.md" "README.md" "AGENTS.md" "TODO.md" --config .markdownlint.jsonc
 ```
 
-#### 4. plan 実装完了時
-
-```yaml
-status: active
-updated_at: 2023-12-10
-```
-
-#### 5. plan から intent へ移行
-
-  - `_docs/intent/` に新しいドキュメントを作成
-  - `references` に plan へのリンクを追加
-  - intent 作成後、対応する plan 原本を `_docs/archives/plan/` へ移送
-
-<!-- end list -->
-
-```yaml
-title: Feature Architecture Decision
-status: active
-draft_status: n/a
-created_at: 2023-12-15
-updated_at: 2023-12-15
-references:
-  - ../plan/feature-plan.md
-related_issues: []
-related_prs: []
-```
-
-#### 6. ドキュメント廃止・置き換え
-
-```yaml
-status: superseded
-updated_at: 2024-01-20
-related_issues: []
-related_prs: []
-```
-
-### Status の遷移ルール
-
-```text
-提案段階    実装段階     廃止段階
-   ↓         ↓           ↓
-proposed → active → superseded
-   ↑                     ↑
-   └─────────────────────┘
-  （計画見直し時に戻る可能性あり）
-```
-
-  - **proposed**: 初期状態。検討中または昇格待ち
-  - **active**: 正式決定済み。実装中または実装完了
-  - **superseded**: 新しいドキュメントに置き換わった/廃止された
-
-### トラブルシューティング
+## トラブルシューティング
 
 | 状況 | 対応 |
 | --- | --- |
-| バグ修正などの小規模タスクだが Plan は必要か？ | **不要**です (Size \< M)。TODO.md の手順に従ってください。 |
-| draft が 30 日以上更新されていない | 昇格 / 延長 / クローズを判断。延長する場合は `stale_exempt_until` など任意フィールドを記録して猶予を明示 |
-| intent 作成前に plan をアーカイブしてしまった | **ルール違反**。対応する intent を作成してから改めて実行。 |
-| 複数の plan が同じ機能を記述している | 最新の plan をメインに、古い版は `superseded` に設定。archives へ移送 |
-| guide/reference が古い情報を含んでいる | reference は `status: active` の plan/intent のみ反映。古い版との同期ズレは修正 PR で対応 |
+| Plan が必要か分からない | `Size >= M` なら必須。`Size XS/S` かつ `Risk Low` なら省略可。 |
+| QA test-plan が必要か分からない | `Size >= M` または `Risk >= Medium` なら必須。 |
+| verification verdict が `FAIL` | TODO を削除せず、修正または follow-up TODO を追加する。 |
+| verification verdict が `BLOCKED` | blocker と次アクションを記録し、完了扱いにしない。 |
+| QA docs を archive したい | archive しない。obsolete / superseded にする。 |
+| `references` の相対パスに迷う | root-relative canonical path を使う。 |
