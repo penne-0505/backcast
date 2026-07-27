@@ -1,11 +1,35 @@
 // Deno版 Markdown link / front-matter reference validator: npm / remote import 依存なし
 
-import { loadScope, makeInScope } from "./scope.mjs";
+import { loadScope, makeInScope } from "./scope.ts";
+import type { DocScope, InScopePredicate } from "./scope.ts";
 
-const DOC_ROOTS = ["_docs", "_evals"];
-const ROOT_FILES = ["README.md", "AGENTS.md", "TODO.md", "QUICKSTART.md"];
-const ARCHIVE_TYPES = ["draft", "plan", "survey"];
-const FORBIDDEN_ARCHIVE_TYPES = ["intent", "qa", "guide", "reference"];
+type YamlValue = string | number | boolean | YamlValue[];
+type FrontMatter = Record<string, YamlValue>;
+
+type FrontMatterParseResult = {
+  attrs: FrontMatter | null;
+  error: string | null;
+};
+
+type ValidationItem = {
+  file: string;
+  message: string;
+};
+
+type SplitTarget = {
+  clean: string;
+  anchor: string;
+};
+
+const DOC_ROOTS = ["_docs", "_evals"] as const;
+const ROOT_FILES = [
+  "README.md",
+  "AGENTS.md",
+  "TODO.md",
+  "QUICKSTART.md",
+] as const;
+const ARCHIVE_TYPES = ["draft", "plan", "survey"] as const;
+const FORBIDDEN_ARCHIVE_TYPES = ["intent", "qa", "guide", "reference"] as const;
 const ROOT_RELATIVE_PREFIXES = [
   "_docs/",
   "_evals/",
@@ -13,28 +37,21 @@ const ROOT_RELATIVE_PREFIXES = [
   ".claude/",
   ".github/",
   "scripts/",
-  // Backcast 固有: docs から参照する application / asset path も
-  // root-relative として解決し、存在検査は維持する。
   "lib/",
-  "test/",
-  "assets/",
   "public/",
-  "web/",
-  "supabase/",
-  "android/",
-  "ios/",
-];
+] as const;
 const ROOT_RELATIVE_FILES = [
   "README.md",
   "AGENTS.md",
   "TODO.md",
   "QUICKSTART.md",
   "LICENSE.txt",
-];
+] as const;
 const FIXTURE_ROOT = "_evals/validator-fixtures/";
+const STARTER_ROOT = "starter/";
 
-const normalizePath = (path) => {
-  const segments = [];
+const normalizePath = (path: string): string => {
+  const segments: string[] = [];
   for (const segment of path.replaceAll("\\", "/").split("/")) {
     if (segment === "" || segment === ".") continue;
     if (segment === "..") {
@@ -46,13 +63,16 @@ const normalizePath = (path) => {
   return segments.join("/");
 };
 
-const dirname = (path) => {
+const dirname = (path: string): string => {
   const normalized = normalizePath(path);
   const index = normalized.lastIndexOf("/");
   return index === -1 ? "." : normalized.slice(0, index);
 };
 
-const walkFiles = async function* (dir, predicate = () => true) {
+const walkFiles = async function* (
+  dir: string,
+  predicate: (path: string) => boolean = () => true,
+): AsyncGenerator<string> {
   try {
     for await (const entry of Deno.readDir(dir)) {
       const path = `${dir}/${entry.name}`;
@@ -67,7 +87,7 @@ const walkFiles = async function* (dir, predicate = () => true) {
   }
 };
 
-const exists = async (path) => {
+const exists = async (path: string): Promise<boolean> => {
   try {
     await Deno.stat(path);
     return true;
@@ -77,7 +97,7 @@ const exists = async (path) => {
   }
 };
 
-const isDirectory = async (path) => {
+const isDirectory = async (path: string): Promise<boolean> => {
   try {
     const stat = await Deno.stat(path);
     return stat.isDirectory;
@@ -87,15 +107,17 @@ const isDirectory = async (path) => {
   }
 };
 
-const isExternal = (target) =>
+const isExternal = (target: string): boolean =>
   /^[a-z][a-z0-9+.-]*:/i.test(target) ||
   target.startsWith("//");
 
-const isTemplatePlaceholder = (target) => /<[^>]+>/.test(target);
-const isValidatorFixture = (file) => file.startsWith(FIXTURE_ROOT);
+const isTemplatePlaceholder = (target: string): boolean =>
+  /<[^>]+>/.test(target);
+const isValidatorFixture = (file: string): boolean =>
+  file.startsWith(FIXTURE_ROOT);
 
-const stripCodeBlocks = (src) => {
-  const output = [];
+const stripCodeBlocks = (src: string): string => {
+  const output: string[] = [];
   let inFence = false;
   for (const line of src.split(/\r?\n/)) {
     if (/^\s*```/.test(line)) {
@@ -108,8 +130,8 @@ const stripCodeBlocks = (src) => {
   return output.join("\n");
 };
 
-const stripInlineComment = (value) => {
-  let quote = null;
+const stripInlineComment = (value: string): string => {
+  let quote: string | null = null;
   for (let i = 0; i < value.length; i += 1) {
     const ch = value[i];
     if ((ch === '"' || ch === "'") && value[i - 1] !== "\\") {
@@ -120,10 +142,10 @@ const stripInlineComment = (value) => {
   return value.trim();
 };
 
-const splitInlineArray = (value) => {
-  const items = [];
+const splitInlineArray = (value: string): string[] => {
+  const items: string[] = [];
   let current = "";
-  let quote = null;
+  let quote: string | null = null;
   for (const ch of value) {
     if ((ch === '"' || ch === "'") && current.at(-1) !== "\\") {
       quote = quote === ch ? null : quote ?? ch;
@@ -139,7 +161,7 @@ const splitInlineArray = (value) => {
   return items;
 };
 
-const parseScalar = (raw) => {
+const parseScalar = (raw: string): YamlValue => {
   const value = stripInlineComment(raw);
   if (value === "") return "";
   if (value === "[]") return [];
@@ -158,13 +180,13 @@ const parseScalar = (raw) => {
   return value;
 };
 
-const parseFrontMatter = (src) => {
+const parseFrontMatter = (src: string): FrontMatterParseResult => {
   const lines = src.split(/\r?\n/);
   if (lines[0] !== "---") return { attrs: null, error: null };
   const end = lines.findIndex((line, index) => index > 0 && line === "---");
   if (end === -1) return { attrs: null, error: "front matter is not closed" };
 
-  const attrs = {};
+  const attrs: FrontMatter = {};
   for (let i = 1; i < end; i += 1) {
     const line = lines[i];
     if (line.trim() === "" || line.trimStart().startsWith("#")) continue;
@@ -177,7 +199,7 @@ const parseFrontMatter = (src) => {
       attrs[key] = parseScalar(rest);
       continue;
     }
-    const values = [];
+    const values: YamlValue[] = [];
     let cursor = i + 1;
     while (cursor < end) {
       const item = lines[cursor].match(/^\s+-\s+(.*)$/);
@@ -195,7 +217,7 @@ const parseFrontMatter = (src) => {
   return { attrs, error: null };
 };
 
-const normalizeLinkTarget = (raw) => {
+const normalizeLinkTarget = (raw: string): string => {
   let target = raw.trim();
   if (target.startsWith("<")) {
     const close = target.indexOf(">");
@@ -206,8 +228,8 @@ const normalizeLinkTarget = (raw) => {
   return target;
 };
 
-const referenceDefinitions = (body) => {
-  const refs = new Map();
+const referenceDefinitions = (body: string): Map<string, string> => {
+  const refs = new Map<string, string>();
   const defRe = /^\s{0,3}\[([^\]]+)]:\s*(\S+(?:\s+\S+)*)\s*$/gm;
   for (const match of body.matchAll(defRe)) {
     refs.set(match[1].trim().toLowerCase(), normalizeLinkTarget(match[2]));
@@ -215,8 +237,8 @@ const referenceDefinitions = (body) => {
   return refs;
 };
 
-const extractInlineMarkdownTargets = (body) => {
-  const targets = [];
+const extractInlineMarkdownTargets = (body: string): string[] => {
+  const targets: string[] = [];
   const linkRe = /!?\[[^\]]*]\(([^)]+)\)/g;
   for (const match of body.matchAll(linkRe)) {
     targets.push(normalizeLinkTarget(match[1]));
@@ -224,8 +246,12 @@ const extractInlineMarkdownTargets = (body) => {
   return targets;
 };
 
-const extractReferenceMarkdownTargets = (file, body, errors) => {
-  const targets = [];
+const extractReferenceMarkdownTargets = (
+  file: string,
+  body: string,
+  errors: ValidationItem[],
+): string[] => {
+  const targets: string[] = [];
   const refs = referenceDefinitions(body);
   for (const target of refs.values()) targets.push(target);
 
@@ -245,7 +271,11 @@ const extractReferenceMarkdownTargets = (file, body, errors) => {
   return targets;
 };
 
-const extractMarkdownTargets = (file, src, errors) => {
+const extractMarkdownTargets = (
+  file: string,
+  src: string,
+  errors: ValidationItem[],
+): string[] => {
   const body = stripCodeBlocks(src);
   return [
     ...extractInlineMarkdownTargets(body),
@@ -253,7 +283,7 @@ const extractMarkdownTargets = (file, src, errors) => {
   ];
 };
 
-const splitTarget = (target) => {
+const splitTarget = (target: string): SplitTarget => {
   const [beforeAnchor, rawAnchor = ""] = target.split("#");
   const clean = beforeAnchor.split("?")[0];
   return {
@@ -262,11 +292,11 @@ const splitTarget = (target) => {
   };
 };
 
-const isRootRelative = (target) =>
+const isRootRelative = (target: string): boolean =>
   ROOT_RELATIVE_PREFIXES.some((prefix) => target.startsWith(prefix)) ||
-  ROOT_RELATIVE_FILES.includes(target);
+  (ROOT_RELATIVE_FILES as readonly string[]).includes(target);
 
-const resolveTarget = (fromFile, target) => {
+const resolveTarget = (fromFile: string, target: string): string | null => {
   if (isExternal(target)) return null;
   const { clean } = splitTarget(target);
   if (clean === "") return normalizePath(fromFile);
@@ -281,7 +311,7 @@ const resolveTarget = (fromFile, target) => {
   return normalizePath(`${base}/${decoded}`);
 };
 
-const decodeAnchor = (anchor) => {
+const decodeAnchor = (anchor: string): string => {
   try {
     return decodeURIComponent(anchor);
   } catch {
@@ -289,7 +319,7 @@ const decodeAnchor = (anchor) => {
   }
 };
 
-const slugifyHeading = (heading) =>
+const slugifyHeading = (heading: string): string =>
   heading
     .replace(/<[^>]+>/g, "")
     .replace(/`([^`]*)`/g, "$1")
@@ -299,11 +329,14 @@ const slugifyHeading = (heading) =>
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .replace(/\s+/g, "-");
 
-const headingAnchors = async (file, cache) => {
-  if (cache.has(file)) return cache.get(file);
+const headingAnchors = async (
+  file: string,
+  cache: Map<string, Set<string>>,
+): Promise<Set<string>> => {
+  if (cache.has(file)) return cache.get(file)!;
   const src = await Deno.readTextFile(file);
-  const anchors = new Set();
-  const counts = new Map();
+  const anchors = new Set<string>();
+  const counts = new Map<string, number>();
   for (const line of stripCodeBlocks(src).split(/\r?\n/)) {
     const match = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/);
     if (!match) continue;
@@ -317,10 +350,23 @@ const headingAnchors = async (file, cache) => {
   return anchors;
 };
 
-const validateLocalTarget = async (fromFile, target, errors, anchorCache) => {
+const validateLocalTarget = async (
+  fromFile: string,
+  target: string,
+  errors: ValidationItem[],
+  anchorCache: Map<string, Set<string>>,
+): Promise<void> => {
   if (isTemplatePlaceholder(target)) return;
-  const resolved = resolveTarget(fromFile, target);
-  if (!resolved) return;
+  const initial = resolveTarget(fromFile, target);
+  if (!initial) return;
+  // 未初期化 template では、利用者向けファイルが starter/ に畳まれている。
+  // README / QUICKSTART のリンクは展開後の layout を指すのが正しいため、
+  // root で見つからない場合だけ starter/ を同一 target として許容する。
+  const resolved = await exists(initial)
+    ? initial
+    : await exists(`${STARTER_ROOT}${initial}`)
+    ? `${STARTER_ROOT}${initial}`
+    : initial;
   if (!await exists(resolved)) {
     errors.push({
       file: fromFile,
@@ -340,8 +386,8 @@ const validateLocalTarget = async (fromFile, target, errors, anchorCache) => {
   }
 };
 
-const markdownFiles = async () => {
-  const files = [];
+const markdownFiles = async (): Promise<string[]> => {
+  const files: string[] = [];
   for (const root of DOC_ROOTS) {
     for await (const file of walkFiles(root, (path) => path.endsWith(".md"))) {
       files.push(file);
@@ -353,15 +399,15 @@ const markdownFiles = async () => {
   return files.sort();
 };
 
-const hasMarkdown = async (dir) => {
+const hasMarkdown = async (dir: string): Promise<boolean> => {
   for await (const _file of walkFiles(dir, (path) => path.endsWith(".md"))) {
     return true;
   }
   return false;
 };
 
-const collectIntentReferences = async () => {
-  const refs = new Set();
+const collectIntentReferences = async (): Promise<Set<string>> => {
+  const refs = new Set<string>();
   for await (
     const file of walkFiles("_docs/intent", (path) => path.endsWith(".md"))
   ) {
@@ -378,7 +424,11 @@ const collectIntentReferences = async () => {
   return refs;
 };
 
-const validateArchiveInvariants = async (errors, inScope, scoped) => {
+const validateArchiveInvariants = async (
+  errors: ValidationItem[],
+  inScope: InScopePredicate,
+  scoped: boolean,
+): Promise<void> => {
   // ディレクトリ存在自体を咎める検査は、スコープ有効時は既存構造を判定しないため抑止する。
   if (!scoped) {
     for (const type of FORBIDDEN_ARCHIVE_TYPES) {
@@ -401,7 +451,10 @@ const validateArchiveInvariants = async (errors, inScope, scoped) => {
     const parts = file.split("/");
     const [, archives, type, area, slug] = parts;
     if (
-      archives !== "archives" || !ARCHIVE_TYPES.includes(type) || !area || !slug
+      archives !== "archives" ||
+      !(ARCHIVE_TYPES as readonly string[]).includes(type) ||
+      !area ||
+      !slug
     ) {
       errors.push({
         file,
@@ -439,7 +492,10 @@ const validateArchiveInvariants = async (errors, inScope, scoped) => {
   }
 };
 
-const validateQaInvariants = async (errors, inScope) => {
+const validateQaInvariants = async (
+  errors: ValidationItem[],
+  inScope: InScopePredicate,
+): Promise<void> => {
   for await (
     const file of walkFiles("_docs/qa", (path) => path.endsWith(".md"))
   ) {
@@ -469,8 +525,11 @@ const validateQaInvariants = async (errors, inScope) => {
   }
 };
 
-const validateGuideReferenceWarnings = async (warnings, inScope) => {
-  for (const type of ["guide", "reference"]) {
+const validateGuideReferenceWarnings = async (
+  warnings: ValidationItem[],
+  inScope: InScopePredicate,
+): Promise<void> => {
+  for (const type of ["guide", "reference"] as const) {
     for await (
       const file of walkFiles(`_docs/${type}`, (path) => path.endsWith(".md"))
     ) {
@@ -499,11 +558,15 @@ const validateGuideReferenceWarnings = async (warnings, inScope) => {
   }
 };
 
-const report = (prefix, items, logger) => {
-  const grouped = new Map();
+const report = (
+  prefix: string,
+  items: ValidationItem[],
+  logger: (message: string) => void,
+): void => {
+  const grouped = new Map<string, string[]>();
   for (const item of items) {
     if (!grouped.has(item.file)) grouped.set(item.file, []);
-    grouped.get(item.file).push(item.message);
+    grouped.get(item.file)!.push(item.message);
   }
   for (const [file, messages] of grouped) {
     logger(`${prefix}: ${file}`);
@@ -511,14 +574,14 @@ const report = (prefix, items, logger) => {
   }
 };
 
-const run = async () => {
-  const errors = [];
-  const warnings = [];
-  const scope = await loadScope();
+const run = async (): Promise<void> => {
+  const errors: ValidationItem[] = [];
+  const warnings: ValidationItem[] = [];
+  const scope: DocScope = await loadScope();
   const inScope = makeInScope(scope);
   const scoped = scope !== null;
   const files = (await markdownFiles()).filter(inScope);
-  const anchorCache = new Map();
+  const anchorCache = new Map<string, Set<string>>();
 
   for (const file of files) {
     const src = await Deno.readTextFile(file);
@@ -531,13 +594,15 @@ const run = async () => {
       errors.push({ file, message: error });
       continue;
     }
-    if (attrs && "references" in attrs) {
+    // validator fixture は references に故意の不正値を持つため、fixture では
+    // references 検査ごとスキップする。しないと fixture 自身で check-docs が落ちる。
+    if (attrs && "references" in attrs && !isValidatorFixture(file)) {
       if (!Array.isArray(attrs.references)) {
         errors.push({
           file,
           message: "front matter references must be an array",
         });
-      } else if (!isValidatorFixture(file)) {
+      } else {
         for (const ref of attrs.references) {
           if (typeof ref !== "string") {
             errors.push({
@@ -563,7 +628,7 @@ const run = async () => {
   }
 };
 
-run().catch((err) => {
-  console.error(err);
+run().catch((err: unknown) => {
+  console.error(err instanceof Error ? err.message : String(err));
   Deno.exit(1);
 });

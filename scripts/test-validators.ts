@@ -1,24 +1,44 @@
 // Deno validator self-test runner: exercises valid and intentionally invalid fixtures.
 
+type ValidatorKind = "todo" | "intent" | "qa" | "frontmatter";
+
+type TestCaseParams = {
+  kind: ValidatorKind;
+  target: string;
+  shouldPass: boolean;
+};
+
+type ScopeCaseParams = {
+  label: string;
+  scopePaths: string;
+  shouldPass: boolean;
+};
+
+type CommandResult = {
+  code: number;
+  stdout: string;
+  stderr: string;
+};
+
 const TODO_VALID = [
   "_evals/validator-fixtures/todo/valid/basic.md",
-];
+] as const;
 const TODO_INVALID = [
   "_evals/validator-fixtures/todo/invalid/missing-title.md",
   "_evals/validator-fixtures/todo/invalid/malformed-heading.md",
   "_evals/validator-fixtures/todo/invalid/missing-qa-for-medium.md",
   "_evals/validator-fixtures/todo/invalid/mismatched-heading-id.md",
-];
+] as const;
 const INTENT_VALID = [
   "_evals/validator-fixtures/intent/valid",
-];
+] as const;
 const INTENT_INVALID = [
   "_evals/validator-fixtures/intent/invalid/missing-why.md",
   "_evals/validator-fixtures/intent/invalid/orphan-invariant.md",
-];
+] as const;
 const QA_VALID = [
   "_evals/validator-fixtures/qa/valid",
-];
+] as const;
 const QA_INVALID = [
   "_evals/validator-fixtures/qa/invalid/missing-invariant.md",
   "_evals/validator-fixtures/qa/invalid/v2-missing-decision-scope.md",
@@ -26,11 +46,22 @@ const QA_INVALID = [
   "_evals/validator-fixtures/qa/invalid/verification-in-progress-status.md",
   "_evals/validator-fixtures/qa/invalid/verification-missing-test-plan-reference.md",
   "_evals/validator-fixtures/qa/invalid/qa-archive-path.md",
-];
+] as const;
+const FRONTMATTER_VALID = [
+  "_evals/validator-fixtures/frontmatter/valid/intent-schema.md",
+  "_evals/validator-fixtures/frontmatter/valid/qa-schema.md",
+] as const;
+const FRONTMATTER_INVALID = [
+  "_evals/validator-fixtures/frontmatter/invalid/duplicate-field.md",
+  "_evals/validator-fixtures/frontmatter/invalid/unknown-field.md",
+  "_evals/validator-fixtures/frontmatter/invalid/wrong-type.md",
+  "_evals/validator-fixtures/frontmatter/invalid/intent-schema-on-qa.md",
+  "_evals/validator-fixtures/frontmatter/invalid/qa-schema-on-intent.md",
+] as const;
 
 const deno = Deno.execPath();
 
-const runCommand = async (args) => {
+const runCommand = async (args: string[]): Promise<CommandResult> => {
   const command = new Deno.Command(deno, {
     args,
     stdout: "piped",
@@ -44,15 +75,24 @@ const runCommand = async (args) => {
   };
 };
 
-const validatorArgs = (kind, target) => {
+const validatorArgs = (kind: ValidatorKind, target: string): string[] => {
+  if (kind === "frontmatter") {
+    return [
+      "run",
+      "--allow-read",
+      "scripts/validate-frontmatter.ts",
+      "--fixture",
+      target,
+    ];
+  }
   if (kind === "todo") {
-    return ["run", "--allow-read", "scripts/validate-todo.mjs", target];
+    return ["run", "--allow-read", "scripts/validate-todo.ts", target];
   }
   if (kind === "intent") {
     return [
       "run",
       "--allow-read",
-      "scripts/validate-intent.mjs",
+      "scripts/validate-intent.ts",
       "--fixture",
       target,
     ];
@@ -60,13 +100,17 @@ const validatorArgs = (kind, target) => {
   return [
     "run",
     "--allow-read",
-    "scripts/validate-qa.mjs",
+    "scripts/validate-qa.ts",
     "--fixture",
     target,
   ];
 };
 
-const testCase = async ({ kind, target, shouldPass }) => {
+const testCase = async ({
+  kind,
+  target,
+  shouldPass,
+}: TestCaseParams): Promise<boolean> => {
   const result = await runCommand(validatorArgs(kind, target));
   const passed = shouldPass ? result.code === 0 : result.code !== 0;
   const label = `${kind} ${target}`;
@@ -91,17 +135,29 @@ const testCase = async ({ kind, target, shouldPass }) => {
 const SCOPE_FIXTURE =
   "_evals/validator-fixtures/qa/invalid/missing-invariant.md";
 
-const runQaWithScope = async (scopePaths) => {
+// Cursor AppImage 等が LD_LIBRARY_PATH を付ける環境では、子 process にそのまま
+// 継承させると --allow-run=git が拒否される。親 env を掃除してから上書きする。
+const childEnv = (
+  overrides: Record<string, string>,
+): Record<string, string> => {
+  const env = { ...Deno.env.toObject() };
+  delete env.LD_LIBRARY_PATH;
+  delete env.LD_PRELOAD;
+  return { ...env, ...overrides };
+};
+
+const runQaWithScope = async (scopePaths: string): Promise<number> => {
   const command = new Deno.Command(deno, {
     args: [
       "run",
       "--allow-read",
       "--allow-env",
-      "scripts/validate-qa.mjs",
+      "scripts/validate-qa.ts",
       "--fixture",
       SCOPE_FIXTURE,
     ],
-    env: { DD_SCOPE_PATHS: scopePaths },
+    clearEnv: true,
+    env: childEnv({ DD_SCOPE_PATHS: scopePaths }),
     stdout: "piped",
     stderr: "piped",
   });
@@ -109,18 +165,19 @@ const runQaWithScope = async (scopePaths) => {
   return output.code;
 };
 
-const runFrontmatterWithGitScope = async (env) => {
+const runFrontmatterWithGitScope = async (
+  env: Record<string, string>,
+): Promise<number> => {
   const command = new Deno.Command(deno, {
     args: [
       "run",
       "--allow-read",
       "--allow-env",
       "--allow-run=git",
-      "scripts/validate-frontmatter.mjs",
+      "scripts/validate-frontmatter.ts",
     ],
-    // Parent wrapper scopes must not bypass the explicit DD_SCOPE_BASE /
-    // DD_SCOPE_DIFF_FILTER case exercised by this subprocess.
-    env: { DD_SCOPE_PATHS: "", ...env },
+    clearEnv: true,
+    env: childEnv(env),
     stdout: "piped",
     stderr: "piped",
   });
@@ -128,57 +185,125 @@ const runFrontmatterWithGitScope = async (env) => {
   return output.code;
 };
 
-const runFrontmatterFixtureCase = async ({
-  label,
-  fixture,
-  target,
-  shouldPass = true,
-  expectedWarnings = [],
-  forbiddenWarnings = [],
-  expectedErrors = [],
-}) => {
-  const repoRoot = Deno.cwd();
-  const temp = await Deno.makeTempDir({ prefix: "docs-dd-frontmatter-" });
+const runFrontmatterIn = async (
+  cwd: string,
+  env: Record<string, string>,
+): Promise<number> => {
+  const command = new Deno.Command(deno, {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-env",
+      "--allow-run=git",
+      `${Deno.cwd()}/scripts/validate-frontmatter.ts`,
+    ],
+    cwd,
+    clearEnv: true,
+    env: childEnv(env),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  return output.code;
+};
+
+const runGit = async (cwd: string, args: string[]): Promise<string> => {
+  const output = await new Deno.Command("git", {
+    args,
+    cwd,
+    clearEnv: true,
+    env: childEnv({}),
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `git ${args.join(" ")} failed: ${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+  return new TextDecoder().decode(output.stdout).trim();
+};
+
+const ensureDir = async (path: string): Promise<void> => {
+  await Deno.mkdir(path, { recursive: true });
+};
+
+const write = (path: string, content: string): Promise<void> =>
+  Deno.writeTextFile(path, content);
+
+const runCompatibilityBaselineCases = async (): Promise<boolean> => {
+  const temp = await Deno.makeTempDir({
+    dir: Deno.cwd(),
+    prefix: ".docs-dd-compatibility-",
+  });
+  const legacyPath = "_docs/draft/legacy.md";
+  const retiredPath = "_docs/draft/retired.md";
+  const legacyContent = "# Legacy\n\nRemediated lint only.\n";
   try {
-    const targetPath = `${temp}/${target}`;
-    await ensureDir(targetPath.slice(0, targetPath.lastIndexOf("/")));
-    await write(targetPath, await Deno.readTextFile(`${repoRoot}/${fixture}`));
-    const command = new Deno.Command(deno, {
-      args: [
-        "run",
-        "--allow-read",
-        `${repoRoot}/scripts/validate-frontmatter.mjs`,
-      ],
-      cwd: temp,
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const output = await command.output();
-    const stderr = new TextDecoder().decode(output.stderr);
-    const exitMatches = shouldPass ? output.code === 0 : output.code !== 0;
-    const passed = exitMatches &&
-      expectedWarnings.every((warning) => stderr.includes(warning)) &&
-      forbiddenWarnings.every((warning) => !stderr.includes(warning)) &&
-      expectedErrors.every((error) => stderr.includes(error));
-    if (passed) {
-      console.log(`PASS frontmatter ${label}`);
-      return true;
-    }
-    console.error(`FAIL frontmatter ${label}: exit ${output.code}`);
-    if (stderr.trim()) console.error(stderr.trim());
-    return false;
+    await ensureDir(`${temp}/_docs/draft`);
+    await write(`${temp}/${legacyPath}`, "# Legacy\n");
+    await write(`${temp}/${retiredPath}`, "# Retired legacy\n");
+    await runGit(temp, ["init", "--quiet"]);
+    await runGit(temp, ["config", "user.email", "validator@example.test"]);
+    await runGit(temp, ["config", "user.name", "Validator"]);
+    await runGit(temp, ["add", "."]);
+    await runGit(temp, ["commit", "--quiet", "-m", "base"]);
+    const base = await runGit(temp, ["rev-parse", "HEAD"]);
+
+    await write(`${temp}/${legacyPath}`, legacyContent);
+    await runGit(temp, ["add", "."]);
+    await runGit(temp, ["commit", "--quiet", "-m", "lint remediation"]);
+    const blob = await runGit(temp, ["hash-object", "--", legacyPath]);
+    const retiredBlob = await runGit(temp, ["hash-object", "--", retiredPath]);
+    const manifest = `${temp}/compatibility.tsv`;
+    const writeManifest = (rows: Array<[string, string]>): Promise<void> =>
+      write(
+        manifest,
+        `path\tblob_sha1\n${
+          rows.map(([path, sha]) => `${path}\t${sha}`).join("\n")
+        }\n`,
+      );
+    await writeManifest([[legacyPath, blob], [retiredPath, retiredBlob]]);
+    const scopeEnv: Record<string, string> = {
+      DD_SCOPE_BASE: base,
+      DD_SCOPE_DIFF_FILTER: "ACMR",
+      DD_SCOPE_COMPATIBILITY_BASELINE: manifest,
+    };
+
+    if (await runFrontmatterIn(temp, scopeEnv) !== 0) return false;
+
+    await write(`${temp}/${legacyPath}`, "# Legacy\n\nContent changed.\n");
+    if (await runFrontmatterIn(temp, scopeEnv) === 0) return false;
+    await write(`${temp}/${legacyPath}`, legacyContent);
+
+    await writeManifest([["_docs/draft/unknown.md", blob]]);
+    if (await runFrontmatterIn(temp, scopeEnv) === 0) return false;
+
+    await writeManifest([[
+      legacyPath,
+      "0000000000000000000000000000000000000000",
+    ]]);
+    if (await runFrontmatterIn(temp, scopeEnv) === 0) return false;
+
+    await write(manifest, "path\tblob_sha1\nmalformed-row\n");
+    if (await runFrontmatterIn(temp, scopeEnv) === 0) return false;
+
+    await writeManifest([[legacyPath, blob], [retiredPath, retiredBlob]]);
+    await Deno.remove(`${temp}/${retiredPath}`);
+    await runGit(temp, ["add", "-u"]);
+    await runGit(temp, ["commit", "--quiet", "-m", "retire legacy doc"]);
+    if (await runFrontmatterIn(temp, scopeEnv) === 0) return false;
+
+    await writeManifest([[legacyPath, blob]]);
+    return (await runFrontmatterIn(temp, scopeEnv)) === 0;
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
 };
 
-const ensureDir = async (path) => {
-  await Deno.mkdir(path, { recursive: true });
-};
-
-const write = (path, content) => Deno.writeTextFile(path, content);
-
-const runScopedTodoQaConsistencyCase = async () => {
+const runScopedTodoQaConsistencyCase = async (): Promise<boolean> => {
   const repoRoot = Deno.cwd();
   const temp = await Deno.makeTempDir({ prefix: "docs-dd-qa-scope-" });
   try {
@@ -225,11 +350,12 @@ related_prs: []
         "run",
         "--allow-read",
         "--allow-env",
-        `${repoRoot}/scripts/validate-qa.mjs`,
+        `${repoRoot}/scripts/validate-qa.ts`,
         "_docs/qa",
       ],
       cwd: temp,
-      env: { DD_SCOPE_PATHS: "_docs/qa/Other/not-this.md" },
+      clearEnv: true,
+      env: childEnv({ DD_SCOPE_PATHS: "_docs/qa/Other/not-this.md" }),
       stdout: "piped",
       stderr: "piped",
     });
@@ -240,7 +366,7 @@ related_prs: []
   }
 };
 
-const runBacklogFutureQaReferenceCase = async () => {
+const runBacklogFutureQaReferenceCase = async (): Promise<boolean> => {
   const repoRoot = Deno.cwd();
   const temp = await Deno.makeTempDir({ prefix: "docs-dd-qa-backlog-" });
   try {
@@ -269,7 +395,7 @@ const runBacklogFutureQaReferenceCase = async () => {
       args: [
         "run",
         "--allow-read",
-        `${repoRoot}/scripts/validate-qa.mjs`,
+        `${repoRoot}/scripts/validate-qa.ts`,
         "_docs/qa",
       ],
       cwd: temp,
@@ -283,7 +409,11 @@ const runBacklogFutureQaReferenceCase = async () => {
   }
 };
 
-const scopeCase = async ({ label, scopePaths, shouldPass }) => {
+const scopeCase = async ({
+  label,
+  scopePaths,
+  shouldPass,
+}: ScopeCaseParams): Promise<boolean> => {
   const code = await runQaWithScope(scopePaths);
   const passed = shouldPass ? code === 0 : code !== 0;
   if (passed) {
@@ -318,6 +448,12 @@ for (const target of QA_VALID) {
 for (const target of QA_INVALID) {
   ok = await testCase({ kind: "qa", target, shouldPass: false }) && ok;
 }
+for (const target of FRONTMATTER_VALID) {
+  ok = await testCase({ kind: "frontmatter", target, shouldPass: true }) && ok;
+}
+for (const target of FRONTMATTER_INVALID) {
+  ok = await testCase({ kind: "frontmatter", target, shouldPass: false }) && ok;
+}
 
 // 対象外パスのみを scope に置くと、invalid fixture は判定されずに pass する。
 ok = await scopeCase({
@@ -332,7 +468,7 @@ ok = await scopeCase({
   shouldPass: false,
 }) && ok;
 
-ok = await (async () => {
+ok = await (async (): Promise<boolean> => {
   const code = await runFrontmatterWithGitScope({
     DD_SCOPE_BASE: "HEAD",
     DD_SCOPE_DIFF_FILTER: "ACMR",
@@ -345,7 +481,21 @@ ok = await (async () => {
   return false;
 })() && ok;
 
-ok = await (async () => {
+ok = await (async (): Promise<boolean> => {
+  const passed = await runCompatibilityBaselineCases();
+  if (passed) {
+    console.log(
+      "PASS compatibility baseline skips exact blobs, re-enters changed files, and fails closed for invalid or stale rows",
+    );
+    return true;
+  }
+  console.error(
+    "FAIL compatibility baseline did not preserve exact-blob scope or fail-closed validation",
+  );
+  return false;
+})() && ok;
+
+ok = await (async (): Promise<boolean> => {
   const passed = await runScopedTodoQaConsistencyCase();
   if (passed) {
     console.log("PASS qa TODO consistency checks scope-excluded QA refs");
@@ -355,7 +505,7 @@ ok = await (async () => {
   return false;
 })() && ok;
 
-ok = await (async () => {
+ok = await (async (): Promise<boolean> => {
   const passed = await runBacklogFutureQaReferenceCase();
   if (passed) {
     console.log("PASS qa allows canonical future QA refs in Backlog");
@@ -365,43 +515,7 @@ ok = await (async () => {
   return false;
 })() && ok;
 
-ok = await runFrontmatterFixtureCase({
-  label: "accepts intent_schema only on intent docs",
-  fixture: "_evals/validator-fixtures/frontmatter/valid/intent-schema.md",
-  target: "_docs/intent/Core/schema-fixture/decision.md",
-  forbiddenWarnings: ["unknown field: intent_schema"],
-}) && ok;
-ok = await runFrontmatterFixtureCase({
-  label: "accepts qa_schema only on QA docs",
-  fixture: "_evals/validator-fixtures/frontmatter/valid/qa-schema.md",
-  target: "_docs/qa/Core/schema-fixture/test-plan.md",
-  forbiddenWarnings: ["unknown field: qa_schema"],
-}) && ok;
-ok = await runFrontmatterFixtureCase({
-  label: "warns for schema fields on the wrong document type",
-  fixture:
-    "_evals/validator-fixtures/frontmatter/warning/schema-on-wrong-type.md",
-  target: "_docs/reference/Core/schema-fixture/reference.md",
-  expectedWarnings: [
-    "unknown field: intent_schema",
-    "unknown field: qa_schema",
-  ],
-}) && ok;
-ok = await runFrontmatterFixtureCase({
-  label: "retains generic unknown-field warnings",
-  fixture: "_evals/validator-fixtures/frontmatter/warning/unknown-field.md",
-  target: "_docs/reference/Core/schema-fixture/reference.md",
-  expectedWarnings: ["unknown field: custom_field"],
-}) && ok;
-ok = await runFrontmatterFixtureCase({
-  label: "rejects consecutive duplicate front matter",
-  fixture: "_evals/validator-fixtures/frontmatter/invalid/duplicate-block.txt",
-  target: "_docs/reference/Core/schema-fixture/reference.md",
-  shouldPass: false,
-  expectedErrors: ["consecutive duplicate front matter blocks"],
-}) && ok;
-
-ok = await (async () => {
+ok = await (async (): Promise<boolean> => {
   const code = await runFrontmatterWithGitScope({
     DD_SCOPE_BASE: "HEAD",
     DD_SCOPE_DIFF_FILTER: "A;rm",

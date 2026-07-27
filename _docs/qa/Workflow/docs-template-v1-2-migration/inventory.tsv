@@ -1,0 +1,431 @@
+path	upstream_delta	project_relation	resolution	schema_affected	template_meta	rationale
+.agents/skills/docs-cleanup/SKILL.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.agents/skills/docs-inventory/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.agents/skills/docs-prep/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.agents/skills/docs-template-migration/SKILL.md	unchanged	customized-shared	keep	no	no	no upstream change
+.agents/skills/frontend-design/SKILL.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.agents/skills/implementation-prep/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.agents/skills/post-implementation/SKILL.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.agents/skills/qa-prep/SKILL.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.agents/skills/qa-review/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.agents/skills/test-maintenance/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.claude/settings.json	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.claude/skills/docs-cleanup/SKILL.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.claude/skills/docs-inventory/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.claude/skills/docs-prep/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.claude/skills/docs-template-migration/SKILL.md	unchanged	customized-shared	keep	no	no	no upstream change
+.claude/skills/implementation-prep/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.claude/skills/post-implementation/SKILL.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.claude/skills/qa-prep/SKILL.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.claude/skills/qa-review/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.claude/skills/test-maintenance/SKILL.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+.codex/hooks.json	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+.fvmrc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.gitattributes	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.github/workflows/docs-ci.yml	modified	customized-shared	merge	no	no	retain Backcast ACMR scope and downstream lint set; template-only starter expansion job is not applicable
+.gitignore	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.markdownlint.jsonc	unchanged	customized-shared	keep	no	no	no upstream change
+.metadata	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.template-legacy/README.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.template-legacy/standards/jj_workflow.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.vscode/extensions.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+.vscode/settings.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+AGENTS.md	unchanged	customized-shared	keep	no	no	no upstream change
+CLAUDE.md	unchanged	customized-shared	keep	no	no	no upstream change
+LICENSE.txt	unchanged	customized-shared	keep	no	no	no upstream change
+QUICKSTART.md	modified	customized-shared	keep	no	no	preserve the project-approved absence; the established project uses _docs/documentation_guide.md
+README.md	modified	customized-shared	keep	no	no	preserve the Medo product README; v1.2 template initialization guidance is not a downstream product concern
+TODO.md	unchanged	customized-shared	keep	no	no	no upstream change
+_docs/archives/draft/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/archives/plan/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/archives/plan/Core/action-buffer-time.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/calendar-registration-enhancement.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/pro-free-gate.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/revenuecat-purchase-flow.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/revenuecat-supabase-entitlement-sync.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/reviewer-temporary-entitlement.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/subscription-management-route.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/timeline-image-share.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/timeline-templates.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/Core/timeline-text-share.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/UI/timeline-compact-overview.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/UI/timeline-sidebar-double-tap-insert.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/UI/timeline-slot-toggle.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/plan/UI/timeline-title-search-jump.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/archives/survey/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/documentation_guide.md	modified	customized-shared	merge	no	no	pathwise merge preserves project-specific content
+_docs/draft/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/guide/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/guide/flutter/environment_setup.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/guide/medo/google_play_data_safety_memo.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/guide/medo/privacy_policy_operations.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/guide/medo/timeline_editor.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/intent/.gitkeep	unchanged	upstream-owned-unmodified	keep	yes	no	no upstream change
+_docs/intent/Workflow/docs-template-v1-migration/decision.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/Workflow/lifecycle-self-audit/decision.md	removed	customized-shared	remove	yes	yes	path was already absent at cutoff; accept upstream removal without a migration deletion
+_docs/intent/medo/action_buffer_time.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/billing_logout_state_boundary.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/calendar_export_ics.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/drift_persistence_repository.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/local_reminder_notifications.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/pro_free_gate.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/reorder_placement_preview.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/revenuecat_purchase_flow.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/revenuecat_supabase_entitlement_sync.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/reverse_timeline_interaction_model.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/reviewer_temporary_entitlement.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/subscription_management_route.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_compact_overview.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_image_share.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_list_management.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_sidebar_double_tap_insert.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_templates.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_text_share.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/timeline_title_search_jump.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/intent/medo/usage_analytics.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/plan/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/plan/Core/account-deletion-local-cleanup.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Core/block-pin-type-toggle.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Core/calendar-export-rebuild-deduplication.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Core/flutter-web-drift-minimum.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Core/purchase-auth-gate.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Core/usage-analytics-hardening.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Core/usage-analytics.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/block-affordance-swipe-containment.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/reorder-overview-scaling.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/swipe-delete-undo-snackbar.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/template-save-flow-alignment.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/template-toolbar-popover.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/timeline-alternative-comparison.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/timeline-interaction-performance.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/two-step-timeline-density.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/UI/ui-layering-standard-alignment.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Workflow/docs-template-v1-migration/plan.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/plan/Workflow/lifecycle-self-audit/plan.md	removed	customized-shared	remove	no	yes	path was already absent at cutoff; accept upstream removal without a migration deletion
+_docs/qa/.gitkeep	unchanged	upstream-owned-unmodified	keep	yes	no	no upstream change
+_docs/qa/Workflow/docs-template-v1-migration/inventory.tsv	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/qa/Workflow/docs-template-v1-migration/test-plan.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/qa/Workflow/docs-template-v1-migration/verification.md	unchanged	project-only	keep	yes	no	project-only path remains outside template reconciliation
+_docs/qa/Workflow/lifecycle-self-audit/test-plan.md	removed	customized-shared	remove	yes	yes	path was already absent at cutoff; accept upstream removal without a migration deletion
+_docs/qa/Workflow/lifecycle-self-audit/verification.md	removed	customized-shared	remove	yes	yes	path was already absent at cutoff; accept upstream removal without a migration deletion
+_docs/reference/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/reference/medo/calendar_export_reference.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/reference/medo/image_export_reference.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/reference/medo/persistence_repository_reference.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/reference/medo/reminder_notification_reference.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/reference/medo/text_export_reference.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/reference/medo/timeline_domain_reference.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/standards/documentation_guidelines.md	modified	customized-shared	merge	no	no	pathwise merge preserves project-specific content
+_docs/standards/documentation_operations.md	modified	upstream-owned-unmodified	apply	yes	no	cutoff matches B, so apply the exact upstream update
+_docs/standards/privacy-policy.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/standards/quality_assurance.md	unchanged	upstream-owned-unmodified	keep	yes	no	no upstream change
+_docs/standards/security_for_agents.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/draft.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/guide.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/intent.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/plan.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/qa-test-plan.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/qa-verification.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/reference.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/templates/survey.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/standards/ui_layering.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_docs/survey/.gitkeep	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_docs/survey/UI/timeline-interaction-performance-profile.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+_evals/agent-workflows/README.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/agent-workflow-misbehavior-check.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/archive-flow.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/blocked-verification.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/breaking-change.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/bug-regression-test.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/experimental-baseline.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/high-risk-change-verification.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/historical-prompt-not-operational.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/agent-workflows/cases/intentional-omission-risk.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/agent-workflows/cases/malformed-todo-heading.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/agent-workflows/cases/medium-feature.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/misleading-optimization.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/qa-prep-from-intent.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/qa-status-verdict-mismatch.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/agent-workflows/cases/rationale-preserving-change.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/refactor-behavior-preservation.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/small-bug.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/stale-draft-cleanup.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/cases/template-version-migration.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/agent-workflows/expected-invariants.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/README.md	modified	customized-shared	merge	no	no	pathwise merge preserves project-specific content
+_evals/validator-fixtures/frontmatter/invalid/duplicate-block.txt	unchanged	project-only	remove	yes	no	owner-authorized cleanup; replaced by v1.2.0 duplicate-field fixture and no active references remain
+_evals/validator-fixtures/frontmatter/invalid/duplicate-field.md	added	customized-shared	apply	yes	no	import the v1.2.0 consumer file
+_evals/validator-fixtures/frontmatter/invalid/intent-schema-on-qa.md	added	customized-shared	apply	yes	no	import the v1.2.0 consumer file
+_evals/validator-fixtures/frontmatter/invalid/qa-schema-on-intent.md	added	customized-shared	apply	yes	no	import the v1.2.0 consumer file
+_evals/validator-fixtures/frontmatter/invalid/unknown-field.md	added	customized-shared	apply	yes	no	import the v1.2.0 consumer file
+_evals/validator-fixtures/frontmatter/invalid/wrong-type.md	added	customized-shared	apply	yes	no	import the v1.2.0 consumer file
+_evals/validator-fixtures/frontmatter/valid/intent-schema.md	added	customized-shared	merge	yes	no	preserve cutoff customization while adopting the added contract
+_evals/validator-fixtures/frontmatter/valid/qa-schema.md	added	customized-shared	merge	yes	no	preserve cutoff customization while adopting the added contract
+_evals/validator-fixtures/frontmatter/warning/schema-on-wrong-type.md	unchanged	project-only	remove	yes	no	owner-authorized cleanup; replaced by v1.2.0 wrong-type fixture and no active references remain
+_evals/validator-fixtures/frontmatter/warning/unknown-field.md	unchanged	project-only	remove	yes	no	owner-authorized cleanup; replaced by v1.2.0 unknown-field fixture and no active references remain
+_evals/validator-fixtures/intent/invalid/missing-why.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/intent/invalid/orphan-invariant.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/intent/valid/decision.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/links/valid-reference-anchor.md	unchanged	customized-shared	keep	no	no	no upstream change
+_evals/validator-fixtures/qa/invalid/missing-invariant.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/invalid/qa-archive-path.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/invalid/status-verdict-mismatch.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/invalid/v2-missing-decision-scope.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/invalid/verification-in-progress-status.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/invalid/verification-missing-test-plan-reference.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/valid/test-plan.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/qa/valid/verification-pass.md	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+_evals/validator-fixtures/todo/invalid/malformed-heading.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/todo/invalid/mismatched-heading-id.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/todo/invalid/missing-qa-for-medium.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/todo/invalid/missing-title.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+_evals/validator-fixtures/todo/valid/basic.md	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+analysis_options.yaml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/.gitignore	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/build.gradle.kts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/debug/AndroidManifest.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/AndroidManifest.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/kotlin/dev/otibo/medo/MainActivity.kt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/drawable-v21/launch_background.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/drawable/launch_background.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/drawable/notification_icon.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/mipmap-hdpi/ic_launcher.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/mipmap-mdpi/ic_launcher.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/mipmap-xhdpi/ic_launcher.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/values-night/colors.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/values-night/styles.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/values/colors.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/main/res/values/styles.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/app/src/profile/AndroidManifest.xml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/build.gradle.kts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/gradle.properties	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/gradle/wrapper/gradle-wrapper.properties	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+android/settings.gradle.kts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+assets/images/medo_icon.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+deno.json	added	customized-shared	apply	no	no	import the v1.2.0 consumer file
+devtools_options.yaml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+docs-template.lock.example.json	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+docs-template.lock.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/.gitignore	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Flutter/AppFrameworkInfo.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Flutter/Debug.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Flutter/Release.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcodeproj/project.pbxproj	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcodeproj/project.xcworkspace/contents.xcworkspacedata	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcworkspace/contents.xcworkspacedata	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/AppDelegate.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Base.lproj/LaunchScreen.storyboard	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Base.lproj/Main.storyboard	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Info.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/Runner-Bridging-Header.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/Runner/SceneDelegate.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+ios/RunnerTests/RunnerTests.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/analytics/usage_analytics.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/auth/account_deletion_cleanup.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/auth/auth_providers.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/auth/share_temporary_file_cleanup.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/auth/share_temporary_file_cleanup_io.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/auth/share_temporary_file_cleanup_stub.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/billing/billing_providers.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/billing/gate_helper.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/billing/paywall_screen.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/billing/pro_entitlement_cache_repository.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/billing/pro_entitlement_providers.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/billing/pro_entitlement_repository.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/block_item.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/calendar_export.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/calendar_export_delivery.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/calendar_export_request_builder.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/compact_overview.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/config/revenuecat_config.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/config/supabase_config.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/edit_sheet.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/image_export_delivery.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/image_export_delivery_io.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/image_export_delivery_stub.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/image_export_delivery_web.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/main.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/models.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/notifications/reminder_notifications.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/app_database.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/app_database.g.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/persistence_providers.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/plan_repository.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/timeline_state_codec.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/timeline_template_apply_service.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/persistence/timeline_template_repository.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/plan_manager_sheet.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/plan_panel.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/platform_time_picker.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/settings/settings_screen.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/state.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/template_sheet.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/text_export_delivery.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/theme.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/timeline_image_export.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/timeline_image_share_card.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/timeline_screen.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+lib/timeline_text_export.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/.gitignore	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/CMakeLists.txt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/flutter/CMakeLists.txt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/flutter/generated_plugin_registrant.cc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/flutter/generated_plugin_registrant.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/flutter/generated_plugins.cmake	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/runner/CMakeLists.txt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/runner/main.cc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/runner/my_application.cc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+linux/runner/my_application.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/.gitignore	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Flutter/Flutter-Debug.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Flutter/Flutter-Release.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Flutter/GeneratedPluginRegistrant.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner.xcodeproj/project.pbxproj	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner.xcworkspace/contents.xcworkspacedata	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/AppDelegate.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Base.lproj/MainMenu.xib	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Configs/AppInfo.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Configs/Debug.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Configs/Release.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Configs/Warnings.xcconfig	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/DebugProfile.entitlements	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Info.plist	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/MainFlutterWindow.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/Runner/Release.entitlements	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+macos/RunnerTests/RunnerTests.swift	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+public/medo/account-deletion/index.html	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+public/medo/privacy/index.html	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+pubspec.lock	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+pubspec.yaml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+scripts/agent-workflow-hook.mjs	removed	upstream-owned-unmodified	remove	no	no	owner-authorized cleanup; canonical hook config uses the v1.2.0 TypeScript replacement
+scripts/agent-workflow-hook.ts	added	customized-shared	apply	no	no	import the v1.2.0 consumer file
+scripts/check-docs.sh	modified	upstream-owned-unmodified	apply	no	no	cutoff matches B, so apply the exact upstream update
+scripts/create-template-archive.sh	unchanged	upstream-owned-unmodified	keep	no	no	no upstream change
+scripts/scope.mjs	removed	upstream-owned-unmodified	remove	no	no	owner-authorized cleanup; all canonical validators import scope.ts
+scripts/scope.ts	added	customized-shared	apply	no	no	import the v1.2.0 consumer file
+scripts/test-agent-workflow-hook.mjs	removed	upstream-owned-unmodified	remove	no	no	owner-authorized cleanup; replaced by test-agent-workflow-hook.ts
+scripts/test-agent-workflow-hook.ts	added	customized-shared	apply	no	no	import the v1.2.0 consumer file
+scripts/test-agent-workflow-smoke.mjs	removed	customized-shared	remove	no	no	owner-authorized cleanup; downstream compatibility is carried by test-agent-workflow-smoke.ts
+scripts/test-agent-workflow-smoke.ts	added	customized-shared	merge	no	no	import v1.2.0 while using the downstream documentation guide instead of the absent template QUICKSTART
+scripts/test-validators.mjs	removed	customized-shared	remove	no	no	owner-authorized cleanup; downstream regression coverage is carried by test-validators.ts
+scripts/test-validators.ts	added	customized-shared	merge	no	no	import v1.2.0 and retain a regression case for canonical future QA references in Backlog
+scripts/validate-doc-links.mjs	removed	customized-shared	remove	no	no	owner-authorized cleanup; project root compatibility is carried by validate-doc-links.ts
+scripts/validate-doc-links.ts	added	customized-shared	merge	no	no	import v1.2.0 and retain canonical root references for Backcast lib/ and public/ paths
+scripts/validate-frontmatter.mjs	removed	customized-shared	remove	yes	no	owner-authorized cleanup; replaced by strict v1.2.0 validate-frontmatter.ts
+scripts/validate-frontmatter.ts	added	customized-shared	apply	yes	no	import the v1.2.0 consumer file
+scripts/validate-intent.mjs	removed	customized-shared	remove	yes	no	owner-authorized cleanup; legacy flat-path compatibility is carried by validate-intent.ts
+scripts/validate-intent.ts	added	customized-shared	merge	yes	no	import v1.2.0 while retaining flat-path compatibility for unmarked legacy intent records
+scripts/validate-qa.mjs	removed	customized-shared	remove	yes	no	owner-authorized cleanup; Backlog future-reference compatibility is carried by validate-qa.ts
+scripts/validate-qa.ts	added	customized-shared	merge	yes	no	import v1.2.0 while requiring referenced QA files only for Ready and In Progress tasks
+scripts/validate-todo.mjs	removed	upstream-owned-unmodified	remove	no	no	owner-authorized cleanup; replaced by validate-todo.ts
+scripts/validate-todo.ts	added	customized-shared	apply	no	no	import the v1.2.0 consumer file
+supabase/config.toml	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/delete-account/.npmrc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/delete-account/deno.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/delete-account/deno.lock	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/delete-account/index.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/revenuecat-webhook/.npmrc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/revenuecat-webhook/deno.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/revenuecat-webhook/deno.lock	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/revenuecat-webhook/index.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/revenuecat-webhook/index_test.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/sync-reviewer-entitlement/.npmrc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/sync-reviewer-entitlement/deno.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/sync-reviewer-entitlement/deno.lock	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/sync-reviewer-entitlement/index.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/sync-reviewer-entitlement/index_test.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/usage-analytics/deno.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/usage-analytics/deno.lock	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/usage-analytics/index.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/functions/usage-analytics/index_test.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/migrations/20260509081731_revenuecat_supabase_entitlement_sync.sql	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/migrations/20260510113000_reviewer_temporary_entitlement.sql	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/migrations/20260513090000_usage_analytics.sql	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+supabase/migrations/revenuecat_entitlement_schema_test.ts	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/analytics/usage_analytics_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/auth/account_deletion_cleanup_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/billing/pro_access_state_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/billing/pro_entitlement_cache_repository_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/billing/pro_entitlement_repository_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/billing/purchase_flow_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/calendar_export_delivery_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/calendar_export_request_builder_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/calendar_export_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/persistence/plan_repository_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/persistence/timeline_template_apply_service_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/persistence/timeline_template_repository_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/reminder_notifications_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/template_sheet_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/timeline_image_export_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/timeline_image_share_card_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/timeline_text_export_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+test/widget_test.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/drift_worker.dart	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/drift_worker.dart.js	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/drift_worker.dart.js.deps	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/drift_worker.dart.js.map	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/favicon.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/icons/Icon-192.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/icons/Icon-512.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/icons/Icon-maskable-192.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/icons/Icon-maskable-512.png	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/index.html	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/manifest.json	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+web/sqlite3.wasm	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/.gitignore	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/CMakeLists.txt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/flutter/CMakeLists.txt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/flutter/generated_plugin_registrant.cc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/flutter/generated_plugin_registrant.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/flutter/generated_plugins.cmake	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/CMakeLists.txt	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/Runner.rc	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/flutter_window.cpp	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/flutter_window.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/main.cpp	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/resource.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/resources/app_icon.ico	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/runner.exe.manifest	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/utils.cpp	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/utils.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/win32_window.cpp	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
+windows/runner/win32_window.h	unchanged	project-only	keep	no	no	project-only path remains outside template reconciliation
